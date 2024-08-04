@@ -7,10 +7,34 @@ import { siteConfig } from "@/config/site";
 import { title, subtitle } from "@/components/primitives";
 import { GithubIcon } from "@/components/icons";
 
+import { faCoffee } from '@fortawesome/free-solid-svg-icons'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+
+import Device from "@/components/Device/Device";
+
 export default function Home() {
   return (
-    
-
+    <Device>
+      {({ isMobile }) => {
+        return (
+          <div
+            style={{ backgroundImage: "url('../images/header.png')" }}
+            className={`${isMobile ? "h-[80vh] w-[100vw]" : "h-[100vh] w-[100vh]"}`}
+          >
+            <h1>Website Design & Development</h1>
+            <p>
+              Think your website is cutting-ege? Keep scrolling and see what
+              real innovation looks like!
+            </p>
+            <div className={'flex-row'}>
+              <Link className={'py-5 px-10 bg-red-500 text-white'}>Design</Link>
+              <Link className={'py-5 px-10 bg-red-500 text-white'}>Develop</Link>
+            </div>
+            <FontAwesomeIcon icon={faCoffee} />            
+          </div>          
+        );
+      }}
+    </Device>
 
     // <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
     //   <div className="inline-block max-w-lg text-center justify-center">

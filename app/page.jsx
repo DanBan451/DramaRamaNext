@@ -1,3 +1,5 @@
+"use client";
+
 import { Link } from "@nextui-org/link";
 import { Image } from "@nextui-org/react";
 import React from "react";

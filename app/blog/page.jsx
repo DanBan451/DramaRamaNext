@@ -1,4 +1,5 @@
-import { title } from "@/components/primitives";
+import React from 'react';
+import { title } from '@/components/primitives';
 
 export default function BlogPage() {
   return (

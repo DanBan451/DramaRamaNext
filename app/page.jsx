@@ -1,4 +1,6 @@
 import { Link } from "@nextui-org/link";
+import { Image } from "@nextui-org/react";
+import React from "react";
 import { Snippet } from "@nextui-org/snippet";
 import { Code } from "@nextui-org/code";
 import { button as buttonStyles } from "@nextui-org/theme";
@@ -7,8 +9,8 @@ import { siteConfig } from "@/config/site";
 import { title, subtitle } from "@/components/primitives";
 import { GithubIcon } from "@/components/icons";
 
-import { faCoffee } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faCoffee } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import Device from "@/components/Device/Device";
 
@@ -16,23 +18,55 @@ export default function Home() {
   return (
     <Device>
       {({ isMobile }) => {
-        return (
-          <div
-            style={{ backgroundImage: "url('../images/header.png')" }}
-            className={`${isMobile ? "h-[80vh] w-[100vw]" : "h-[100vh] w-[100vh]"}`}
-          >
-            <h1>Website Design & Development</h1>
-            <p>
+        return isMobile ? (
+          <div>
+            <div className={"h-[80vh] w-[100vw]"}>
+              <Image
+                src="../images/header.png"
+                className="w-[100%] h-[100%]"
+                objectfit={"cover"}
+              />
+              <div className={"w-[30%] h-[100%] opacity-5 absolute bg-black"} />
+            </div>
+            <h1 className="1rem">Website Design & Development</h1>
+            <p className="0.5rem">
               Think your website is cutting-ege? Keep scrolling and see what
               real innovation looks like!
             </p>
-            <div className={'flex-row'}>
-              <Link className={'py-5 px-10 bg-red-500 text-white'}>Design</Link>
-              <Link className={'py-5 px-10 bg-red-500 text-white'}>Develop</Link>
+            <div className={"flex flex-row mt-5"}>
+              <Link className={"py-3 px-5 bg-red-500 text-white"}>Design</Link>
+              <Link className={"py-3 px-5 bg-red-500 text-white"}>
+                Develop
+              </Link>
             </div>
-            <FontAwesomeIcon icon={faCoffee} />            
-          </div>          
+          </div>
+        ) : (
+          <div>
+            <div className={"h-[100vh] w-[100vw]"}>
+              <Image
+                src="../images/header.png"
+                className="w-[100%] h-[100%]"
+                objectfit={"cover"}
+              />
+              <div className={"w-[30%] h-[100%] opacity-5 absolute bg-black"} />
+            </div>
+            <div>
+              <h1 className="1rem">Website Design & Development</h1>
+              <p className="0.5rem">
+                Think your website is cutting-ege? Keep scrolling and see what
+                real innovation looks like!
+              </p>
+              <div className={"flex flex-row mt-5 absolute"}>
+                <Link className={"py-3 px-5 bg-red-500 text-white"}>Design</Link>
+                <Link className={"py-3 px-5 bg-red-500 text-white"}>
+                  Develop
+                </Link>
+              </div>
+            </div>
+          </div>
         );
+
+        // <FontAwesomeIcon icon={faCoffee} />
       }}
     </Device>
 

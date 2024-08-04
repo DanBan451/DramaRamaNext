@@ -87,7 +87,7 @@ export const Navbar = () => {
             as={Link}
             color="white"
             hover={"border-1 border-black background-transparent"}
-            href="#"
+            href="#"            
             variant="flat"
             className={'bg-black'}
           >

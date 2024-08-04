@@ -26,41 +26,46 @@ import {
   SearchIcon,
   Logo,
 } from "@/components/icons";
+import Image from "next/image";
+
+import logo from "../images/icons8-masks-66.png"
+import chevronDown from "../images/icons8-down-arrow-100.png"
+import headerImage from "../images/header.png"
 
 export const Navbar = () => {
   return (
     <NextUINavbar position="static">
       <NavbarBrand>
-        <Logo />
-        <p className="font-bold text-inherit">ACME</p>
+        <Image src={logo} alt="" className={'w-5 mr-3'}/>                
+        <p className="font-bold text-[3rem]">DramaDrama</p>
       </NavbarBrand>
       <NavbarContent className="hidden sm:flex gap-4" justify="center">
-        <NavbarItem>
+        <NavbarItem>          
           <Link color="foreground" href="#">
-            Features
+            Home
           </Link>
         </NavbarItem>
         <NavbarItem isActive>
           <Link href="#" aria-current="page">
-            Customers
+            About
           </Link>
-        </NavbarItem>
-        <NavbarItem>
-          <Link color="foreground" href="#">
-            Integrations
+        </NavbarItem>        
+        <NavbarItem isActive>
+          <Link href="#" aria-current="page">
+            Services
           </Link>
-        </NavbarItem>
+        </NavbarItem>        
       </NavbarContent>
       <NavbarContent justify="end">
-        <NavbarItem className="hidden lg:flex">
-          <Link href="#">Login</Link>
+        <NavbarItem className="hidden lg:flex px-5 py-3">
+          <Link href="#">Get Started</Link>
         </NavbarItem>
-        <NavbarItem>
+        {/* <NavbarItem>
           <Button as={Link} color="primary" href="#" variant="flat">
             Sign Up
           </Button>
-        </NavbarItem>
-      </NavbarContent>
+        </NavbarItem> */}
+      </NavbarContent>      
     </NextUINavbar>
   );
 };

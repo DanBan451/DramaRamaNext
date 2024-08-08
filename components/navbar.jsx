@@ -11,17 +11,10 @@ import {
 } from "@nextui-org/navbar";
 import { Button } from "@nextui-org/button";
 import { Link } from "@nextui-org/link";
-import { usePathname } from 'next/navigation';
-
-import {
-  Logo,
-} from "@/components/icons";
+import { usePathname } from "next/navigation";
 import { Image } from "@nextui-org/react";
 import { useState } from "react";
 
-import logo from "../images/icons8-masks-66.png";
-import chevronDown from "../images/icons8-down-arrow-100.png";
-import headerImage from "../images/header.png";
 import Device from "./Device";
 
 export const Navbar = () => {
@@ -38,63 +31,61 @@ export const Navbar = () => {
     "Help & Feedback",
     "Log Out",
   ];
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   return (
-    <NextUINavbar onMenuOpenChange={setIsMenuOpen}>
-      <NavbarContent>
+    <NextUINavbar onMenuOpenChange={setIsMenuOpen} isBlurred={false} className="absolute bg-transparent backdrop-saturate-100 lp:pt-5" maxWidth="2xl">
+
+      <NavbarContent className="lp:max-w-[30%]">
         <NavbarMenuToggle
           aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-          className="sm:hidden"
+          className="sm:hidden text-red-500"         
         />
-        <NavbarBrand>
-          <Logo>
-            <Image src={logo} />
-          </Logo>
-          <p className="font-bold text-inherit">DramaRama</p>
+        <NavbarBrand> 
+          <Image src={"/images/icons8-drama-96.png"} className="hidden tb:block w-[50px] lp:w-[65px]" />
+          <p className="font-bold ml-3 lp:ml-5 text-black text-[20px] lp:text-[25px] hidden tb:block">DramaRama</p>
         </NavbarBrand>
       </NavbarContent>
 
-      <NavbarContent className="hidden sm:flex gap-4" justify="center">
-        <NavbarItem className={`${pathname === '/' && "border-b-2 border-b-white mt-3 pb-3"}`}>
-          <Link
-            color="foreground"
-            href="/"
-          >
+      <NavbarContent className="hidden sm:flex gap-5 lp:gap-10 max-w-min p-0 ml-auto lp:mr-10">        
+        <NavbarItem
+          className={`${pathname === "/" && "border-b-2 lp:border-b-3 border-b-black mt-3 pb-3"}`}
+        >
+          <Link className="text-black lp:text-[20px] font-semibold" href="/">
             Home
           </Link>
         </NavbarItem>
-        <NavbarItem className={`${pathname === '/about' && "border-b-2 border-b-white mt-3 pb-3"}`}>
-          <Link
-            color="foreground"
-            href="about"            
-          >
+        <NavbarItem
+          className={`${pathname === "/about" && "border-b-2 lp:border-b-3 border-b-black mt-3 pb-3"}`}
+        >
+          <Link className="text-black lp:text-[20px] font-semibold" href="about">
             About
           </Link>
         </NavbarItem>
-        <NavbarItem className={`${pathname === '/services' && "border-b-2 border-b-white pb-3"}`}>
-          <Link
-            color="foreground"
-            href="services"
-          >
+        <NavbarItem
+          className={`${pathname === "/services" && "border-b-2 lp:border-b-3 border-b-black pb-3"}`}
+        >
+          <Link className="text-black lp:text-[20px] font-semibold" href="services">
             Services
           </Link>
         </NavbarItem>
       </NavbarContent>
-      <NavbarContent justify="end">
+
+      <NavbarContent className="max-w-min" justify="end">
         <NavbarItem>
           <Button
-            as={Link}
-            color="white"
+            as={Link}                        
             hover={"border-1 border-black background-transparent"}
-            href="#"            
+            href="#"
             variant="flat"
-            className={'bg-black'}
+            className={"bg-black text-white lp:px-12 lp:py-7 lp:text-[20px]"}            
+            radius="none"
           >
             Get Started
           </Button>
         </NavbarItem>
       </NavbarContent>
+
       <NavbarMenu>
         {menuItems.map((item, index) => (
           <NavbarMenuItem key={`${item}-${index}`}>
@@ -115,6 +106,7 @@ export const Navbar = () => {
           </NavbarMenuItem>
         ))}
       </NavbarMenu>
+
     </NextUINavbar>
   );
 };

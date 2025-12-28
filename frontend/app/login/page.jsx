@@ -3,9 +3,10 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { SignIn, SignUp, useAuth } from "@clerk/nextjs";
+import { SignIn, SignUp } from "@clerk/nextjs";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import { useEffect } from "react";
 
 export default function LoginPage() {
@@ -31,11 +32,13 @@ export default function LoginPage() {
         <div className="relative z-10 flex flex-col justify-center px-20 py-16">
           <div className="mb-auto">
             <Link href="/" className="flex items-center gap-3">
+              {/* White logo for dark background */}
               <Image
                 src="/images/icons8-drama-96.png"
                 width={50}
                 height={50}
                 alt="DramaRama"
+                style={{ filter: 'brightness(0) invert(1)' }}
               />
               <span className="font-display text-white text-2xl">DramaRama</span>
             </Link>
@@ -78,8 +81,8 @@ export default function LoginPage() {
       </div>
 
       {/* Right Panel - Clerk Auth */}
-      <div className="flex-1 flex items-center justify-center px-6 py-16 bg-white">
-        <div className="w-full max-w-md">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 tb:px-8 py-16 bg-white">
+        <div className="w-full max-w-[640px]">
           {/* Mobile logo */}
           <div className="lp:hidden flex items-center gap-3 mb-12">
             <Image
@@ -91,8 +94,8 @@ export default function LoginPage() {
             <span className="font-display text-black text-xl">DramaRama</span>
           </div>
 
-          {/* Toggle */}
-          <div className="flex bg-mist/50 rounded-lg p-1 mb-8">
+          {/* Toggle - same width as Clerk card */}
+          <div className="flex bg-mist/50 rounded-lg p-1 mb-8 w-full">
             <button
               onClick={() => setIsLogin(true)}
               className={`flex-1 py-3 rounded-md text-sm font-semibold transition-all ${
@@ -115,43 +118,60 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* Clerk Components */}
-          <div className="clerk-container">
+          {/* Clerk Components - properly aligned */}
+          <div className="clerk-container w-full">
             {isLogin ? (
               <SignIn 
                 appearance={{
                   elements: {
                     rootBox: "w-full",
-                    card: "shadow-none p-0",
-                    headerTitle: "font-display text-2xl",
+                    card: "shadow-none p-0 bg-transparent w-full max-w-[600px] overflow-visible mx-auto",
+                    cardBox: "w-full max-w-[600px] shadow-none px-0 overflow-visible mx-auto",
+                    headerTitle: "font-display text-2xl text-black",
                     headerSubtitle: "text-smoke",
-                    formButtonPrimary: "bg-black hover:bg-ash text-white",
-                    formFieldInput: "border-mist focus:border-black",
+                    formButtonPrimary: "bg-black hover:bg-ash text-white min-h-[48px] w-full",
+                    formFieldInput: "border-mist focus:border-black rounded-md bg-white text-black min-h-[48px] w-full",
                     footerActionLink: "text-black hover:text-ash",
                     dividerLine: "bg-mist",
                     dividerText: "text-smoke",
-                    socialButtonsBlockButton: "border-mist hover:bg-mist/50",
+                    socialButtonsBlockButton: "border-mist hover:bg-mist/50 rounded-md min-h-[48px] w-full pr-6 overflow-visible",
+                    identityPreview: "bg-mist/50",
+                    formFieldLabel: "text-ash",
+                    main: "w-full",
+                    form: "w-full",
+                    formButtons: "w-full",
+                    formField: "w-full",
+                    footer: "w-full",
                   },
                 }}
                 routing="hash"
+                forceRedirectUrl="/dashboard"
               />
             ) : (
               <SignUp 
                 appearance={{
                   elements: {
                     rootBox: "w-full",
-                    card: "shadow-none p-0",
-                    headerTitle: "font-display text-2xl",
+                    card: "shadow-none p-0 bg-transparent w-full max-w-[600px] overflow-visible mx-auto",
+                    cardBox: "w-full max-w-[600px] shadow-none px-0 overflow-visible mx-auto",
+                    headerTitle: "font-display text-2xl text-black",
                     headerSubtitle: "text-smoke",
-                    formButtonPrimary: "bg-black hover:bg-ash text-white",
-                    formFieldInput: "border-mist focus:border-black",
+                    formButtonPrimary: "bg-black hover:bg-ash text-white min-h-[48px] w-full",
+                    formFieldInput: "border-mist focus:border-black rounded-md bg-white text-black min-h-[48px] w-full",
                     footerActionLink: "text-black hover:text-ash",
                     dividerLine: "bg-mist",
                     dividerText: "text-smoke",
-                    socialButtonsBlockButton: "border-mist hover:bg-mist/50",
+                    socialButtonsBlockButton: "border-mist hover:bg-mist/50 rounded-md min-h-[48px] w-full pr-6 overflow-visible",
+                    formFieldLabel: "text-ash",
+                    main: "w-full",
+                    form: "w-full",
+                    formButtons: "w-full",
+                    formField: "w-full",
+                    footer: "w-full",
                   },
                 }}
                 routing="hash"
+                forceRedirectUrl="/dashboard"
               />
             )}
           </div>

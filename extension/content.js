@@ -9,6 +9,77 @@ let currentSession = null;
 let currentPromptIndex = 0;
 let promptStartTime = null;
 let chatContainer = null;
+let authTokenCached = null;
+
+function setAuthStatus(message) {
+  const el = document.getElementById("dramarama-auth-status");
+  if (!el) return;
+  el.textContent = message || "";
+  el.classList.toggle("hidden", !message);
+}
+
+function triggerConfetti() {
+  // Lightweight confetti burst (DOM-based, no external deps).
+  try {
+    const existing = document.getElementById("dramarama-confetti");
+    if (existing) existing.remove();
+    const root = document.getElementById("dramarama-panel") || document.body;
+    const container = document.createElement("div");
+    container.id = "dramarama-confetti";
+    container.className = "dramarama-confetti";
+    const colors = ["#dc2626", "#111111", "#0ea5e9", "#16a34a", "#f59e0b"];
+    for (let i = 0; i < 28; i++) {
+      const piece = document.createElement("div");
+      piece.className = "dramarama-confetti-piece";
+      piece.style.left = `${Math.random() * 100}%`;
+      piece.style.background = colors[i % colors.length];
+      piece.style.animationDelay = `${Math.random() * 0.2}s`;
+      piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+      container.appendChild(piece);
+    }
+    root.appendChild(container);
+    setTimeout(() => container.remove(), 2200);
+  } catch {
+    // ignore
+  }
+}
+
+function readDramaRamaTokenFromFragment() {
+  try {
+    const hash = window.location.hash || "";
+    if (!hash.startsWith("#")) return null;
+    const params = new URLSearchParams(hash.slice(1));
+    const token = params.get("dramarama_token");
+    return token || null;
+  } catch {
+    return null;
+  }
+}
+
+function stripDramaRamaTokenFromFragment() {
+  try {
+    const url = new URL(window.location.href);
+    const params = new URLSearchParams((url.hash || "").replace(/^#/, ""));
+    if (!params.has("dramarama_token")) return;
+    params.delete("dramarama_token");
+    url.hash = params.toString();
+    // Clean URL without causing navigation/reload
+    history.replaceState(null, "", url.toString());
+  } catch {
+    // ignore
+  }
+}
+
+async function ingestTokenHandoffIfPresent() {
+  const token = readDramaRamaTokenFromFragment();
+  if (!token) return;
+  try {
+    await chrome.runtime.sendMessage({ type: "SET_AUTH_TOKEN", token });
+    stripDramaRamaTokenFromFragment();
+  } catch {
+    // ignore; user can still connect via popup
+  }
+}
 
 // Create and inject the DramaRama chatbot UI
 function createChatUI() {
@@ -35,10 +106,14 @@ function createChatUI() {
       <div id="dramarama-content" class="dramarama-content">
         <div id="dramarama-auth-view" class="dramarama-view">
           <div class="dramarama-auth-message">
-            <p>Please login at DramaRama to start your mental gym session.</p>
-            <a href="http://localhost:3000/login" target="_blank" class="dramarama-btn dramarama-btn-primary">
-              Login to DramaRama
+            <p>To start, connect your account to the extension.</p>
+            <a href="http://localhost:3000/go/leetcode?url=https%3A%2F%2Fleetcode.com%2F" target="_blank" class="dramarama-btn dramarama-btn-primary">
+              Open LeetCode via DramaRama (auto-auth)
             </a>
+            <button id="dramarama-refresh-auth" class="dramarama-btn dramarama-btn-secondary">
+              I already connected — Refresh
+            </button>
+            <div id="dramarama-auth-status" class="dramarama-auth-status hidden"></div>
           </div>
         </div>
         <div id="dramarama-start-view" class="dramarama-view hidden">
@@ -74,6 +149,9 @@ function createChatUI() {
               Submit Response
             </button>
           </div>
+          <button id="dramarama-cancel-btn" class="dramarama-btn dramarama-btn-danger">
+            Cancel Session
+          </button>
         </div>
         <div id="dramarama-hint-view" class="dramarama-view hidden">
           <h3>🎯 Your Personalized Nudge</h3>
@@ -104,8 +182,10 @@ function createChatUI() {
   // Add event listeners
   document.getElementById('dramarama-toggle').addEventListener('click', togglePanel);
   document.getElementById('dramarama-close').addEventListener('click', togglePanel);
+  document.getElementById('dramarama-refresh-auth')?.addEventListener('click', checkAuthAndSession);
   document.getElementById('dramarama-start-btn')?.addEventListener('click', startSession);
   document.getElementById('dramarama-submit-btn')?.addEventListener('click', submitResponse);
+  document.getElementById('dramarama-cancel-btn')?.addEventListener('click', cancelSession);
   document.getElementById('dramarama-complete-btn')?.addEventListener('click', completeSession);
   document.getElementById('dramarama-new-session-btn')?.addEventListener('click', resetSession);
 
@@ -113,7 +193,19 @@ function createChatUI() {
   document.getElementById('dramarama-response')?.addEventListener('input', updateWordCount);
 
   // Initialize
-  checkAuthAndSession();
+  ingestTokenHandoffIfPresent().finally(() => {
+    checkAuthAndSession();
+  });
+
+  // React to token/session changes (e.g. user connects JWT via popup without reloading page)
+  if (chrome?.storage?.onChanged) {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local') return;
+      if (changes.authToken || changes.currentSession) {
+        checkAuthAndSession();
+      }
+    });
+  }
 }
 
 function togglePanel() {
@@ -125,6 +217,8 @@ function togglePanel() {
   if (isOpen) {
     panel.classList.remove('hidden');
     toggle.classList.add('active');
+    // Re-check auth every time panel opens (so "connect token" works without page refresh)
+    checkAuthAndSession();
   } else {
     panel.classList.add('hidden');
     toggle.classList.remove('active');
@@ -132,11 +226,24 @@ function togglePanel() {
 }
 
 async function checkAuthAndSession() {
+  setAuthStatus("Checking connection…");
+  // If we already have a token cached, still validate session state (fast path)
   // Check for auth token
-  const response = await chrome.runtime.sendMessage({ type: 'GET_AUTH_TOKEN' });
-  
-  if (!response.token) {
+  let response;
+  try {
+    response = await chrome.runtime.sendMessage({ type: 'GET_AUTH_TOKEN' });
+  } catch (e) {
+    // If the background service worker is asleep, this can temporarily fail.
+    // Show auth view and let user refresh.
     showView('auth');
+    setAuthStatus("Waking extension… click Refresh again in a moment.");
+    return;
+  }
+  
+  authTokenCached = response?.token || null;
+  if (!authTokenCached) {
+    showView('auth');
+    setAuthStatus("Not connected yet.");
     return;
   }
 
@@ -148,16 +255,19 @@ async function checkAuthAndSession() {
     
     if (currentSession.sessionComplete) {
       showView('hint');
+      setAuthStatus("");
     } else {
       currentPromptIndex = currentSession.currentPromptIndex;
       showView('session');
       updatePromptDisplay();
+      setAuthStatus("");
     }
   } else {
     // Show start view with algorithm title
     const algorithmTitle = getAlgorithmTitle();
     document.getElementById('dramarama-algo-title').textContent = algorithmTitle;
     showView('start');
+    setAuthStatus("");
   }
 }
 
@@ -248,6 +358,13 @@ async function submitResponse() {
   const responseText = document.getElementById('dramarama-response').value.trim();
   const timeSpentSeconds = Math.round((Date.now() - promptStartTime) / 1000);
 
+  const submitBtn = document.getElementById('dramarama-submit-btn');
+  const prevBtnText = submitBtn?.textContent;
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting…';
+  }
+
   const response = await chrome.runtime.sendMessage({
     type: 'SUBMIT_RESPONSE',
     sessionId: currentSession.id,
@@ -257,7 +374,29 @@ async function submitResponse() {
   });
 
   if (response.error) {
+    // If the token expired mid-session, mint a fresh one in a background tab.
+    if (String(response.error).toLowerCase().includes('token expired')) {
+      try {
+        await chrome.runtime.sendMessage({
+          type: 'OPEN_REAUTH',
+          returnUrl: window.location.href,
+        });
+        alert(
+          'Your DramaRama login token expired. Re-auth is running in the background.\n\n' +
+            'Wait a second, then click “Submit Response” again.'
+        );
+      } catch {
+        alert(
+          'Your DramaRama login token expired. Please go to DramaRama HQ and click “Start New Session” to refresh.'
+        );
+      }
+      return;
+    }
     alert('Error submitting response: ' + response.error);
+    if (submitBtn) {
+      submitBtn.textContent = prevBtnText || 'Submit Response';
+      updateWordCount();
+    }
     return;
   }
 
@@ -268,6 +407,11 @@ async function submitResponse() {
     currentPromptIndex = response.promptsCompleted;
     currentSession.currentPrompt = response.nextPrompt;
     updatePromptDisplay();
+  }
+
+  if (submitBtn) {
+    submitBtn.textContent = prevBtnText || 'Submit Response';
+    updateWordCount();
   }
 }
 
@@ -286,7 +430,12 @@ async function getHint() {
   
   // Stream hint using SSE
   const hintText = document.getElementById('dramarama-hint-text');
-  hintText.textContent = '';
+  hintText.textContent = 'Processing your nudge…';
+  const completeBtn = document.getElementById('dramarama-complete-btn');
+  if (completeBtn) {
+    completeBtn.disabled = true;
+    completeBtn.textContent = 'Generating…';
+  }
 
   try {
     const eventSource = new EventSource(
@@ -296,15 +445,46 @@ async function getHint() {
     eventSource.onmessage = (event) => {
       if (event.data === '[DONE]') {
         eventSource.close();
+        if (completeBtn) {
+          completeBtn.disabled = false;
+          completeBtn.textContent = 'Complete Session';
+        }
         return;
       }
+      if (hintText.textContent === 'Processing your nudge…') hintText.textContent = '';
       hintText.textContent += event.data;
     };
 
-    eventSource.onerror = () => {
+    eventSource.onerror = async () => {
       eventSource.close();
-      if (!hintText.textContent) {
-        hintText.textContent = 'Unable to load hint. Check your connection.';
+      // If SSE fails (often CORS / network), fetch the hint via the background worker (host-permissioned).
+      if (!hintText.textContent || hintText.textContent === 'Processing your nudge…') {
+        hintText.textContent = 'Loading your personalized nudge...';
+        try {
+          const fetched = await chrome.runtime.sendMessage({
+            type: 'FETCH_HINT_TEXT',
+            sessionId: currentSession.id,
+          });
+          if (fetched?.success && fetched.text) {
+            hintText.textContent = fetched.text;
+            if (completeBtn) {
+              completeBtn.disabled = false;
+              completeBtn.textContent = 'Complete Session';
+            }
+          } else {
+            hintText.textContent = `Unable to load hint. ${fetched?.error || 'Check your connection.'}`;
+            if (completeBtn) {
+              completeBtn.disabled = false;
+              completeBtn.textContent = 'Complete Session';
+            }
+          }
+        } catch {
+          hintText.textContent = 'Unable to load hint. Check your connection.';
+          if (completeBtn) {
+            completeBtn.disabled = false;
+            completeBtn.textContent = 'Complete Session';
+          }
+        }
       }
     };
   } catch (error) {
@@ -319,18 +499,81 @@ async function getHint() {
       });
       const text = await fetchResponse.text();
       hintText.textContent = text;
+      if (completeBtn) {
+        completeBtn.disabled = false;
+        completeBtn.textContent = 'Complete Session';
+      }
     } catch (e) {
       hintText.textContent = 'Unable to load hint. Please check your connection.';
+      if (completeBtn) {
+        completeBtn.disabled = false;
+        completeBtn.textContent = 'Complete Session';
+      }
     }
   }
 }
 
 async function completeSession() {
-  await chrome.runtime.sendMessage({
-    type: 'CLEAR_SESSION',
-  });
+  const btn = document.getElementById('dramarama-complete-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+  }
+
+  // Persist completion server-side (so it appears in HQ)
+  try {
+    if (currentSession?.id) {
+      await chrome.runtime.sendMessage({
+        type: 'COMPLETE_SESSION',
+        sessionId: currentSession.id,
+      });
+    }
+  } catch (e) {
+    // Non-fatal: still allow user to finish locally
+  }
+
+  await chrome.runtime.sendMessage({ type: 'CLEAR_SESSION' });
   
   showView('complete');
+  triggerConfetti();
+
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = 'Complete Session';
+  }
+}
+
+async function cancelSession() {
+  if (!currentSession?.id) return;
+  const ok = confirm("Cancel this session? Your progress will be saved as abandoned.");
+  if (!ok) return;
+
+  const btn = document.getElementById('dramarama-cancel-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Cancelling…';
+  }
+
+  try {
+    const resp = await chrome.runtime.sendMessage({
+      type: 'CANCEL_SESSION',
+      sessionId: currentSession.id,
+      reason: 'user_cancelled',
+    });
+    if (resp?.error) {
+      alert(`Unable to cancel session: ${resp.error}`);
+    }
+  } catch (e) {
+    alert('Unable to cancel session. Check your connection.');
+  }
+
+  await chrome.runtime.sendMessage({ type: 'CLEAR_SESSION' });
+  await resetSession();
+
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = 'Cancel Session';
+  }
 }
 
 async function resetSession() {

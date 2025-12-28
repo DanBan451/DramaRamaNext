@@ -102,6 +102,11 @@ class SupabaseSessionRepository(SessionRepository):
         # Convert enums to values
         if "status" in kwargs and isinstance(kwargs["status"], SessionStatus):
             kwargs["status"] = kwargs["status"].value
+
+        # Supabase client expects JSON-serializable values
+        for k, v in list(kwargs.items()):
+            if isinstance(v, datetime):
+                kwargs[k] = v.isoformat()
         
         result = self.client.table("sessions").update(kwargs).eq("id", session_id).execute()
         row = result.data[0]
@@ -116,6 +121,14 @@ class SupabaseSessionRepository(SessionRepository):
             prompts_completed=row["prompts_completed"],
             created_at=datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")) if row.get("created_at") else None,
         )
+
+    async def delete(self, session_id: str) -> bool:
+        """
+        Delete a session. Related responses/hints should cascade via FK constraints.
+        Returns True if a row was deleted.
+        """
+        result = self.client.table("sessions").delete().eq("id", session_id).execute()
+        return bool(result.data)
 
 class SupabaseResponseRepository(ResponseRepository):
     def __init__(self):

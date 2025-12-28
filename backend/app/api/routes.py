@@ -1,16 +1,18 @@
 """
 API Routes - HTTP endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from typing import List
 import asyncio
 
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_user_from_token
+from app.core.config import settings
 from app.api.schemas import (
     SessionStartRequest, SessionStartResponse,
     ResponseSubmitRequest, ResponseSubmitResponse,
     SessionCompleteRequest,
+    SessionCancelRequest,
     UserSessionsResponse, SessionDetailResponse,
     DashboardStatsResponse, PromptResponse,
 )
@@ -123,12 +125,22 @@ async def submit_response(
 @router.get("/session/{session_id}/analyze")
 async def analyze_session(
     session_id: str,
-    current_user: dict = Depends(get_current_user)
+    request: Request,
+    token: str | None = None,
 ):
     """
     Analyze session responses and stream a personalized hint.
     Returns SSE stream.
     """
+    # Auth: EventSource can't send Authorization headers reliably, so allow ?token=... for SSE.
+    if token:
+        current_user = await get_user_from_token(token)
+    else:
+        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+        if not auth_header or not auth_header.lower().startswith("bearer "):
+            raise HTTPException(status_code=401, detail="Missing auth token")
+        current_user = await get_user_from_token(auth_header.split(" ", 1)[1].strip())
+
     # Get session
     session = await session_repo.get_by_id(session_id)
     if not session:
@@ -157,24 +169,51 @@ async def analyze_session(
     )
     
     async def generate():
+        """
+        SSE generator. If Anthropic isn't configured, fall back to a deterministic hint so the
+        full extension flow can be tested locally.
+        """
         hint_text = ""
-        async for chunk in llm_client.generate_stream(prompt):
-            hint_text += chunk
-            yield f"data: {chunk}\n\n"
-        
-        # Save hint to database
-        hint = Hint(
-            id="",
-            session_id=session_id,
-            hint_text=hint_text,
-            element_focus=Element(analysis["weakest_element"]) if analysis.get("weakest_element") else None,
-            patterns_detected=analysis,
-        )
-        await hint_repo.create(hint)
-        
-        # Mark session as completed
-        await session_repo.update(session_id, status=SessionStatus.COMPLETED)
-        
+        try:
+            if not settings.ANTHROPIC_API_KEY:
+                hint_text = (
+                    "Dev mode hint (no Anthropic key configured).\n\n"
+                    "Review your shortest responses and pick ONE element to go deeper on.\n"
+                    "Try rewriting your Earth 1.0 answer with a concrete example and explicit constraints."
+                )
+                yield f"data: {hint_text}\n\n"
+            else:
+                async for chunk in llm_client.generate_stream(prompt):
+                    hint_text += chunk
+                    yield f"data: {chunk}\n\n"
+        except Exception:
+            if not hint_text:
+                hint_text = (
+                    "Hint generation failed (stream error). "
+                    "Still, your session is saved—review your Earth responses and ground them with a specific example."
+                )
+                yield f"data: {hint_text}\n\n"
+
+        # Save hint to database (best-effort)
+        try:
+            hint = Hint(
+                id="",
+                session_id=session_id,
+                hint_text=hint_text or "(empty hint)",
+                element_focus=Element(analysis["weakest_element"]) if analysis.get("weakest_element") else None,
+                patterns_detected=analysis,
+            )
+            await hint_repo.create(hint)
+        except Exception:
+            # Don't fail the stream if saving hint fails
+            pass
+
+        # Mark session as completed (best-effort)
+        try:
+            await session_repo.update(session_id, status=SessionStatus.COMPLETED)
+        except Exception:
+            pass
+
         yield "data: [DONE]\n\n"
     
     return StreamingResponse(
@@ -215,6 +254,29 @@ async def complete_session(
         ended_at=datetime.now()
     )
     
+    return {"success": True}
+
+
+@router.post("/session/cancel")
+async def cancel_session(
+    request: SessionCancelRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Cancel (abandon) a session."""
+    session = await session_repo.get_by_id(request.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    user = await user_repo.get_by_clerk_id(current_user["user_id"])
+    if not user or session.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    from datetime import datetime
+    await session_repo.update(
+        request.session_id,
+        status=SessionStatus.ABANDONED,
+        ended_at=datetime.now(),
+    )
     return {"success": True}
 
 # ============ User Endpoints ============
@@ -297,6 +359,24 @@ async def get_session_detail(
             "user_final_response": hint.user_final_response,
         } if hint else None,
     )
+
+
+@router.delete("/user/sessions/{session_id}")
+async def delete_session(
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Delete a session (and its responses/hints via cascade)."""
+    session = await session_repo.get_by_id(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    user = await user_repo.get_by_clerk_id(current_user["user_id"])
+    if not user or session.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    deleted = await session_repo.delete(session_id)
+    return {"success": deleted}
 
 @router.get("/user/stats", response_model=DashboardStatsResponse)
 async def get_user_stats(

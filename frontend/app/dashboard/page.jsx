@@ -54,6 +54,9 @@ export default function DashboardPage() {
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
         setStats(statsData);
+      } else {
+        const err = await statsResponse.json().catch(() => ({}));
+        setError(err.detail || "Failed to load stats from backend.");
       }
 
       // Fetch sessions
@@ -64,15 +67,22 @@ export default function DashboardPage() {
       if (sessionsResponse.ok) {
         const sessionsData = await sessionsResponse.json();
         setSessions(sessionsData.sessions || []);
+      } else {
+        const err = await sessionsResponse.json().catch(() => ({}));
+        setError(err.detail || "Failed to load sessions from backend.");
       }
 
-      setError(null);
+      // If we got here without throwing and no endpoint complained, clear error
+      // (If an endpoint set an error above, keep it.)
+      setError((prev) => prev);
     } catch (err) {
       console.error("Error fetching data:", err);
       setError("Unable to load data. Make sure the backend is running.");
     } finally {
       setLoading(false);
     }
+
+    console.log("3. ---> stats: ", stats);
   }
 
   // Calculate element progress from stats
@@ -117,9 +127,10 @@ export default function DashboardPage() {
               View All Sessions
             </Button>
             <Button
-              as="a"
-              href="https://leetcode.com"
+              as={Link}
+              href="/go/leetcode?url=https%3A%2F%2Fleetcode.com%2F"
               target="_blank"
+              rel="noopener noreferrer"
               className="bg-black text-white hover:bg-ash transition-colors"
               radius="none"
             >
@@ -187,27 +198,27 @@ export default function DashboardPage() {
               {loading ? (
                 <div className="text-center py-8 text-smoke">Loading...</div>
               ) : elementProgress.length > 0 ? (
-                <div className="space-y-6">
+              <div className="space-y-6">
                   {elementProgress.map((element) => (
-                    <div key={element.id}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">{element.emoji}</span>
-                          <span className="font-medium text-black">{element.name}</span>
-                        </div>
-                        <span className="text-sm font-mono text-smoke">
+                  <div key={element.id}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{element.emoji}</span>
+                        <span className="font-medium text-black">{element.name}</span>
+                      </div>
+                      <span className="text-sm font-mono text-smoke">
                           {element.words} words
-                        </span>
-                      </div>
-                      <div className="progress-bar">
-                        <div
-                          className={`progress-bar-fill ${elementColors[element.id]}`}
-                          style={{ width: `${element.progress}%` }}
-                        />
-                      </div>
+                      </span>
                     </div>
-                  ))}
-                </div>
+                    <div className="progress-bar">
+                      <div
+                        className={`progress-bar-fill ${elementColors[element.id]}`}
+                        style={{ width: `${element.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
               ) : (
                 <div className="text-center py-8 text-smoke">
                   Complete sessions to see your element mastery
@@ -242,59 +253,59 @@ export default function DashboardPage() {
               {loading ? (
                 <div className="text-center py-12 text-smoke">Loading sessions...</div>
               ) : sessions.length > 0 ? (
-                <div className="space-y-3">
+              <div className="space-y-3">
                   {sessions.map((session) => (
-                    <Link
-                      key={session.id}
-                      href={`/sessions/${session.id}`}
-                      className="session-card block p-4 rounded-lg hover:bg-mist/50 transition-all"
-                    >
-                      <div className="flex items-start gap-4">
-                        {/* Element indicator */}
+                  <Link
+                    key={session.id}
+                    href={`/sessions/${session.id}`}
+                    className="session-card block p-4 rounded-lg hover:bg-mist/50 transition-all"
+                  >
+                    <div className="flex items-start gap-4">
+                      {/* Element indicator */}
                         <div className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl bg-mist">
                           {session.prompts_completed >= 12 ? "✅" : "🎭"}
-                        </div>
+                      </div>
 
-                        {/* Session info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-black truncate">
+                      {/* Session info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-black truncate">
                               {session.algorithm_title}
-                            </h3>
-                            {session.status === "completed" ? (
-                              <span className="text-xs bg-earth/10 text-earth px-2 py-0.5 rounded">
-                                Completed
-                              </span>
-                            ) : (
-                              <span className="text-xs bg-smoke/10 text-smoke px-2 py-0.5 rounded">
+                          </h3>
+                          {session.status === "completed" ? (
+                            <span className="text-xs bg-earth/10 text-earth px-2 py-0.5 rounded">
+                              Completed
+                            </span>
+                          ) : (
+                            <span className="text-xs bg-smoke/10 text-smoke px-2 py-0.5 rounded">
                                 {session.status}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-smoke">
-                            <span>{new Date(session.started_at).toLocaleDateString()}</span>
-                            <span>•</span>
-                            <span>{session.prompts_completed}/12 prompts</span>
-                          </div>
+                            </span>
+                          )}
                         </div>
-
-                        {/* Joules earned */}
-                        <div className="text-right">
-                          <div className="font-bold text-change">+{session.prompts_completed * 10}</div>
-                          <div className="text-xs text-smoke">joules</div>
+                        <div className="flex items-center gap-4 text-sm text-smoke">
+                            <span>{new Date(session.started_at).toLocaleDateString()}</span>
+                          <span>•</span>
+                            <span>{session.prompts_completed}/12 prompts</span>
                         </div>
                       </div>
 
-                      {/* Progress bar */}
-                      <div className="mt-3 progress-bar h-1">
-                        <div
+                      {/* Joules earned */}
+                      <div className="text-right">
+                          <div className="font-bold text-change">+{session.prompts_completed * 10}</div>
+                        <div className="text-xs text-smoke">joules</div>
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="mt-3 progress-bar h-1">
+                      <div
                           className="progress-bar-fill bg-change"
                           style={{ width: `${(session.prompts_completed / 12) * 100}%` }}
-                        />
-                      </div>
-                    </Link>
-                  ))}
-                </div>
+                      />
+                    </div>
+                  </Link>
+                ))}
+              </div>
               ) : (
                 <div className="text-center py-12">
                   <div className="text-4xl mb-4">🧩</div>
@@ -303,9 +314,10 @@ export default function DashboardPage() {
                     Start your first session by opening a problem on LeetCode!
                   </p>
                   <Button
-                    as="a"
-                    href="https://leetcode.com"
+                    as={Link}
+                    href="/go/leetcode?url=https%3A%2F%2Fleetcode.com%2F"
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="bg-black text-white"
                     radius="none"
                   >
@@ -317,16 +329,16 @@ export default function DashboardPage() {
 
             {/* Quick Tips */}
             {!loading && stats?.element_breakdown && (
-              <div className="mt-8 bg-gradient-to-br from-black to-ash rounded-xl p-6 text-white">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl shrink-0">
-                    💡
-                  </div>
-                  <div>
-                    <h3 className="font-display text-xl mb-2">Thinking Tip</h3>
-                    <p className="text-white/70 text-sm">
+            <div className="mt-8 bg-gradient-to-br from-black to-ash rounded-xl p-6 text-white">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl shrink-0">
+                  💡
+                </div>
+                <div>
+                  <h3 className="font-display text-xl mb-2">Thinking Tip</h3>
+                  <p className="text-white/70 text-sm">
                       {getWeakestElementTip(stats.element_breakdown)}
-                    </p>
+                  </p>
                   </div>
                 </div>
               </div>

@@ -108,18 +108,18 @@ export default function SessionDetailPage() {
       <div className="max-w-[1000px] mx-auto px-6 lp:px-20">
         {/* Header */}
         <div className="mb-8">
-          <Link
-            href="/sessions"
+        <Link
+          href="/sessions"
             className="inline-flex items-center gap-2 text-smoke hover:text-black transition-colors mb-6"
-          >
-            ← Back to Sessions
-          </Link>
-          
+        >
+          ← Back to Sessions
+        </Link>
+
           <div className="flex flex-col tb:flex-row tb:items-start tb:justify-between gap-4">
             <div>
               <h1 className="font-display text-3xl lp:text-4xl text-black mb-2">
                 {session?.algorithm_title}
-              </h1>
+                </h1>
               <div className="flex items-center gap-4 text-sm text-smoke">
                 <span>
                   {session?.started_at && new Date(session.started_at).toLocaleDateString('en-US', {
@@ -137,8 +137,8 @@ export default function SessionDetailPage() {
                 }`}>
                   {session?.status?.replace("_", " ")}
                 </span>
-              </div>
             </div>
+          </div>
 
             {session?.algorithm_url && (
               <Button
@@ -161,13 +161,13 @@ export default function SessionDetailPage() {
             <span className="text-sm font-mono text-smoke">
               {session?.prompts_completed || 0}/12 prompts
             </span>
-          </div>
+            </div>
           <div className="progress-bar h-3">
             <div
               className="progress-bar-fill bg-change"
               style={{ width: `${((session?.prompts_completed || 0) / 12) * 100}%` }}
             />
-          </div>
+            </div>
           <div className="flex justify-between mt-2 text-xs text-smoke">
             <span>🌳 Earth</span>
             <span>🔥 Fire</span>
@@ -182,10 +182,10 @@ export default function SessionDetailPage() {
           
           {responses.length > 0 ? (
             responses.map((response, index) => (
-              <div
+                  <div
                 key={response.id}
                 className={`border-l-4 rounded-r-lg p-6 ${elementColors[response.element]}`}
-              >
+                  >
                 <div className="flex items-center gap-3 mb-3">
                   <span className="text-2xl">{elementEmojis[response.element]}</span>
                   <div>

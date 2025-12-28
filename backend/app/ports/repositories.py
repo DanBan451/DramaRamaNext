@@ -35,6 +35,11 @@ class SessionRepository(ABC):
     async def update(self, session_id: str, **kwargs) -> Session:
         pass
 
+    @abstractmethod
+    async def delete(self, session_id: str) -> bool:
+        """Delete a session (and cascade delete related records via DB FK)."""
+        pass
+
 class ResponseRepository(ABC):
     @abstractmethod
     async def create(self, response: Response) -> Response:

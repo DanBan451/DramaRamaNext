@@ -32,6 +32,10 @@ class SessionCompleteRequest(BaseModel):
     session_id: str
     final_response: Optional[str] = None
 
+class SessionCancelRequest(BaseModel):
+    session_id: str
+    reason: Optional[str] = None
+
 # User schemas
 class UserSessionsResponse(BaseModel):
     sessions: List[dict]

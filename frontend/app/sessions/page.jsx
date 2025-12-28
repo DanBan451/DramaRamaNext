@@ -96,19 +96,19 @@ export default function SessionsPage() {
             { id: "in_progress", label: "In Progress" },
             { id: "abandoned", label: "Abandoned" },
           ].map((tab) => (
-            <button
+              <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
                 filter === tab.id
                   ? "bg-black text-white"
                   : "bg-mist text-smoke hover:bg-smoke hover:text-white"
-              }`}
-            >
+                }`}
+              >
               {tab.label}
-            </button>
-          ))}
-        </div>
+              </button>
+            ))}
+          </div>
 
         {/* Sessions List */}
         {loading ? (
@@ -128,15 +128,15 @@ export default function SessionsPage() {
             >
               Retry
             </Button>
-          </div>
+        </div>
         ) : filteredSessions.length > 0 ? (
-          <div className="space-y-4">
-            {filteredSessions.map((session) => (
-              <Link
-                key={session.id}
-                href={`/sessions/${session.id}`}
+        <div className="space-y-4">
+          {filteredSessions.map((session) => (
+            <Link
+              key={session.id}
+              href={`/sessions/${session.id}`}
                 className="block bg-white border border-mist rounded-xl p-6 hover:shadow-lg hover:border-smoke transition-all"
-              >
+            >
                 <div className="flex items-start gap-4">
                   {/* Status Icon */}
                   <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl ${
@@ -146,14 +146,14 @@ export default function SessionsPage() {
                   }`}>
                     {session.status === "completed" ? "✅" :
                      session.status === "in_progress" ? "🔄" : "⏸️"}
-                  </div>
+                </div>
 
                   {/* Session Info */}
-                  <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
-                      <h3 className="font-display text-xl text-black">
+                    <h3 className="font-display text-xl text-black">
                         {session.algorithm_title}
-                      </h3>
+                    </h3>
                       <span className={`text-xs px-3 py-1 rounded-full font-medium ${
                         session.status === "completed" ? "bg-earth/10 text-earth" :
                         session.status === "in_progress" ? "bg-air/10 text-air" :
@@ -178,36 +178,36 @@ export default function SessionsPage() {
                             {new URL(session.algorithm_url).hostname}
                           </span>
                         </>
-                      )}
-                    </div>
+                    )}
+                  </div>
 
                     {/* Progress */}
                     <div className="flex items-center gap-4">
                       <div className="flex-1 max-w-[300px]">
-                        <div className="progress-bar h-2">
-                          <div
+                  <div className="progress-bar h-2">
+                    <div
                             className="progress-bar-fill bg-change"
                             style={{ width: `${(session.prompts_completed / 12) * 100}%` }}
-                          />
-                        </div>
-                      </div>
+                    />
+                  </div>
+                </div>
                       <span className="text-sm font-mono text-smoke">
                         {session.prompts_completed}/12
                       </span>
-                    </div>
                   </div>
+                </div>
 
                   {/* Joules */}
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-change">
+                  <div className="text-2xl font-bold text-change">
                       +{session.prompts_completed * 10}
-                    </div>
-                    <div className="text-sm text-smoke">joules</div>
                   </div>
+                  <div className="text-sm text-smoke">joules</div>
                 </div>
-              </Link>
-            ))}
-          </div>
+              </div>
+            </Link>
+          ))}
+        </div>
         ) : (
           <div className="text-center py-16 bg-mist/30 rounded-xl">
             <div className="text-4xl mb-4">🧩</div>
@@ -220,9 +220,10 @@ export default function SessionsPage() {
                 : `You don't have any ${filter.replace("_", " ")} sessions.`}
             </p>
             <Button
-              as="a"
-              href="https://leetcode.com"
+              as={Link}
+              href="/go/leetcode?url=https%3A%2F%2Fleetcode.com%2F"
               target="_blank"
+              rel="noopener noreferrer"
               className="bg-black text-white"
               radius="none"
             >

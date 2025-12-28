@@ -146,12 +146,27 @@ The dashboard will be available at `http://localhost:3000`
 
 ### 6. Connect Extension to Your Account
 
-1. Go to `http://localhost:3000/login` and sign in
-2. After login, open Chrome DevTools (F12) > Application > Local Storage
-3. Find your Clerk session token
-4. In the extension popup, there will be an option to authenticate
+#### Recommended (no copy/paste)
 
-**Note:** For a production setup, you would implement proper OAuth flow between the extension and Clerk.
+1. Start the HQ: `cd frontend && npm run dev`
+2. Sign in at `http://localhost:3000/login`
+3. In the HQ, click **Start New Session** (or open `http://localhost:3000/go/leetcode`)
+4. You’ll be redirected to LeetCode with a `#dramarama_token=...` fragment
+5. The extension auto-ingests it and you’re connected
+
+#### Optional: JWT template (prevents mid-session expiry)
+
+Create a Clerk **JWT template** named `dramarama-extension` (or any name you choose) and configure a longer lifetime.
+Then set in `frontend/.env.local`:
+
+- `NEXT_PUBLIC_CLERK_EXTENSION_JWT_TEMPLATE=dramarama-extension`
+
+Restart the frontend dev server.
+
+#### Notes
+
+- If you see “Token expired” while answering prompts, the extension will automatically open a background tab to refresh your token (HQ must be running on `http://localhost:3000`), then you can click **Submit Response** again.
+- After updating the extension code/manifest, go to `chrome://extensions/` and click **Reload** on the DramaRama extension.
 
 ## 🎯 Using DramaRama
 

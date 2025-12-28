@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useRef } from "react";
 import Image from "next/image";
 import { Button } from "@nextui-org/button";
 import Link from "next/link";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { SignedIn, SignedOut } from "@clerk/nextjs";
 
 // Element data
 const elements = [
@@ -114,17 +115,29 @@ export default function Home() {
                 Effective Thinking to transform how you solve problems.
               </p>
               <div className="flex flex-col tb:flex-row gap-4">
-                <Link href="/login">
-                  <Button 
-                    className="bg-fire hover:bg-fire/90 text-white px-8 py-6 text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
-                    radius="none"
-                  >
-                    Start Training
-                  </Button>
-                </Link>
+                <SignedIn>
+                  <Link href="/dashboard">
+                    <Button 
+                      className="bg-fire hover:bg-fire/90 text-white w-full tb:w-[220px] h-[64px] text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                      radius="none"
+                    >
+                      Start Training
+                    </Button>
+                  </Link>
+                </SignedIn>
+                <SignedOut>
+                  <Link href="/login">
+                    <Button 
+                      className="bg-fire hover:bg-fire/90 text-white w-full tb:w-[220px] h-[64px] text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                      radius="none"
+                    >
+                      Start Training
+                    </Button>
+                  </Link>
+                </SignedOut>
                 <Link href="/elements">
                   <Button 
-                    className="bg-transparent border-2 border-black text-black hover:bg-black hover:text-white px-8 py-6 text-lg font-semibold hover:scale-105 transition-all"
+                    className="bg-transparent border-2 border-black text-black hover:bg-black hover:text-white w-full tb:w-[220px] h-[64px] text-lg font-semibold hover:scale-105 transition-all"
                     radius="none"
                   >
                     Learn the Elements
@@ -333,11 +346,21 @@ export default function Home() {
           </div>
 
           <div className="text-center mt-16">
-            <Link href="/login">
-              <Button className="bg-white text-black hover:bg-mist px-8 py-6 text-lg rounded-none font-semibold">
-                Get the Extension
-              </Button>
-            </Link>
+            {/* Logged in → go to dashboard; logged out → go to login */}
+            <SignedIn>
+              <Link href="/dashboard">
+                <Button className="bg-white text-black hover:bg-mist px-8 py-6 text-lg rounded-none font-semibold">
+                  Get the Extension
+                </Button>
+              </Link>
+            </SignedIn>
+            <SignedOut>
+              <Link href="/login">
+                <Button className="bg-white text-black hover:bg-mist px-8 py-6 text-lg rounded-none font-semibold">
+                  Get the Extension
+                </Button>
+              </Link>
+            </SignedOut>
           </div>
         </div>
       </section>
@@ -449,11 +472,7 @@ export default function Home() {
                   </span>
                 </li>
               </ul>
-              <Link href="/dashboard">
-                <Button className="btn-primary px-8 py-6 text-lg rounded-none">
-                  View Dashboard Demo
-              </Button>
-              </Link>
+              {/* Removed "View Dashboard Demo" button as requested */}
             </div>
           </div>
         </div>
@@ -477,13 +496,22 @@ export default function Home() {
             Join the mental gym. Stop memorizing algorithms. Start understanding them.
           </p>
           <div className="flex flex-col tb:flex-row gap-4 justify-center">
-            <Link href="/login">
-              <Button className="bg-white text-black hover:bg-mist px-10 py-7 text-lg rounded-none font-semibold">
-                Create Free Account
-              </Button>
-            </Link>
+            <SignedIn>
+              <Link href="/dashboard">
+                <Button className="bg-white text-black hover:bg-mist w-full tb:w-[260px] h-[72px] text-lg rounded-none font-semibold">
+                  Create Free Account
+                </Button>
+              </Link>
+            </SignedIn>
+            <SignedOut>
+              <Link href="/login">
+                <Button className="bg-white text-black hover:bg-mist w-full tb:w-[260px] h-[72px] text-lg rounded-none font-semibold">
+                  Create Free Account
+                </Button>
+              </Link>
+            </SignedOut>
             <Link href="/elements">
-              <Button className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-black px-10 py-7 text-lg rounded-none font-semibold">
+              <Button className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-black w-full tb:w-[260px] h-[72px] text-lg rounded-none font-semibold">
                 Explore the Elements
               </Button>
             </Link>
@@ -496,19 +524,31 @@ export default function Home() {
         <div className="max-w-[1400px] mx-auto">
           <div className="flex flex-col lp:flex-row justify-between items-center gap-8">
             <div className="flex items-center gap-3">
-              <Image src="/images/icons8-drama-96.png" width={40} height={40} alt="DramaRama" />
+              {/* White logo for dark background */}
+              <Image 
+                src="/images/icons8-drama-96.png" 
+                width={40} 
+                height={40} 
+                alt="DramaRama" 
+                style={{ filter: 'brightness(0) invert(1)' }}
+              />
               <span className="font-display text-2xl">DramaRama</span>
             </div>
             <div className="flex gap-8 text-sm text-smoke">
               <Link href="/elements" className="hover:text-white transition-colors">
                 Elements
               </Link>
-              <Link href="/dashboard" className="hover:text-white transition-colors">
-                Dashboard
-              </Link>
-              <Link href="/login" className="hover:text-white transition-colors">
-                Login
-              </Link>
+              {/* Dashboard link only visible when logged in */}
+              <SignedIn>
+                <Link href="/dashboard" className="hover:text-white transition-colors">
+                  Dashboard
+                </Link>
+              </SignedIn>
+              <SignedOut>
+                <Link href="/login" className="hover:text-white transition-colors">
+                  Login
+                </Link>
+              </SignedOut>
             </div>
             <div className="text-sm text-smoke">
               DramaRama © {new Date().getFullYear()} — Think through it.

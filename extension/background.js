@@ -4,10 +4,26 @@
  */
 
 const API_BASE_URL = 'http://localhost:8000/api';
+const FRONTEND_BASE_URL = 'http://localhost:3000';
 
 // Store session state
 let currentSession = null;
 let authToken = null;
+
+function decodeJwtSub(token) {
+  try {
+    const parts = String(token || '').split('.');
+    if (parts.length < 2) return null;
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    // Pad base64 if needed
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    const json = atob(padded);
+    const payload = JSON.parse(json);
+    return payload?.sub || null;
+  } catch {
+    return null;
+  }
+}
 
 // Listen for messages from content script and popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -18,6 +34,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function handleMessage(request, sender) {
   switch (request.type) {
     case 'SET_AUTH_TOKEN':
+      // If user identity changes, discard any in-progress session tied to the old token.
+      // But if token rotates for the same user (common), keep the session.
+      if (authToken && request.token && authToken !== request.token) {
+        const prevSub = decodeJwtSub(authToken);
+        const nextSub = decodeJwtSub(request.token);
+        if (prevSub && nextSub && prevSub !== nextSub) {
+          currentSession = null;
+          await chrome.storage.local.remove('currentSession');
+        }
+      }
       authToken = request.token;
       await chrome.storage.local.set({ authToken: request.token });
       return { success: true };
@@ -43,6 +69,15 @@ async function handleMessage(request, sender) {
     case 'GET_HINT':
       return await getHint(request.sessionId);
 
+    case 'FETCH_HINT_TEXT':
+      return await fetchHintText(request.sessionId);
+
+    case 'COMPLETE_SESSION':
+      return await completeSession(request.sessionId);
+
+    case 'CANCEL_SESSION':
+      return await cancelSession(request.sessionId, request.reason);
+
     case 'GET_CURRENT_SESSION':
       return { session: currentSession };
 
@@ -51,8 +86,92 @@ async function handleMessage(request, sender) {
       await chrome.storage.local.remove('currentSession');
       return { success: true };
 
+    case 'OPEN_REAUTH': {
+      const returnUrl = request?.returnUrl || 'https://leetcode.com/';
+      const target = `${FRONTEND_BASE_URL}/go/leetcode?url=${encodeURIComponent(returnUrl)}`;
+      try {
+        // Open a background tab to mint+ingest a fresh token (user stays on LeetCode).
+        await chrome.tabs.create({ url: target, active: false });
+        return { success: true };
+      } catch (e) {
+        return { error: 'Unable to open re-auth tab. Is the DramaRama HQ running?' };
+      }
+    }
+
     default:
       return { error: 'Unknown message type' };
+  }
+}
+
+async function fetchTextFromResponse(response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const j = await response.json().catch(() => null);
+    return j?.detail || JSON.stringify(j) || 'Request failed';
+  }
+  return await response.text().catch(() => 'Request failed');
+}
+
+async function parseSseToText(response) {
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buf = '';
+  let out = '';
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+
+    // SSE events are separated by a blank line
+    let idx;
+    while ((idx = buf.indexOf('\n\n')) !== -1) {
+      const eventBlock = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+
+      const lines = eventBlock.split('\n');
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        // SSE allows a single optional space after "data:"; preserve all other whitespace.
+        let data = line.slice(5);
+        if (data.startsWith(' ')) data = data.slice(1);
+        if (data === '[DONE]') return out.trimEnd();
+        out += data;
+      }
+    }
+  }
+
+  return out.trimEnd();
+}
+
+async function fetchHintText(sessionId) {
+  try {
+    if (!authToken) {
+      const stored = await chrome.storage.local.get('authToken');
+      authToken = stored.authToken;
+    }
+    if (!authToken) {
+      throw new Error('Not authenticated. Please login at DramaRama.');
+    }
+
+    const url = `${API_BASE_URL}/session/${sessionId}/analyze?token=${encodeURIComponent(authToken)}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'text/event-stream',
+      },
+    });
+
+    if (!response.ok) {
+      const msg = await fetchTextFromResponse(response);
+      throw new Error(msg || 'Unable to fetch hint');
+    }
+
+    const text = await parseSseToText(response);
+    return { success: true, text };
+  } catch (error) {
+    return { error: error.message || 'Unable to fetch hint' };
   }
 }
 
@@ -78,7 +197,15 @@ async function apiRequest(endpoint, method = 'GET', body = null) {
     options.body = JSON.stringify(body);
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+  } catch (e) {
+    // Network/CORS failures show up as TypeError: Failed to fetch
+    throw new Error(
+      'Failed to fetch. Make sure the backend is running on http://localhost:8000 and CORS allows your chrome-extension:// origin.'
+    );
+  }
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
@@ -152,6 +279,30 @@ async function getHint(sessionId) {
       sseUrl: `${API_BASE_URL}/session/${sessionId}/analyze`,
       token: authToken,
     };
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+async function completeSession(sessionId) {
+  try {
+    const result = await apiRequest('/session/complete', 'POST', {
+      session_id: sessionId,
+      final_response: null,
+    });
+    return { success: true, result };
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+async function cancelSession(sessionId, reason = null) {
+  try {
+    const result = await apiRequest('/session/cancel', 'POST', {
+      session_id: sessionId,
+      reason,
+    });
+    return { success: true, result };
   } catch (error) {
     return { error: error.message };
   }

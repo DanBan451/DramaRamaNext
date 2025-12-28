@@ -163,8 +163,31 @@
       text-transform: uppercase;
     }
     
+    .token-input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e5e5e5;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: monospace;
+      margin-bottom: 12px;
+    }
+    
+    .token-input:focus {
+      outline: none;
+      border-color: #000;
+    }
+    
+    .help-text {
+      font-size: 11px;
+      color: #888;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    
     #auth-section.hidden,
-    #logged-in-section.hidden {
+    #logged-in-section.hidden,
+    #token-section.hidden {
       display: none;
     }
   </style>
@@ -184,7 +207,7 @@
       <div class="section">
         <div class="status-card unauthenticated">
           <div class="status-icon">🔒</div>
-          <div class="status-text">Sign in to start training</div>
+          <div class="status-text">Connect to start training</div>
         </div>
       </div>
       
@@ -192,15 +215,40 @@
         Login to DramaRama
       </a>
       
-      <a href="http://localhost:3000/elements" target="_blank" class="btn btn-secondary">
-        Learn the 5 Elements
-      </a>
+      <button id="show-token-btn" class="btn btn-secondary">
+        I'm already logged in
+      </button>
       
       <div class="elements-preview">
         <div class="element-icon earth">🌳</div>
         <div class="element-icon fire">🔥</div>
         <div class="element-icon air">💨</div>
         <div class="element-icon water">🌊</div>
+      </div>
+    </div>
+    
+    <!-- Token Input Section -->
+    <div id="token-section" class="hidden">
+      <div class="section">
+        <div class="section-title">Connect Your Session</div>
+        <p class="help-text">
+          1. Log in at <a href="http://localhost:3000/login" target="_blank">localhost:3000</a><br>
+          2. Open <a href="http://localhost:3000/connect-extension" target="_blank">/connect-extension</a><br>
+          3. Click <b>Copy Token</b><br>
+          4. Paste it below:
+        </p>
+        <input 
+          type="text" 
+          id="token-input" 
+          class="token-input" 
+          placeholder="Paste your JWT token here..."
+        />
+        <button id="save-token-btn" class="btn btn-primary">
+          Connect
+        </button>
+        <button id="cancel-token-btn" class="btn btn-secondary">
+          Cancel
+        </button>
       </div>
     </div>
     
@@ -212,19 +260,21 @@
           <div class="status-text">Ready to train!</div>
         </div>
       </div>
+
+      <div class="section">
+        <div class="section-title">Connected identity</div>
+        <div id="connected-as" class="help-text">
+          Connected as: (loading…)
+        </div>
+      </div>
       
       <div class="section">
-        <div class="section-title">Quick Stats</div>
-        <div class="stats">
-          <div class="stat-card">
-            <div class="stat-value" id="stat-sessions">0</div>
-            <div class="stat-label">Sessions</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="stat-streak">0</div>
-            <div class="stat-label">Day Streak</div>
-          </div>
-        </div>
+        <div class="section-title">How to Use</div>
+        <p class="help-text">
+          1. Go to any LeetCode problem page<br>
+          2. Click the 🎭 button in the bottom-right<br>
+          3. Start your MUYOM session!
+        </p>
       </div>
       
       <a href="http://localhost:3000/dashboard" target="_blank" class="btn btn-primary">
@@ -232,7 +282,7 @@
       </a>
       
       <button id="logout-btn" class="btn btn-secondary">
-        Sign Out
+        Disconnect
       </button>
     </div>
   </div>
@@ -240,4 +290,3 @@
   <script src="popup.js"></script>
 </body>
 </html>
-

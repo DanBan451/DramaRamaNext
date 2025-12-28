@@ -14,30 +14,40 @@ import { Link } from "@nextui-org/link";
 import { usePathname } from "next/navigation";
 import { Image } from "@nextui-org/react";
 import { useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { 
+  SignedIn, 
+  SignedOut, 
+  UserButton,
+  SignInButton,
+} from "@clerk/nextjs";
 
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
-  
-  // Get auth state from Clerk
-  const { isSignedIn, isLoaded } = useAuth();
 
-  // Nav items - Dashboard only shows when logged in
-  const navItems = [
-    { name: "Home", path: "/", requiresAuth: false },
-    { name: "Elements", path: "/elements", requiresAuth: false },
-    ...(isSignedIn ? [{ name: "Dashboard", path: "/dashboard", requiresAuth: true }] : []),
+  // Base nav items (always visible)
+  const baseNavItems = [
+    { name: "Home", path: "/" },
+    { name: "Elements", path: "/elements" },
   ];
 
-  // Mobile menu items
-  const menuItems = [
-    { name: "Home", path: "/", requiresAuth: false },
-    { name: "Elements", path: "/elements", requiresAuth: false },
-    ...(isSignedIn ? [
-      { name: "Dashboard", path: "/dashboard", requiresAuth: true },
-      { name: "Sessions", path: "/sessions", requiresAuth: true },
-    ] : []),
+  // Auth-only nav items
+  const authNavItems = [
+    { name: "Dashboard", path: "/dashboard" },
+  ];
+
+  // Mobile menu items for signed out users
+  const signedOutMenuItems = [
+    { name: "Home", path: "/" },
+    { name: "Elements", path: "/elements" },
+  ];
+
+  // Mobile menu items for signed in users
+  const signedInMenuItems = [
+    { name: "Home", path: "/" },
+    { name: "Elements", path: "/elements" },
+    { name: "Dashboard", path: "/dashboard" },
+    { name: "Sessions", path: "/sessions" },
   ];
 
   const isActive = (path) => pathname === path;
@@ -69,7 +79,8 @@ export const Navbar = () => {
       </NavbarContent>
 
       <NavbarContent className="hidden sm:flex gap-8 lp:gap-12 max-w-min p-0 ml-auto lp:mr-10">
-        {navItems.map((item) => (
+        {/* Base nav items - always visible */}
+        {baseNavItems.map((item) => (
           <NavbarItem
             key={item.path}
             className={`${
@@ -86,54 +97,100 @@ export const Navbar = () => {
             </Link>
           </NavbarItem>
         ))}
+        
+        {/* Auth-only nav items - only visible when signed in */}
+        <SignedIn>
+          {authNavItems.map((item) => (
+            <NavbarItem
+              key={item.path}
+              className={`${
+                isActive(item.path)
+                  ? "border-b-2 border-b-black"
+                  : "border-b-2 border-b-transparent hover:border-b-smoke"
+              } pb-1 transition-all`}
+            >
+              <Link
+                className="text-black text-[16px] font-medium"
+                href={item.path}
+              >
+                {item.name}
+              </Link>
+            </NavbarItem>
+          ))}
+        </SignedIn>
       </NavbarContent>
 
       <NavbarContent className="max-w-min gap-4" justify="end">
-        {isLoaded && (
-          <>
-            {isSignedIn ? (
-              // Logged in - show user menu
-              <NavbarItem>
-                <Button
-                  as={Link}
-                  href="/dashboard"
-                  className="bg-black text-white px-6 py-5 text-[16px] font-semibold hover:bg-ash transition-colors"
-                  radius="none"
-                >
-                  Dashboard
-                </Button>
-              </NavbarItem>
-            ) : (
-              // Not logged in - show login/get started
-              <>
-                <NavbarItem className="hidden tb:flex">
-                  <Button
-                    as={Link}
-                    href="/login"
-                    className="bg-transparent text-black px-4 py-5 text-[16px] font-medium hover:bg-mist/50 transition-colors"
-                    radius="sm"
-                  >
-                    Login
-                  </Button>
-                </NavbarItem>
-                <NavbarItem>
-                  <Button
-                    as={Link}
-                    href="/login"
-                    className="bg-black text-white px-6 py-5 text-[16px] font-semibold hover:bg-ash transition-colors"
-                    radius="none"
-                  >
-                    Get Started
-                  </Button>
-                </NavbarItem>
-              </>
-            )}
-          </>
-        )}
+        {/* Signed Out - show login/get started */}
+        <SignedOut>
+        <NavbarItem className="hidden tb:flex">
+            <Link href="/login">
+              <Button
+                className="bg-mist/70 text-black px-6 py-5 text-[16px] font-semibold hover:bg-mist transition-colors"
+                radius="none"
+              >
+                Login
+              </Button>
+            </Link>
+        </NavbarItem>
+        <NavbarItem>
+            <Link href="/login">
+          <Button
+                className="bg-black text-white px-6 py-5 text-[16px] font-semibold hover:bg-ash transition-colors"
+            radius="none"
+          >
+            Get Started
+          </Button>
+            </Link>
+          </NavbarItem>
+        </SignedOut>
+
+        {/* Signed In - show user button (Dashboard link exists in the nav items) */}
+        <SignedIn>
+          <NavbarItem>
+            <UserButton 
+              afterSignOutUrl="/"
+              appearance={{
+                elements: {
+                  avatarBox: "w-10 h-10",
+                }
+              }}
+            />
+        </NavbarItem>
+        </SignedIn>
       </NavbarContent>
 
+      {/* Mobile Menu */}
       <NavbarMenu className="pt-8 bg-white/95 backdrop-blur-lg">
-        {menuItems.map((item, index) => (
+        {/* Signed Out Menu */}
+        <SignedOut>
+          {signedOutMenuItems.map((item, index) => (
+            <NavbarMenuItem key={`${item.name}-${index}`}>
+              <Link
+                className={`w-full text-lg py-2 ${
+                  isActive(item.path)
+                    ? "text-black font-semibold"
+                    : "text-smoke hover:text-black"
+                }`}
+                href={item.path}
+                size="lg"
+              >
+                {item.name}
+              </Link>
+            </NavbarMenuItem>
+          ))}
+          <NavbarMenuItem>
+            <SignInButton mode="modal">
+              <button className="w-full text-lg py-2 text-black font-semibold text-left">
+                Login / Sign Up
+              </button>
+            </SignInButton>
+          </NavbarMenuItem>
+        </SignedOut>
+
+        {/* Signed In Menu */}
+        <SignedIn>
+          {signedInMenuItems.map((item, index) => (
           <NavbarMenuItem key={`${item.name}-${index}`}>
             <Link
               className={`w-full text-lg py-2 ${
@@ -148,26 +205,7 @@ export const Navbar = () => {
             </Link>
           </NavbarMenuItem>
         ))}
-        {/* Auth items in mobile menu */}
-        <NavbarMenuItem>
-          {isSignedIn ? (
-            <Link
-              className="w-full text-lg py-2 text-fire hover:text-fire/80"
-              href="/api/auth/signout"
-              size="lg"
-            >
-              Sign Out
-            </Link>
-          ) : (
-            <Link
-              className="w-full text-lg py-2 text-black font-semibold"
-              href="/login"
-              size="lg"
-            >
-              Login / Sign Up
-            </Link>
-          )}
-        </NavbarMenuItem>
+        </SignedIn>
       </NavbarMenu>
     </NextUINavbar>
   );

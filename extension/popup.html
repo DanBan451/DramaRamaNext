@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DramaRama</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      width: 320px;
+      min-height: 400px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fff;
+    }
+    
+    .header {
+      background: #000;
+      color: white;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .header-logo {
+      font-size: 32px;
+    }
+    
+    .header-text h1 {
+      font-size: 20px;
+      font-weight: 600;
+    }
+    
+    .header-text p {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+    
+    .content {
+      padding: 20px;
+    }
+    
+    .section {
+      margin-bottom: 24px;
+    }
+    
+    .section-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #888;
+      margin-bottom: 12px;
+    }
+    
+    .status-card {
+      background: #f5f5f5;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+    
+    .status-card.authenticated {
+      background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    }
+    
+    .status-card.unauthenticated {
+      background: linear-gradient(135deg, #fef2f2, #fee2e2);
+    }
+    
+    .status-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+    
+    .status-text {
+      font-size: 14px;
+      color: #333;
+    }
+    
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      text-decoration: none;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    
+    .btn-primary {
+      background: #000;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #333;
+    }
+    
+    .btn-secondary {
+      background: white;
+      color: #000;
+      border: 2px solid #e5e5e5;
+    }
+    
+    .btn-secondary:hover {
+      border-color: #000;
+    }
+    
+    .elements-preview {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 20px;
+    }
+    
+    .element-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #f5f5f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    
+    .element-icon.earth { background: #f0fdf4; }
+    .element-icon.fire { background: #fef2f2; }
+    .element-icon.air { background: #f0f9ff; }
+    .element-icon.water { background: #eff6ff; }
+    
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    
+    .stat-card {
+      background: #f5f5f5;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    
+    .stat-label {
+      font-size: 11px;
+      color: #888;
+      text-transform: uppercase;
+    }
+    
+    #auth-section.hidden,
+    #logged-in-section.hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="header-logo">🎭</span>
+    <div class="header-text">
+      <h1>DramaRama</h1>
+      <p>Mental Gym for Algorithms</p>
+    </div>
+  </div>
+  
+  <div class="content">
+    <!-- Unauthenticated View -->
+    <div id="auth-section">
+      <div class="section">
+        <div class="status-card unauthenticated">
+          <div class="status-icon">🔒</div>
+          <div class="status-text">Sign in to start training</div>
+        </div>
+      </div>
+      
+      <a href="http://localhost:3000/login" target="_blank" class="btn btn-primary">
+        Login to DramaRama
+      </a>
+      
+      <a href="http://localhost:3000/elements" target="_blank" class="btn btn-secondary">
+        Learn the 5 Elements
+      </a>
+      
+      <div class="elements-preview">
+        <div class="element-icon earth">🌳</div>
+        <div class="element-icon fire">🔥</div>
+        <div class="element-icon air">💨</div>
+        <div class="element-icon water">🌊</div>
+      </div>
+    </div>
+    
+    <!-- Authenticated View -->
+    <div id="logged-in-section" class="hidden">
+      <div class="section">
+        <div class="status-card authenticated">
+          <div class="status-icon">✅</div>
+          <div class="status-text">Ready to train!</div>
+        </div>
+      </div>
+      
+      <div class="section">
+        <div class="section-title">Quick Stats</div>
+        <div class="stats">
+          <div class="stat-card">
+            <div class="stat-value" id="stat-sessions">0</div>
+            <div class="stat-label">Sessions</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-streak">0</div>
+            <div class="stat-label">Day Streak</div>
+          </div>
+        </div>
+      </div>
+      
+      <a href="http://localhost:3000/dashboard" target="_blank" class="btn btn-primary">
+        Open Dashboard
+      </a>
+      
+      <button id="logout-btn" class="btn btn-secondary">
+        Sign Out
+      </button>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
+

@@ -1,53 +1,254 @@
-# Next.js & NextUI Template
+# DramaRama - Mental Gym for Algorithms
 
-This is a template for creating applications using Next.js 14 (app directory) and NextUI (v2).
+DramaRama helps you apply the **5 Elements of Effective Thinking** to algorithm problems, transforming how you solve them.
 
-[Try it on CodeSandbox](https://githubbox.com/nextui-org/next-app-template)
+## 🏗️ Architecture
 
-## Technologies Used
-
-- [Next.js 14](https://nextjs.org/docs/getting-started)
-- [NextUI v2](https://nextui.org/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [Tailwind Variants](https://tailwind-variants.org)
-- [TypeScript](https://www.typescriptlang.org/)
-- [Framer Motion](https://www.framer.com/motion/)
-- [next-themes](https://github.com/pacocoursey/next-themes)
-
-## How to Use
-
-### Use the template with create-next-app
-
-To create a new project based on this template using `create-next-app`, run the following command:
-
-```bash
-npx create-next-app -e https://github.com/nextui-org/next-app-template
+```
+DramaRama/
+├── frontend/          # Next.js dashboard (Headquarters)
+├── backend/           # FastAPI API server
+└── extension/         # Chrome extension
 ```
 
-### Install dependencies
+## 🚀 Quick Start
 
-You can use one of them `npm`, `yarn`, `pnpm`, `bun`, Example using `npm`:
+### Prerequisites
+
+- Node.js 18+
+- Python 3.10+
+- A Supabase account (free tier works)
+- A Clerk account (free tier works)
+- An Anthropic API key (for Claude)
+
+### 1. Set Up Supabase Database
+
+1. Create a new project at [supabase.com](https://supabase.com)
+2. Go to SQL Editor and run this schema:
+
+```sql
+-- Users table
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clerk_id VARCHAR(255) UNIQUE NOT NULL,
+  email VARCHAR(255),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Sessions table
+CREATE TABLE sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  algorithm_title VARCHAR(255) NOT NULL,
+  algorithm_url TEXT,
+  started_at TIMESTAMPTZ DEFAULT NOW(),
+  ended_at TIMESTAMPTZ,
+  status VARCHAR(50) DEFAULT 'in_progress',
+  prompts_completed INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Responses table
+CREATE TABLE responses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+  prompt_index INTEGER NOT NULL,
+  element VARCHAR(50) NOT NULL,
+  sub_element VARCHAR(10) NOT NULL,
+  response_text TEXT NOT NULL,
+  word_count INTEGER NOT NULL,
+  time_spent_seconds INTEGER NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Hints table
+CREATE TABLE hints (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+  hint_text TEXT NOT NULL,
+  element_focus VARCHAR(50),
+  patterns_detected JSONB,
+  user_final_response TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX idx_responses_session_id ON responses(session_id);
+CREATE INDEX idx_hints_session_id ON hints(session_id);
+```
+
+3. Get your Supabase URL and Service Key from Project Settings > API
+
+### 2. Set Up Clerk Authentication
+
+1. Create an account at [clerk.com](https://clerk.com)
+2. Create a new application
+3. Get your keys from Dashboard > API Keys:
+   - Publishable Key (for frontend)
+   - Secret Key (for frontend)
+   - JWKS URL: `https://YOUR_CLERK_DOMAIN/.well-known/jwks.json`
+
+### 3. Set Up Backend
 
 ```bash
+cd backend
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Create .env file
+cp env.example .env
+# Edit .env with your credentials:
+# - SUPABASE_URL
+# - SUPABASE_SERVICE_KEY
+# - CLERK_JWKS_URL
+# - ANTHROPIC_API_KEY
+
+# Run the server
+uvicorn app.main:app --reload --port 8000
+```
+
+The API will be available at `http://localhost:8000`
+
+### 4. Set Up Frontend
+
+```bash
+cd frontend
+
+# Install dependencies
 npm install
-```
 
-### Run the development server
+# Create .env.local file
+cp env.example .env.local
+# Edit .env.local with your Clerk keys:
+# - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+# - CLERK_SECRET_KEY
 
-```bash
+# Run the dev server
 npm run dev
 ```
 
-### Setup pnpm (optional)
+The dashboard will be available at `http://localhost:3000`
 
-If you are using `pnpm`, you need to add the following code to your `.npmrc` file:
+### 5. Install Chrome Extension
 
-```bash
-public-hoist-pattern[]=*@nextui-org/*
+1. Open Chrome and go to `chrome://extensions/`
+2. Enable "Developer mode" (top right)
+3. Click "Load unpacked"
+4. Select the `extension/` folder
+5. The DramaRama icon should appear in your extensions
+
+### 6. Connect Extension to Your Account
+
+1. Go to `http://localhost:3000/login` and sign in
+2. After login, open Chrome DevTools (F12) > Application > Local Storage
+3. Find your Clerk session token
+4. In the extension popup, there will be an option to authenticate
+
+**Note:** For a production setup, you would implement proper OAuth flow between the extension and Clerk.
+
+## 🎯 Using DramaRama
+
+### On LeetCode/HackerRank:
+
+1. Navigate to any problem page
+2. Click the 🎭 DramaRama button (bottom right)
+3. Click "Start Session"
+4. Answer all 12 prompts (one for each sub-element)
+5. Receive your personalized "nudge" from the AI
+6. View your progress in the Dashboard
+
+### The 5 Elements:
+
+| Element | Emoji | Focus |
+|---------|-------|-------|
+| Earth | 🌳 | Deep Understanding - master the basics |
+| Fire | 🔥 | Embrace Failure - fail fast, learn faster |
+| Air | 💨 | Create Questions - be your own Socrates |
+| Water | 🌊 | Flow of Ideas - see connections |
+| Change | 🪨 | The result of applying all elements |
+
+## 📁 Project Structure
+
+### Backend (`backend/`)
+
+```
+app/
+├── main.py              # FastAPI app entry point
+├── core/
+│   ├── config.py        # Settings and configuration
+│   └── security.py      # JWT validation with Clerk
+├── domain/
+│   ├── entities.py      # Business entities (Session, Response, etc.)
+│   └── services.py      # Business logic (analysis, hint generation)
+├── ports/
+│   ├── repositories.py  # Abstract repository interfaces
+│   └── llm.py          # Abstract LLM interface
+├── adapters/
+│   ├── supabase_adapter.py  # Supabase implementation
+│   └── claude_adapter.py    # Claude LLM implementation
+└── api/
+    ├── routes.py        # HTTP endpoints
+    └── schemas.py       # Request/Response models
 ```
 
-After modifying the `.npmrc` file, you need to run `pnpm install` again to ensure that the dependencies are installed correctly.
+### Frontend (`frontend/`)
 
-## License
+Standard Next.js 14 app with:
+- Clerk authentication
+- Dashboard with session history
+- Elements reference page
+- Session detail views
 
-Licensed under the [MIT license](https://github.com/nextui-org/next-app-template/blob/main/LICENSE).
+### Extension (`extension/`)
+
+Chrome Manifest V3 extension with:
+- Content script for LeetCode/HackerRank
+- Background service worker for API communication
+- Popup for quick status and navigation
+
+## 🔧 API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/session/start` | Start a new session |
+| POST | `/api/session/respond` | Submit a response |
+| GET | `/api/session/{id}/analyze` | Get AI hint (SSE) |
+| POST | `/api/session/complete` | Complete session |
+| GET | `/api/user/sessions` | List user sessions |
+| GET | `/api/user/sessions/{id}` | Get session detail |
+| GET | `/api/user/stats` | Get dashboard stats |
+| GET | `/api/prompts` | Get all 12 prompts |
+
+## 🧪 Development Tips
+
+### Testing the Backend
+
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# Get prompts (no auth required)
+curl http://localhost:8000/api/prompts
+```
+
+### Testing with Mock Auth
+
+In development mode without Clerk configured, the backend accepts any Bearer token and uses a mock user.
+
+### Hot Reload
+
+- Frontend: Automatic with Next.js
+- Backend: Use `--reload` flag with uvicorn
+- Extension: Click "Reload" in chrome://extensions after changes
+
+## 📝 License
+
+MIT
+

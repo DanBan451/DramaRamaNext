@@ -69,14 +69,14 @@ export default function Home() {
     offset: ["start start", "end start"],
   });
 
-  // Transform scroll progress to mask widths
-  const grayscaleWidth = useTransform(scrollYProgress, [0, 0.5], ["33.333%", "0%"]);
-  const brightOpacity = useTransform(scrollYProgress, [0, 0.5], [0.5, 0]);
-  const contentOpacity = useTransform(scrollYProgress, [0, 0.3], [1, 0]);
+  // Scroll animation - white overlay fades in, content fades out
+  const whiteOverlayOpacity = useTransform(scrollYProgress, [0, 0.6], [0, 1]);
+  const contentOpacity = useTransform(scrollYProgress, [0, 0.4], [1, 0]);
+  const contentY = useTransform(scrollYProgress, [0, 0.4], [0, -50]);
 
   return (
     <div className="bg-white">
-      {/* Hero Section with Scroll Animation */}
+      {/* Hero Section - EXACT ORIGINAL DESIGN with Scroll Animation */}
       <section ref={heroRef} className="relative h-screen overflow-hidden">
         {/* Background Image */}
         <div
@@ -84,49 +84,58 @@ export default function Home() {
           style={{ backgroundImage: "url('/images/header.png')" }}
         />
 
-        {/* Grayscale Mask (Left) - Shrinks on scroll */}
+        {/* LEFT: B&W Mask - EXACT ORIGINAL: inset-0 w-1/3 lp:w-1/4 */}
+        <div className="absolute inset-0 w-1/3 lp:w-1/4 h-full backdrop-brightness-100 backdrop-saturate-0" />
+
+        {/* RIGHT: Bright Mask - EXACT ORIGINAL: inset-y-0 right-0 w-2/3 lp:w-3/4 */}
+        <div className="absolute inset-y-0 right-0 w-2/3 lp:w-3/4 h-full backdrop-brightness-150" />
+
+        {/* White overlay that fades in as you scroll */}
         <motion.div
-          className="absolute inset-y-0 left-0 backdrop-saturate-0 backdrop-brightness-100 z-10"
-          style={{ width: grayscaleWidth }}
+          className="absolute inset-0 bg-white pointer-events-none z-10"
+          style={{ opacity: whiteOverlayOpacity }}
         />
 
-        {/* Bright Mask (Right) - Becomes white on scroll */}
+        {/* Hero Content - positioned after the B&W section like original */}
         <motion.div
-          className="absolute inset-0 bg-white z-5"
-          style={{ opacity: brightOpacity }}
-        />
-
-        {/* Hero Content */}
-        <motion.div
-          className="relative z-20 h-full flex flex-col justify-end pb-20 px-6 lp:px-20"
-          style={{ opacity: contentOpacity }}
+          className="relative z-20 h-full flex flex-col justify-end pb-16 lp:pb-20"
+          style={{ opacity: contentOpacity, y: contentY }}
         >
-          <div className="max-w-[1400px] mx-auto w-full">
-            <h1 className="font-display text-4xl tb:text-6xl lp:text-7xl text-black mb-6 max-w-[900px]">
-              Train Your Mind.
-              <br />
-              <span className="italic">Master Algorithms.</span>
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Content positioned after the B&W section - matching original lp:left-1/4 lp:ml-10 */}
+            <div className="lp:absolute lp:bottom-20 lp:left-1/4 lp:ml-10 mr-3 max-w-none">
+              <h1 className="font-display text-3xl tb:text-5xl lp:text-6xl text-black mb-4 lp:mb-6 lp:max-w-[1000px] drop-shadow-sm">
+                Train Your Mind.
+                <br />
+                <span className="italic">Master Algorithms.</span>
               </h1>
-            <p className="text-lg tb:text-xl lp:text-2xl text-ash max-w-[700px] mb-8">
-              DramaRama is your mental gym for algorithms. Apply the 5 Elements of
-              Effective Thinking to transform how you solve problems.
-            </p>
-            <div className="flex flex-col tb:flex-row gap-4">
-              <Link href="/login">
-                <Button className="btn-primary px-8 py-6 text-lg rounded-none">
-                  Start Training
-                </Button>
-              </Link>
-              <Link href="/elements">
-                <Button className="btn-secondary px-8 py-6 text-lg rounded-none">
-                  Learn the Elements
-              </Button>
-              </Link>
+              <p className="text-lg tb:text-xl lp:text-2xl text-black/80 lp:max-w-[800px] mb-6 lp:mb-8">
+                DramaRama is your mental gym for algorithms. Apply the 5 Elements of
+                Effective Thinking to transform how you solve problems.
+              </p>
+              <div className="flex flex-col tb:flex-row gap-4">
+                <Link href="/login">
+                  <Button 
+                    className="bg-fire hover:bg-fire/90 text-white px-8 py-6 text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                    radius="none"
+                  >
+                    Start Training
+                  </Button>
+                </Link>
+                <Link href="/elements">
+                  <Button 
+                    className="bg-transparent border-2 border-black text-black hover:bg-black hover:text-white px-8 py-6 text-lg font-semibold hover:scale-105 transition-all"
+                    radius="none"
+                  >
+                    Learn the Elements
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
 
           {/* Scroll indicator */}
-          <div className="absolute bottom-8 right-8 animate-float">
+          <div className="hidden lp:block absolute bottom-10 right-10 animate-float">
             <Image
               src="/images/icons8-down-arrow-100.png"
               width={30}

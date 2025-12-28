@@ -273,7 +273,7 @@
   color: var(--color-clarity);
 }
 
-/* Hero section masks */
+/* Hero section masks - ORIGINAL STYLING */
 .hero-mask-grayscale {
   position: absolute;
   inset: 0;
@@ -288,6 +288,30 @@
   backdrop-filter: brightness(1.5);
   -webkit-backdrop-filter: brightness(1.5);
   transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hero text shadow for pop effect */
+.hero-title {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Hero button glow */
+.hero-btn-primary {
+  box-shadow: 0 4px 14px 0 rgba(220, 38, 38, 0.39);
+}
+
+.hero-btn-primary:hover {
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.5);
+}
+
+/* Subtle gradient overlay for depth */
+.hero-gradient-overlay {
+  background: linear-gradient(
+    135deg,
+    transparent 0%,
+    transparent 60%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
 }
 
 /* Joule counter animation */

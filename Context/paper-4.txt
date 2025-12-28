@@ -1,0 +1,89 @@
+ the quadratic formula, but they forget the deeper meaning and the thinking behind it. The real question isn’t “Did you get the right answer?” The real question is: How did the experience change you? What did you learn that will matter years from now?
+My argument is that the coding interview process can feel like hell, and most people do it only because they have to, which results in wasted time & interview failure. Wasted time in that the experience never changed you. Imagine if you can fall in love with the coding algorithm process, get the job, and apply what was learned from that process in your work? That is what DramaRama aims to solve. 
+
+Helping People Fall in Love With Algorithms
+So how do we help someone fall in love with the algorithm process?
+We do it by applying the MUYOM process.
+First, we need to clearly identify what’s broken about the LeetCode / algorithm practice experience. There are a few key problems:
+People find it boring.
+ A major reason is that the experience isn’t personalized or meaningful. It doesn’t target the learner’s identity, motivation, or growth.
+
+If we build an application that says, “Let’s focus on your growth and help you become a better thinker,” the entire experience changes. Now the person isn’t “just preparing for an interview”—they’re training in a mental gym.
+
+
+People focus on outcomes, not process.
+Most platforms reward “getting the problem right.” But that’s not what matters. What matters is whether the user is engaging deeply: applying the five elements, reflecting honestly, and spending consistent time thinking.
+
+In physical fitness, we measure progress over time. Why don’t we have a comparable mental gym—something that tracks how strong our thinking is becoming? If we tracked that, many people would become far more successful over time.
+
+
+
+MVP Approach: Don’t Reinvent the Wheel
+Because we’re building an MVP, I do not want to reinvent the wheel. We don’t need to create and ingest our own puzzles at the start. My proposal: build a browser plugin.
+A web plugin saves a huge amount of time. We don’t have to create algorithms or host them. Instead:
+The user opens a problem on a site like LeetCode or HackerRank.
+The plugin reads the problem text (scrapes it from the HTML).
+The plugin already has context for the session.
+The user clicks Start Session.
+Then we track the session as the user works through the problem.
+
+The Session Flow
+Once the user starts a session:
+The plugin asks 12 questions (the 4 elements + sub-elements).
+Each answer must be at least 20 words to count as “engaged.”
+After the user completes the questions, the chatbot provides a nudge, not a solution by examining the user’s responses. It analyzes the user’s responses and finds which element the user was NOT as engaged with. It then tells them that they should apply that element.
+The user responds again after trying the suggested direction.
+The session ends and the results are saved.
+The results are stored in a separate web application where the user can log in and track their MUYOM practice—like a dashboard for a personal mental gym. For the MVP, the metrics can be simple (engagement, time spent, consistency, etc.).
+
+1) The Chatbot (Most Complex Component)
+This is the hardest part of the entire system. It includes:
+UI overlay: chatbot interface + “Start Session” button
+
+
+Problem parsing: extract the problem statement from the LeetCode/HackerRank page
+
+
+The 12 static questions: asked every session
+ (Later: follow-up prompts if the answer is too short—out of scope for MVP)
+
+
+The hint/nudge system (the heavy-lifting)
+
+
+The Hard Problem: Nudges Without Spoilers
+The hardest question is: How do we provide hints that guide the user without giving away the answer?
+How do we push the user toward the right thinking element without revealing the solution?
+Here are some early, rough ideas:
+Create a backend service (e.g., AWS Lambda) that:
+
+
+finds solution explanations online (web sources, documentation, videos),
+
+
+maps solution patterns to the five elements, and
+
+
+chooses which element to recommend based on the problem and where the user is stuck.
+
+
+But this becomes very complex very fast. Another issue is that “the best element” might not depend only on the problem—it may depend on where the user currently is in their thinking.
+That might be the real question:
+Instead of asking “What element solves this problem?” we should ask “What element helps the user at this stage of the solving process?”
+
+Breakthrough for MVP
+For the MVP, we can reduce scope dramatically:
+The LLM’s main job is not to give the perfect hint.
+ Its main job is to ensure the user is deeply engaging with the five elements.
+This matches the book’s philosophy and curriculum. Before the user even deserves a “hint,” they must prove they are doing real thinking.
+So the chatbot can focus on:
+analyzing the user’s responses,
+
+
+detecting shallow vs deep engagement,
+
+
+and prompting them to apply a specific element more honestly and thoroughly.
+
+
+That alone could be powerful—and it’s achievable for an MVP.

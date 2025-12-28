@@ -15,70 +15,83 @@ import { usePathname } from "next/navigation";
 import { Image } from "@nextui-org/react";
 import { useState } from "react";
 
-import Device from "./Device";
-
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuItems = [
-    "Profile",
-    "Dashboard",
-    "Activity",
-    "Analytics",
-    "System",
-    "Deployments",
-    "My Settings",
-    "Team Settings",
-    "Help & Feedback",
-    "Log Out",
-  ];
   const pathname = usePathname();
 
-  return (
-    <NextUINavbar onMenuOpenChange={setIsMenuOpen} isBlurred={false} className="absolute bg-transparent backdrop-saturate-100 lp:pt-5" maxWidth="2xl">
+  const navItems = [
+    { name: "Home", path: "/" },
+    { name: "Elements", path: "/elements" },
+    { name: "Dashboard", path: "/dashboard" },
+  ];
 
+  const menuItems = [
+    { name: "Home", path: "/" },
+    { name: "Elements", path: "/elements" },
+    { name: "Dashboard", path: "/dashboard" },
+    { name: "Sessions", path: "/sessions" },
+    { name: "Login", path: "/login" },
+  ];
+
+  const isActive = (path) => pathname === path;
+
+  return (
+    <NextUINavbar
+      onMenuOpenChange={setIsMenuOpen}
+      isBlurred={false}
+      className="fixed top-0 bg-transparent backdrop-blur-md backdrop-saturate-150 z-50 lp:pt-5"
+      maxWidth="2xl"
+    >
       <NavbarContent className="lp:max-w-[30%]">
         <NavbarMenuToggle
           aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-          className="sm:hidden text-red-500"         
+          className="sm:hidden text-black"
         />
-        <NavbarBrand> 
-          <Image src={"/images/icons8-drama-96.png"} className="hidden tb:block w-[50px] lp:w-[65px]" />
-          <p className="font-bold ml-3 lp:ml-5 text-black text-[20px] lp:text-[25px] hidden tb:block">DramaRama</p>
+        <NavbarBrand>
+          <Link href="/" className="flex items-center gap-3">
+            <Image
+              src="/images/icons8-drama-96.png"
+              className="hidden tb:block w-[40px] lp:w-[50px]"
+              alt="DramaRama"
+            />
+            <span className="font-display text-black text-[20px] lp:text-[24px] hidden tb:block">
+              DramaRama
+            </span>
+          </Link>
         </NavbarBrand>
       </NavbarContent>
 
-      <NavbarContent className="hidden sm:flex gap-5 lp:gap-10 max-w-min p-0 ml-auto lp:mr-10">        
-        <NavbarItem
-          className={`${pathname === "/" && "border-b-2 lp:border-b-3 border-b-black mt-3 pb-3"}`}
-        >
-          <Link className="text-black lp:text-[20px] font-semibold" href="/">
-            Home
-          </Link>
-        </NavbarItem>
-        <NavbarItem
-          className={`${pathname === "/about" && "border-b-2 lp:border-b-3 border-b-black mt-3 pb-3"}`}
-        >
-          <Link className="text-black lp:text-[20px] font-semibold" href="about">
-            About
-          </Link>
-        </NavbarItem>
-        <NavbarItem
-          className={`${pathname === "/services" && "border-b-2 lp:border-b-3 border-b-black pb-3"}`}
-        >
-          <Link className="text-black lp:text-[20px] font-semibold" href="services">
-            Services
-          </Link>
-        </NavbarItem>
+      <NavbarContent className="hidden sm:flex gap-8 lp:gap-12 max-w-min p-0 ml-auto lp:mr-10">
+        {navItems.map((item) => (
+          <NavbarItem
+            key={item.path}
+            className={`${
+              isActive(item.path)
+                ? "border-b-2 border-b-black"
+                : "border-b-2 border-b-transparent hover:border-b-smoke"
+            } pb-1 transition-all`}
+          >
+            <Link
+              className="text-black lp:text-[16px] font-medium"
+              href={item.path}
+            >
+              {item.name}
+            </Link>
+          </NavbarItem>
+        ))}
       </NavbarContent>
 
       <NavbarContent className="max-w-min" justify="end">
+        <NavbarItem className="hidden tb:flex">
+          <Link href="/login" className="text-black lp:text-[14px] font-medium mr-4">
+            Login
+          </Link>
+        </NavbarItem>
         <NavbarItem>
           <Button
-            as={Link}                        
-            hover={"border-1 border-black background-transparent"}
-            href="#"
-            variant="flat"
-            className={"bg-black text-white lp:px-12 lp:py-7 lp:text-[20px]"}            
+            as={Link}
+            href="/login"
+            className="bg-black text-white lp:px-6 lp:py-5 lp:text-[14px] font-semibold hover:bg-ash transition-colors"
             radius="none"
           >
             Get Started
@@ -86,27 +99,23 @@ export const Navbar = () => {
         </NavbarItem>
       </NavbarContent>
 
-      <NavbarMenu>
+      <NavbarMenu className="pt-8 bg-white/95 backdrop-blur-lg">
         {menuItems.map((item, index) => (
-          <NavbarMenuItem key={`${item}-${index}`}>
+          <NavbarMenuItem key={`${item.name}-${index}`}>
             <Link
-              color={
-                index === 2
-                  ? "primary"
-                  : index === menuItems.length - 1
-                    ? "danger"
-                    : "foreground"
-              }
-              className="w-full"
-              href="#"
+              className={`w-full text-lg py-2 ${
+                isActive(item.path)
+                  ? "text-black font-semibold"
+                  : "text-smoke hover:text-black"
+              }`}
+              href={item.path}
               size="lg"
             >
-              {item}
+              {item.name}
             </Link>
           </NavbarMenuItem>
         ))}
       </NavbarMenu>
-
     </NextUINavbar>
   );
 };

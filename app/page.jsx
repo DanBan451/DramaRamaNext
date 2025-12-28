@@ -1,300 +1,512 @@
 "use client";
 
-import React from "react";
-import Header from "../components/Header/index";
+import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { Button } from "@nextui-org/button";
+import Link from "next/link";
+import { motion, useScroll, useTransform } from "framer-motion";
+
+// Element data
+const elements = [
+  {
+    id: "earth",
+    emoji: "🌳",
+    name: "Earth",
+    title: "Deep Understanding",
+    description: "Master the basics. Start with the simple. Spotlight the specific. Add the adjective.",
+    color: "earth",
+    subElements: ["Start with Simple", "Spotlight Specific", "Add the Adjective"],
+  },
+  {
+    id: "fire",
+    emoji: "🔥",
+    name: "Fire",
+    title: "Embrace Failure",
+    description: "Fail fast, fail again, fail intentionally. Each failed attempt is a precious joule of insight.",
+    color: "fire",
+    subElements: ["Fail Fast", "Fail Again", "Fail Intentionally"],
+  },
+  {
+    id: "air",
+    emoji: "💨",
+    name: "Air",
+    title: "Create Questions",
+    description: "Be your own Socrates. Ask basic questions. Ask another question. Never stop questioning.",
+    color: "air",
+    subElements: ["Be Your Own Socrates", "Ask Basic Questions", "Ask Another Question"],
+  },
+  {
+    id: "water",
+    emoji: "🌊",
+    name: "Water",
+    title: "Flow of Ideas",
+    description: "Run down all paths. Embrace doubt. Never stop. See how ideas connect and evolve.",
+    color: "water",
+    subElements: ["Run Down All Paths", "Embrace Doubt", "Never Stop"],
+  },
+  {
+    id: "change",
+    emoji: "🪨",
+    name: "Change",
+    title: "The Quintessential",
+    description: "When you apply all elements, change becomes inevitable. You transform.",
+    color: "change",
+    subElements: ["Transform Thinking", "See Structure", "Become Better"],
+  },
+];
+
+// Mock session data for preview
+const recentSessions = [
+  { id: 1, title: "Two Sum", element: "earth", progress: 100, date: "Today" },
+  { id: 2, title: "Valid Parentheses", element: "fire", progress: 75, date: "Yesterday" },
+  { id: 3, title: "Merge Intervals", element: "air", progress: 50, date: "2 days ago" },
+];
 
 export default function Home() {
+  const heroRef = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"],
+  });
+
+  // Transform scroll progress to mask widths
+  const grayscaleWidth = useTransform(scrollYProgress, [0, 0.5], ["33.333%", "0%"]);
+  const brightOpacity = useTransform(scrollYProgress, [0, 0.5], [0.5, 0]);
+  const contentOpacity = useTransform(scrollYProgress, [0, 0.3], [1, 0]);
+
   return (
-    <div>
-      <Header />
+    <div className="bg-white">
+      {/* Hero Section with Scroll Animation */}
+      <section ref={heroRef} className="relative h-screen overflow-hidden">
+        {/* Background Image */}
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: "url('/images/header.png')" }}
+        />
 
-      <div className="flex flex-col max-w-[1536px] mx-auto p-4 sm:p-8 md:p-12 lg:p-16">
-        <div className="flex flex-col sm:flex-row justify-between w-full space-y-8 sm:space-y-0 my-8 sm:space-x-8">
-          {["Design", "Develop"].map((item, key) => (
-            <div
-              key={item}
-              className="flex flex-col sm:items-start max-w-[600px] w-full"
-            >
-              <Image
-                src={`/images/image${key + 1}.png`}
-                alt={`Image ${key}`}
-                width={600}
-                height={400}
-                className="w-full h-auto"
-              />
-              <h2 className="mt-4 text-2xl font-bold text-black">{item}</h2>
-              <p className="mt-2 text-black lp:text-lg">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                Pellentesque vel enim a elit viverra elementum. Suspendisse
-                vehicula massa a nisl efficitur, in ultricies dui efficitur.
-              </p>
-              <Button
-                className={`mt-4 px-4 py-2 w-fit bg-red-500 text-white rounded`}
-              >
-                {/* <Button className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"> */}
-                {item}
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="relative-container relative w-full pt-5 tb:pt-10 tb:p-12 h-[800px] bg-cover bg-center bg-no-repeat dp:h-screen">
-        <div className="relative mx-auto max-w-[1408px] h-full flex flex-col sm:space-x-8 lp:justify-center">
-          <div className="flex flex-col tb:flex-row tb:justify-between tb:space-x-8">
-            {/* First Item */}
-            <div className="flex-1 max-w-[600px] bg-transparent p-4 sm:p-0 text-black flex flex-col tb:order-2 dp:gap-5">
-              <h1 className="text-2xl font-bold mb-4 lp:text-4xl">
-                The Mask Process
+        {/* Grayscale Mask (Left) - Shrinks on scroll */}
+        <motion.div
+          className="absolute inset-y-0 left-0 backdrop-saturate-0 backdrop-brightness-100 z-10"
+          style={{ width: grayscaleWidth }}
+        />
+
+        {/* Bright Mask (Right) - Becomes white on scroll */}
+        <motion.div
+          className="absolute inset-0 bg-white z-5"
+          style={{ opacity: brightOpacity }}
+        />
+
+        {/* Hero Content */}
+        <motion.div
+          className="relative z-20 h-full flex flex-col justify-end pb-20 px-6 lp:px-20"
+          style={{ opacity: contentOpacity }}
+        >
+          <div className="max-w-[1400px] mx-auto w-full">
+            <h1 className="font-display text-4xl tb:text-6xl lp:text-7xl text-black mb-6 max-w-[900px]">
+              Train Your Mind.
+              <br />
+              <span className="italic">Master Algorithms.</span>
               </h1>
-              <p className="mb-4 lp:text-lg">
-                Whenever we are creating your design, we are the ultimate
-                Devil’s Advocate — no idea or norms are held sacred. We perform
-                thorough research of your competitors, educating ourselves as to
-                what they are doing right and wrong. With sufficient
-                information, we utilize mental-models fueled with A.I. into
-                “masking” ourselves into various competitive scenarios. We then
-                create user-persona’s matching your branding and voice. With
-                those persona’s, we craft a beautiful and attention catching
-                design.
-              </p>
-              <Button
-                className={`mt-4 px-4 py-2 w-fit bg-red-500 text-white rounded`}
-              >
-                Get Started
-              </Button>
-            </div>
-
-            {/* Second Item */}
-            <div className="flex-1 max-w-[600px] bg-transparent p-4 sm:p-0 tb:order-1"></div>
-          </div>
-        </div>
-        <style jsx>{`
-          .relative-container {
-            background-image: url("/images/mask-background.png");
-          }
-
-          @media (max-width: 640px) {
-            .relative-container {
-              background-image: url("/images/mask-background-flip.png");
-            }
-          }
-
-          @media (min-width: 641px) {
-            .relative-container {
-              background-image: url("/images/mask-background.png");
-            }
-          }
-        `}</style>
-      </div>
-
-      <div className="flex flex-col max-w-[1408px] mx-auto p-4 lp:p-8 md:p-12 lg:p-16 dp:p-0 lp:w-screen lp:h-screen lp:justify-center">
-        <div className="flex flex-col lp:flex-row lp:flex-row-reverse justify-between w-full space-y-8 lp:space-y-0 my-8 lp:space-x-8 dp:space-x-0">
-          <div className="flex flex-col lp:items-start max-w-[500px] lp:max-w-[600px] w-full mx-auto lp:mx-0">
-            <Image
-              src={`/images/path-not-followed.png`}
-              alt={`Chess peice`}
-              width={600}
-              height={400}
-              className="w-full h-full"
-            />
-          </div>
-
-          <div className="flex flex-col lp:items-start max-w-[500px] lp:max-w-[600px] w-full mx-auto lp:gap-7">
-            <div>
-              <h2 className="tb:mt-4 text-2xl font-bold text-black lp:text-4xl">
-                Path Not Followed
-              </h2>
-              <p className="mt-2 text-black lp:text-lg">
-                We are not in the business of cookie-cutter solutions. Every
-                business is unique with its own special Branding & Voice. What
-                sets us apart?
-              </p>
-            </div>
-            <div className={"flex flex-col gap-3 my-5 dp:gap-5 lp:text-lg"}>
-              <div className={"flex flex-row text-black gap-3"}>
-                <Image
-                  src={"/images/chevron-right.png"}
-                  height={30}
-                  width={30}
-                  className="h-[20px] w-[20px] tb:h-[30px] tb:w-[30px] my-auto"
-                />
-                <span>We bring-in powerful Mental-Models coupled with A.I</span>
-              </div>
-              <div className={"flex flex-row text-black gap-3"}>
-                <Image
-                  src={"/images/chevron-right.png"}
-                  height={30}
-                  width={30}
-                  className="h-[20px] w-[20px] tb:h-[30px] tb:w-[30px] my-auto"
-                />
-                <span>Our special mask process</span>
-              </div>
-              <div className={"flex flex-row text-black gap-3"}>
-                <Image
-                  src={"/images/chevron-right.png"}
-                  height={30}
-                  width={30}
-                  className="h-[20px] w-[20px] tb:h-[30px] tb:w-[30px] my-auto"
-                />
-                <span>Ultra-transparency & elite education</span>
-              </div>
-            </div>
-            <div className="flex mt-4 space-x-4">
-              <Button className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
-                Learn More
-              </Button>
-              <Button className="bg-transparent border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold py-2 px-4 rounded">
-                Contact Us
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div
-        className="w-full flex flex-col mx-auto p-4 lp:p-8 md:p-12 lg:p-16 dp:p-0 lp:w-screen lp:h-screen lp:justify-center bg-slate-900 bg-opacity-50"
-        style={{
-          backgroundImage: 'url("/images/background-daniel.png")',
-          backgroundBlendMode: "multiply",
-        }}
-      >
-        <div className="mx-auto max-w-[1408px] flex flex-col lp:flex-row justify-between w-full space-y-8 lp:space-y-0 my-8 lp:space-x-8 dp:space-x-0">
-          <div className="flex flex-col lp:items-start max-w-[500px] lp:max-w-[600px] w-full mx-auto lp:mx-0">
-            <Image
-              src={`/images/me.jpg`}
-              alt={`Chess peice`}
-              width={600}
-              height={400}
-              className="w-full h-full"
-              color="none"
-              style={{ filter: "grayscale(100%)", boxShadow: '30px 30px 60px rgba(173, 216, 255, 0.5)' }}
-            />
-            <h2 className="tb:mt-4 text-2xl text-white lp:text-4xl z-10">
-              Daniel Dobrovolskiy
-            </h2>
-          </div>
-
-          <div className="flex flex-col lp:items-start max-w-[500px] lp:max-w-[600px] w-full mx-auto lp:gap-7 text-white">
-            <h2 className="tb:mt-4 text-2xl font-bold lp:text-4xl">
-              Who I Am
-            </h2>
-            <p className="mt-2 lp:text-lg">
-              A professional software engineer with a passion for
-              solving-puzzles, thinking-outside of the box, and challenging
-              design norms. His hobbies are none of your business — literally.
-              If you’re not convinced he is qualified for the job no idea why
-              you’re reading this right now. Whenever we are creating your
-              design, we are the ultimate Devil’s Advocate — no idea or norms
-              are held sacred.
+            <p className="text-lg tb:text-xl lp:text-2xl text-ash max-w-[700px] mb-8">
+              DramaRama is your mental gym for algorithms. Apply the 5 Elements of
+              Effective Thinking to transform how you solve problems.
             </p>
-            <Button
-              className={`mt-4 px-4 py-2 w-fit bg-red-500 text-white rounded`}
-            >
-              Wanna change your life?
-            </Button>
+            <div className="flex flex-col tb:flex-row gap-4">
+              <Link href="/login">
+                <Button className="btn-primary px-8 py-6 text-lg rounded-none">
+                  Start Training
+                </Button>
+              </Link>
+              <Link href="/elements">
+                <Button className="btn-secondary px-8 py-6 text-lg rounded-none">
+                  Learn the Elements
+              </Button>
+              </Link>
+            </div>
+          </div>
+
+          {/* Scroll indicator */}
+          <div className="absolute bottom-8 right-8 animate-float">
+            <Image
+              src="/images/icons8-down-arrow-100.png"
+              width={30}
+              height={30}
+              alt="Scroll down"
+              className="opacity-60"
+            />
+          </div>
+        </motion.div>
+      </section>
+
+      {/* Section Divider */}
+      <div className="section-divider" />
+
+      {/* The Philosophy Section */}
+      <section className="py-24 px-6 lp:px-20 bg-white">
+        <div className="max-w-[1400px] mx-auto">
+          <div className="grid lp:grid-cols-2 gap-16 items-center">
+            <div>
+              <span className="text-sm font-mono text-smoke uppercase tracking-widest mb-4 block">
+                The Philosophy
+              </span>
+              <h2 className="font-display text-4xl lp:text-5xl text-black mb-6">
+                Stop solving.
+                <br />
+                <span className="italic">Start thinking.</span>
+              </h2>
+              <p className="text-lg text-ash mb-6">
+                Most algorithm platforms reward getting the right answer. But that's not
+                what matters. What matters is whether you're engaging deeply—applying
+                creative thinking, reflecting honestly, and building mental muscles.
+              </p>
+              <p className="text-lg text-ash mb-8">
+                DramaRama tracks how you <em>think</em>, not just what you solve. We guide
+                you through 12 prompts across the 5 Elements, training your mind to see
+                problems as puzzles to be loved, not obstacles to overcome.
+              </p>
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <div className="metric-value text-black">12</div>
+                  <div className="metric-label">Prompts</div>
+            </div>
+                <div className="w-px h-12 bg-mist" />
+                <div className="text-center">
+                  <div className="metric-value text-black">5</div>
+                  <div className="metric-label">Elements</div>
+              </div>
+                <div className="w-px h-12 bg-mist" />
+                <div className="text-center">
+                  <div className="metric-value text-black">∞</div>
+                  <div className="metric-label">Growth</div>
+              </div>
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="absolute -inset-4 bg-gradient-to-br from-earth/10 via-fire/10 to-water/10 rounded-3xl blur-2xl" />
+              <div className="relative bg-white border border-mist rounded-2xl p-8 shadow-xl">
+                <div className="font-mono text-sm text-smoke mb-4">// Your journey</div>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <span className="text-2xl">🌳</span>
+                    <div className="flex-1">
+                      <div className="progress-bar">
+                        <div className="progress-bar-fill bg-earth" style={{ width: "85%" }} />
+                      </div>
+                    </div>
+                    <span className="font-mono text-sm">85%</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-2xl">🔥</span>
+                    <div className="flex-1">
+                      <div className="progress-bar">
+                        <div className="progress-bar-fill bg-fire" style={{ width: "72%" }} />
+                      </div>
+                    </div>
+                    <span className="font-mono text-sm">72%</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-2xl">💨</span>
+                    <div className="flex-1">
+                      <div className="progress-bar">
+                        <div className="progress-bar-fill bg-air" style={{ width: "90%" }} />
+                      </div>
+                    </div>
+                    <span className="font-mono text-sm">90%</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-2xl">🌊</span>
+                    <div className="flex-1">
+                      <div className="progress-bar">
+                        <div className="progress-bar-fill bg-water" style={{ width: "65%" }} />
+                      </div>
+                    </div>
+                    <span className="font-mono text-sm">65%</span>
+                  </div>
+                </div>
+                <div className="mt-6 pt-6 border-t border-mist flex justify-between items-center">
+                  <span className="font-mono text-sm text-smoke">Total Joules</span>
+                  <span className="font-display text-3xl text-change">2,847</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+      </section>
+
+      {/* The 5 Elements Section */}
+      <section className="py-24 px-6 lp:px-20 bg-gradient-to-b from-white to-mist/30">
+        <div className="max-w-[1400px] mx-auto">
+          <div className="text-center mb-16">
+            <span className="text-sm font-mono text-smoke uppercase tracking-widest mb-4 block">
+              The Framework
+            </span>
+            <h2 className="font-display text-4xl lp:text-5xl text-black mb-6">
+              5 Elements of Effective Thinking
+            </h2>
+            <p className="text-lg text-ash max-w-[600px] mx-auto">
+              Each element provides a different lens to see the structure of any puzzle.
+              Together, they create change.
+            </p>
+          </div>
+
+          <div className="grid mb:grid-cols-2 lp:grid-cols-5 gap-6">
+            {elements.map((element, index) => (
+              <div
+                key={element.id}
+                className={`element-card element-${element.color} bg-white rounded-xl p-6 opacity-0 animate-fade-in-up`}
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <span className="text-4xl mb-4 block">{element.emoji}</span>
+                <h3 className={`font-display text-2xl mb-2 text-${element.color}`}>
+                  {element.name}
+                </h3>
+                <p className="text-sm text-smoke mb-4">{element.title}</p>
+                <ul className="space-y-1">
+                  {element.subElements.map((sub, i) => (
+                    <li key={i} className="text-xs font-mono text-ash flex items-center gap-2">
+                      <span className="w-1 h-1 rounded-full bg-current opacity-50" />
+                      {sub}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section className="py-24 px-6 lp:px-20 bg-black text-white">
+        <div className="max-w-[1400px] mx-auto">
+          <div className="text-center mb-16">
+            <span className="text-sm font-mono text-smoke uppercase tracking-widest mb-4 block">
+              The Process
+            </span>
+            <h2 className="font-display text-4xl lp:text-5xl mb-6">
+              How DramaRama Works
+            </h2>
+          </div>
+
+          <div className="grid lp:grid-cols-3 gap-12">
+            <div className="text-center">
+              <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-6">
+                <span className="text-3xl">🧩</span>
       </div>
-      <div>
-      <p className="mt-2 lp:text-lg text-white bg-black mt-0 py-3 text-center">
-        DramaRama Copyright @ 2024
+              <h3 className="font-display text-2xl mb-4">1. Open a Problem</h3>
+              <p className="text-smoke">
+                Visit LeetCode or HackerRank. Our browser extension detects the algorithm
+                and starts your session.
       </p>
       </div>
 
-      {/* <Header2 /> */}
-
-      {/* <DoubleLayout />       */}
-
-      {/* <div>
-        <div className="container mx-auto p-4 max-w-[1536px]">
-          <div className="flex flex-col mb:flex-row gap-16 mb:gap-8 pt-8 bg-gray-300">
-            <div className="flex-1 bg-red-400">
-              <Image
-                src="/images/image1.png"
-                alt="Image 1"
-                className="w-[100%] h-auto mb-4 lp:mb-10 transition-transform duration-300 hover:scale-105 rounded-none"
-              />
-              <h2 className="text-2xl lp:text-3xl text-black mb-4">
-                Website Design
-              </h2>
-              <p className="text-base lp:text-xl text-black mt-2 mb-4 max-w-[661px]">
-                This is the paragraph text for the first component. It should be
-                responsive and adapt to different screen sizes. This is the
-                paragraph text for the first component. It should be responsive
-                and adapt to different screen sizes.
+            <div className="text-center">
+              <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-6">
+                <span className="text-3xl">🎯</span>
+              </div>
+              <h3 className="font-display text-2xl mb-4">2. Answer 12 Prompts</h3>
+              <p className="text-smoke">
+                Apply each of the 5 Elements (3 sub-elements each) to the problem. Think
+                deeply. Write honestly.
               </p>
-              <Button className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
-                Design
-              </Button>
             </div>
-            <div className="flex-1 bg-blue-200">
-              <Image
-                src="/images/image2.png"
-                alt="Image 2"
-                className="w-[100%] h-auto mb-4 lp:mb-10 transition-transform duration-300 hover:scale-105 rounded-none dp:ml-auto"
-              />
-              <h2 className="text-2xl lp:text-3xl text-black mb-4 dp:ml-auto">
-                Website Development
-              </h2>
-              <p className="text-base lp:text-xl text-black mt-2 mb-4  max-w-[661px] dp:ml-auto">
-                This is the paragraph text for the first component. It should be
-                responsive and adapt to different screen sizes. This is the
-                paragraph text for the first component. It should be responsive
-                and adapt to different screen sizes.
+
+            <div className="text-center">
+              <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-6">
+                <span className="text-3xl">✨</span>
+              </div>
+              <h3 className="font-display text-2xl mb-4">3. Receive Your Nudge</h3>
+              <p className="text-smoke">
+                Our AI analyzes your engagement and nudges you toward the element you
+                need—without spoiling the answer.
               </p>
-              <Button className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
-                Develop
-              </Button>
             </div>
           </div>
-        </div>
-        <div className="relative w-full h-screen bg-gray-100 dp:bg-transparent">
-          <div className="absolute inset-0 bg-gray-100 tb:hidden"></div>          
-          <div className="absolute inset-0 hidden tb:block dp:hidden">
-            <Image
-              src="/images/mask-background-flip.png"
-              alt="Background Image Tablet"
-              layout="fill"
-              objectFit="cover"
-            />
-          </div>
-          <div className="absolute inset-0 hidden dp:block">
-            <Image
-              src="/images/mask-background.png"
-              alt="Background Image Desktop"
-              layout="fill"
-              objectFit="cover"
-            />
-          </div>
-          <div className="relative z-10 flex flex-col justify-center items-center h-full px-4 py-16 tb:items-start tb:justify-start tb:max-w-2xl tb:mt-16 tb:px-8 dp:max-w-1/3 dp:ml-auto dp:px-16">
-            <h1 className="text-2xl tb:text-4xl dp:text-5xl text-black mb-4">
-              The Mask Process
-            </h1>
-            <p className="text-base tb:text-lg dp:text-xl text-black mb-4">
-              You are a Frontend NextUI/Tailwind developer. Your task is to
-              build a responsive header (fluid from mobile to desktop devices).
-              Starting from mobile (mb in config), there is the header image
-              taking up the full width of the screen and the height being auto
-              (whatever the height of the image is). Below that image we have
-              the header content: an h1 (the heading), a sub-heading, and 2
-              buttons side by side. All the text is black. The buttons are red.
-              There are two divs that rest on top of the image. The first div,
-              taking 30% of the width of the image has backgrop of black and
-              white. The second div has a backdrop that makes the image more
-              brighter. As we get to tablet size (tb in config), the text
-              becomes larger. And then when we get to laptop size (lp in
-              config).
-            </p>
-            <Link href="/somepage">
-              <a className="px-4 py-2 bg-red-500 text-white rounded">
-                Get Started
-              </a>
+
+          <div className="text-center mt-16">
+            <Link href="/login">
+              <Button className="bg-white text-black hover:bg-mist px-8 py-6 text-lg rounded-none font-semibold">
+                Get the Extension
+              </Button>
             </Link>
           </div>
         </div>
-      </div> */}
+      </section>
+
+      {/* Dashboard Preview Section */}
+      <section className="py-24 px-6 lp:px-20 bg-white">
+        <div className="max-w-[1400px] mx-auto">
+          <div className="grid lp:grid-cols-2 gap-16 items-center">
+            <div className="order-2 lp:order-1">
+              {/* Mock Dashboard */}
+              <div className="bg-mist/30 rounded-2xl p-6 border border-mist">
+                <div className="flex items-center gap-2 mb-6">
+                  <div className="w-3 h-3 rounded-full bg-fire/60" />
+                  <div className="w-3 h-3 rounded-full bg-earth/60" />
+                  <div className="w-3 h-3 rounded-full bg-air/60" />
+                  <span className="ml-2 font-mono text-xs text-smoke">dashboard</span>
+                </div>
+
+                {/* Stats Row */}
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="bg-white rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-fire flex items-center justify-center gap-1">
+                      <span>🔥</span> 7
+                    </div>
+                    <div className="text-xs text-smoke">Day Streak</div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-black">23</div>
+                    <div className="text-xs text-smoke">Sessions</div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-change">847</div>
+                    <div className="text-xs text-smoke">Joules</div>
+                  </div>
+                </div>
+
+                {/* Recent Sessions */}
+                <div className="bg-white rounded-lg p-4">
+                  <div className="text-sm font-semibold mb-3">Recent Sessions</div>
+                  <div className="space-y-2">
+                    {recentSessions.map((session) => (
+                      <div
+                        key={session.id}
+                        className="flex items-center gap-3 p-2 hover:bg-mist/50 rounded transition-colors"
+                      >
+                        <span className="text-lg">
+                          {session.element === "earth" && "🌳"}
+                          {session.element === "fire" && "🔥"}
+                          {session.element === "air" && "💨"}
+                        </span>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{session.title}</div>
+                          <div className="text-xs text-smoke">{session.date}</div>
+                        </div>
+                        <div className="w-16">
+                          <div className="progress-bar h-1">
+                            <div
+                              className={`progress-bar-fill bg-${session.element}`}
+                              style={{ width: `${session.progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="order-1 lp:order-2">
+              <span className="text-sm font-mono text-smoke uppercase tracking-widest mb-4 block">
+                Your Headquarters
+              </span>
+              <h2 className="font-display text-4xl lp:text-5xl text-black mb-6">
+                Track Your
+                <br />
+                <span className="italic">Transformation</span>
+              </h2>
+              <p className="text-lg text-ash mb-6">
+                Your dashboard is your mental gym log. See which elements you're
+                mastering, where you need more practice, and how you've grown over time.
+              </p>
+              <ul className="space-y-4 mb-8">
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-earth/10 flex items-center justify-center text-earth shrink-0 mt-0.5">
+                    ✓
+                  </span>
+                  <span className="text-ash">
+                    <strong className="text-black">Session History</strong> — Every algorithm you've
+                    thought through, preserved
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-fire/10 flex items-center justify-center text-fire shrink-0 mt-0.5">
+                    ✓
+                  </span>
+                  <span className="text-ash">
+                    <strong className="text-black">Element Breakdown</strong> — See which lenses you
+                    favor and which need work
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-change/10 flex items-center justify-center text-change shrink-0 mt-0.5">
+                    ✓
+                  </span>
+                  <span className="text-ash">
+                    <strong className="text-black">Growth Metrics</strong> — Joules earned,
+                    streaks maintained, progress visualized
+                  </span>
+                </li>
+              </ul>
+              <Link href="/dashboard">
+                <Button className="btn-primary px-8 py-6 text-lg rounded-none">
+                  View Dashboard Demo
+              </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section
+        className="py-32 px-6 lp:px-20 relative"
+        style={{
+          backgroundImage: 'url("/images/background-daniel.png")',
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        <div className="absolute inset-0 bg-black/80" />
+        <div className="relative z-10 max-w-[1400px] mx-auto text-center">
+          <h2 className="font-display text-4xl lp:text-6xl text-white mb-6">
+            Ready to transform how you think?
+          </h2>
+          <p className="text-xl text-white/70 max-w-[600px] mx-auto mb-10">
+            Join the mental gym. Stop memorizing algorithms. Start understanding them.
+          </p>
+          <div className="flex flex-col tb:flex-row gap-4 justify-center">
+            <Link href="/login">
+              <Button className="bg-white text-black hover:bg-mist px-10 py-7 text-lg rounded-none font-semibold">
+                Create Free Account
+              </Button>
+            </Link>
+            <Link href="/elements">
+              <Button className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-black px-10 py-7 text-lg rounded-none font-semibold">
+                Explore the Elements
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-black text-white py-12 px-6 lp:px-20">
+        <div className="max-w-[1400px] mx-auto">
+          <div className="flex flex-col lp:flex-row justify-between items-center gap-8">
+            <div className="flex items-center gap-3">
+              <Image src="/images/icons8-drama-96.png" width={40} height={40} alt="DramaRama" />
+              <span className="font-display text-2xl">DramaRama</span>
+            </div>
+            <div className="flex gap-8 text-sm text-smoke">
+              <Link href="/elements" className="hover:text-white transition-colors">
+                Elements
+              </Link>
+              <Link href="/dashboard" className="hover:text-white transition-colors">
+                Dashboard
+              </Link>
+              <Link href="/login" className="hover:text-white transition-colors">
+                Login
+              </Link>
+            </div>
+            <div className="text-sm text-smoke">
+              DramaRama © {new Date().getFullYear()} — Think through it.
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -1,12 +1,13 @@
 import "../styles/globals.css";
 import { Providers } from "./providers";
-import { Navbar } from "../components/navbar";
+import { NavbarWrapper } from "../components/NavbarWrapper";
 
 export const metadata = {
   title: {
     default: "DramaRama",
+    template: "%s | DramaRama",
   },
-  description: "We dramatize your website!",
+  description: "Train your mind. Master algorithms. DramaRama is your mental gym for algorithms using the 5 Elements of Effective Thinking.",
   icons: {
     icon: "/favicon.ico",
   },
@@ -22,11 +23,18 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html suppressHydrationWarning lang="en">
-      <head />
-      <body className={'bg-white'}>
-        <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
-          <Navbar />
-          {children}  
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link 
+          href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" 
+          rel="stylesheet" 
+        />
+      </head>
+      <body className="bg-white antialiased">
+        <Providers themeProps={{ attribute: "class", defaultTheme: "light" }}>
+          <NavbarWrapper />
+          {children}
         </Providers>
       </body>
     </html>

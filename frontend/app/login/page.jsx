@@ -4,8 +4,8 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { SignIn, SignUp } from "@clerk/nextjs";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useEffect } from "react";
 
@@ -13,13 +13,24 @@ export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
   const { isSignedIn, isLoaded } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Get redirect URL from query params (for extension flow)
+  const redirectUrl = useMemo(() => {
+    const redirect = searchParams.get("redirect");
+    // Only allow internal redirects for security
+    if (redirect && redirect.startsWith("/")) {
+      return redirect;
+    }
+    return "/dashboard";
+  }, [searchParams]);
 
   // Redirect if already signed in
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      router.push("/dashboard");
+      router.push(redirectUrl);
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [isLoaded, isSignedIn, router, redirectUrl]);
 
   return (
     <div className="min-h-screen flex">
@@ -145,7 +156,7 @@ export default function LoginPage() {
                   },
                 }}
                 routing="hash"
-                forceRedirectUrl="/dashboard"
+                forceRedirectUrl={redirectUrl}
               />
             ) : (
               <SignUp 
@@ -171,7 +182,7 @@ export default function LoginPage() {
                   },
                 }}
                 routing="hash"
-                forceRedirectUrl="/dashboard"
+                forceRedirectUrl={redirectUrl}
               />
             )}
           </div>

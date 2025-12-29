@@ -6,9 +6,10 @@ import httpx
 from fastapi import HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from functools import lru_cache
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from app.core.config import settings
+from app.domain.entities import User
 
 security = HTTPBearer()
 optional_security = HTTPBearer(auto_error=False)
@@ -46,12 +47,35 @@ def get_public_key(token: str):
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Security(security)
-) -> dict:
+) -> Dict[str, Any]:
     """
-    Validate JWT token and return user info
+    Validate JWT token, ensure user exists in DB, and return user info.
+    This automatically creates the user in the database on first access.
+    
+    Returns dict with:
+        - user_id: Clerk ID (from JWT sub claim)
+        - email: User email (from JWT)
+        - db_user: User entity from database (auto-created if needed)
     """
     token = credentials.credentials
-    return await get_user_from_token(token)
+    jwt_user = await get_user_from_token(token)
+    
+    # Lazy import to avoid circular dependency
+    from app.adapters.supabase_adapter import SupabaseUserRepository
+    
+    # Get or create user in database
+    user_repo = SupabaseUserRepository()
+    db_user = await user_repo.get_or_create(
+        clerk_id=jwt_user["user_id"],
+        email=jwt_user.get("email")
+    )
+    
+    # Return combined info
+    return {
+        "user_id": jwt_user["user_id"],
+        "email": jwt_user.get("email"),
+        "db_user": db_user,
+    }
 
 
 async def get_user_from_token(token: str) -> dict:
@@ -95,9 +119,10 @@ async def get_user_from_token(token: str) -> dict:
 
 async def get_optional_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Security(optional_security)
-) -> Optional[dict]:
+) -> Optional[Dict[str, Any]]:
     """
-    Optional authentication - returns None if no valid token
+    Optional authentication - returns None if no valid token.
+    If token is valid, ensures user exists in DB.
     """
     if not credentials:
         return None

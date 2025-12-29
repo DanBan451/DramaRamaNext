@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@nextui-org/button";
 import { useAuth } from "@clerk/nextjs";
+import Footer from "@/components/Footer";
 
 const elementColors = {
   earth: "bg-earth",
@@ -59,8 +60,8 @@ export default function DashboardPage() {
         setError(err.detail || "Failed to load stats from backend.");
       }
 
-      // Fetch sessions
-      const sessionsResponse = await fetch(`${API_URL}/api/user/sessions?limit=10`, {
+      // Fetch sessions (limit to 5 for dashboard preview)
+      const sessionsResponse = await fetch(`${API_URL}/api/user/sessions?limit=5`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -105,7 +106,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white pt-24 pb-16">
+    <div className="min-h-screen bg-white flex flex-col">
+      <div className="flex-1 pt-24 pb-16">
       <div className="max-w-[1400px] mx-auto px-6 lp:px-20">
         {/* Header */}
         <div className="flex flex-col tb:flex-row tb:items-center tb:justify-between gap-6 mb-12">
@@ -345,6 +347,11 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+      </div>
+      </div>
+      
+      <div className="mt-16">
+        <Footer />
       </div>
     </div>
   );

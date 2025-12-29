@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { SignedIn, SignedOut, useAuth, SignInButton } from "@clerk/nextjs";
 import { Button } from "@nextui-org/button";
+import Footer from "@/components/Footer";
 
 const EXTENSION_TOKEN_TEMPLATE =
   process.env.NEXT_PUBLIC_CLERK_EXTENSION_JWT_TEMPLATE || "dramarama-extension";
@@ -46,7 +47,8 @@ export default function ConnectExtensionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white pt-28 pb-16">
+    <div className="min-h-screen bg-white flex flex-col">
+      <div className="flex-1 pt-28 pb-16">
       <div className="max-w-[900px] mx-auto px-6 lp:px-20">
         <h1 className="font-display text-4xl lp:text-5xl text-black mb-3">
           Connect Chrome Extension
@@ -109,6 +111,11 @@ export default function ConnectExtensionPage() {
             </div>
           </div>
         </SignedIn>
+      </div>
+      </div>
+      
+      <div className="mt-16">
+        <Footer />
       </div>
     </div>
   );

@@ -10,6 +10,8 @@ let currentPromptIndex = 0;
 let promptStartTime = null;
 let chatContainer = null;
 let authTokenCached = null;
+let currentProblemUrl = null;
+let urlCheckInterval = null;
 
 function setAuthStatus(message) {
   const el = document.getElementById("dramarama-auth-status");
@@ -81,6 +83,32 @@ async function ingestTokenHandoffIfPresent() {
   }
 }
 
+// Get the normalized problem URL (without query params or hash)
+function getProblemUrl() {
+  const url = new URL(window.location.href);
+  // Remove hash and query params for comparison
+  return `${url.origin}${url.pathname}`;
+}
+
+// Check if URL has changed and handle it
+function checkUrlChange() {
+  const newUrl = getProblemUrl();
+  if (currentProblemUrl && newUrl !== currentProblemUrl) {
+    // URL changed - reset session for new problem
+    handleProblemChange(newUrl);
+  }
+  currentProblemUrl = newUrl;
+}
+
+async function handleProblemChange(newUrl) {
+  // Clear current session from memory
+  currentSession = null;
+  currentPromptIndex = 0;
+  
+  // Check auth and load session for new problem
+  await checkAuthAndSession();
+}
+
 // Create and inject the DramaRama chatbot UI
 function createChatUI() {
   // Check if already exists
@@ -106,22 +134,31 @@ function createChatUI() {
       <div id="dramarama-content" class="dramarama-content">
         <div id="dramarama-auth-view" class="dramarama-view">
           <div class="dramarama-auth-message">
-            <p>To start, connect your account to the extension.</p>
-            <a href="http://localhost:3000/go/leetcode?url=https%3A%2F%2Fleetcode.com%2F" target="_blank" class="dramarama-btn dramarama-btn-primary">
-              Open LeetCode via DramaRama (auto-auth)
+            <div class="dramarama-auth-icon">🔒</div>
+            <p>Connect to start training</p>
+            <a href="http://localhost:3000/login?redirect=/go/leetcode" target="_blank" class="dramarama-btn dramarama-btn-primary">
+              Login / Sign Up
             </a>
-            <button id="dramarama-refresh-auth" class="dramarama-btn dramarama-btn-secondary">
-              I already connected — Refresh
-            </button>
+            <p class="dramarama-auth-hint">After signing in, you'll be automatically connected.</p>
             <div id="dramarama-auth-status" class="dramarama-auth-status hidden"></div>
           </div>
         </div>
         <div id="dramarama-start-view" class="dramarama-view hidden">
+          <div id="dramarama-user-greeting" class="dramarama-user-greeting"></div>
           <h3>Ready to think through this problem?</h3>
           <p class="dramarama-algorithm-title" id="dramarama-algo-title"></p>
           <button id="dramarama-start-btn" class="dramarama-btn dramarama-btn-primary">
             Start Session
           </button>
+          <div id="dramarama-active-session-warning" class="dramarama-warning hidden">
+            <p>⚠️ You already have an active session for this problem.</p>
+            <button id="dramarama-resume-btn" class="dramarama-btn dramarama-btn-primary">
+              Resume Session
+            </button>
+            <button id="dramarama-cancel-existing-btn" class="dramarama-btn dramarama-btn-danger">
+              Cancel & Start New
+            </button>
+          </div>
         </div>
         <div id="dramarama-session-view" class="dramarama-view hidden">
           <div class="dramarama-progress">
@@ -188,9 +225,14 @@ function createChatUI() {
   document.getElementById('dramarama-cancel-btn')?.addEventListener('click', cancelSession);
   document.getElementById('dramarama-complete-btn')?.addEventListener('click', completeSession);
   document.getElementById('dramarama-new-session-btn')?.addEventListener('click', resetSession);
+  document.getElementById('dramarama-resume-btn')?.addEventListener('click', resumeExistingSession);
+  document.getElementById('dramarama-cancel-existing-btn')?.addEventListener('click', cancelAndStartNew);
 
   // Word count tracking
   document.getElementById('dramarama-response')?.addEventListener('input', updateWordCount);
+
+  // Initialize current problem URL
+  currentProblemUrl = getProblemUrl();
 
   // Initialize
   ingestTokenHandoffIfPresent().finally(() => {
@@ -206,6 +248,14 @@ function createChatUI() {
       }
     });
   }
+
+  // Start URL change detection
+  urlCheckInterval = setInterval(checkUrlChange, 1000);
+  
+  // Also check on popstate (back/forward navigation)
+  window.addEventListener('popstate', () => {
+    setTimeout(checkUrlChange, 100);
+  });
 }
 
 function togglePanel() {
@@ -222,6 +272,58 @@ function togglePanel() {
   } else {
     panel.classList.add('hidden');
     toggle.classList.remove('active');
+  }
+}
+
+function base64UrlDecode(str) {
+  const pad = '='.repeat((4 - (str.length % 4)) % 4);
+  const b64 = (str + pad).replace(/-/g, '+').replace(/_/g, '/');
+  try {
+    return atob(b64);
+  } catch {
+    return null;
+  }
+}
+
+function decodeJwtPayload(token) {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length < 2) return null;
+  const json = base64UrlDecode(parts[1]);
+  if (!json) return null;
+  try {
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+function getUserDisplayName(token) {
+  const payload = decodeJwtPayload(token);
+  if (!payload) return null;
+  
+  // Try various JWT fields for name
+  if (payload.name) return payload.name;
+  if (payload.given_name) return payload.given_name;
+  if (payload.nickname) return payload.nickname;
+  if (payload.preferred_username) return payload.preferred_username;
+  if (payload.email) {
+    // Use part before @ as display name
+    return payload.email.split('@')[0];
+  }
+  return null;
+}
+
+function updateUserGreeting(token) {
+  const greetingEl = document.getElementById('dramarama-user-greeting');
+  if (!greetingEl) return;
+  
+  const name = getUserDisplayName(token);
+  if (name) {
+    greetingEl.textContent = `Welcome, ${name}!`;
+    greetingEl.style.display = 'block';
+  } else {
+    greetingEl.style.display = 'none';
   }
 }
 
@@ -247,8 +349,15 @@ async function checkAuthAndSession() {
     return;
   }
 
-  // Check for existing session
-  const sessionResponse = await chrome.runtime.sendMessage({ type: 'GET_CURRENT_SESSION' });
+  // Update user greeting
+  updateUserGreeting(authTokenCached);
+
+  // Check for existing session for THIS problem
+  const problemUrl = getProblemUrl();
+  const sessionResponse = await chrome.runtime.sendMessage({ 
+    type: 'GET_SESSION_FOR_PROBLEM',
+    problemUrl: problemUrl 
+  });
   
   if (sessionResponse.session) {
     currentSession = sessionResponse.session;
@@ -263,12 +372,94 @@ async function checkAuthAndSession() {
       setAuthStatus("");
     }
   } else {
+    // Check if there's an active session for this problem that needs attention
+    const activeSession = await chrome.runtime.sendMessage({
+      type: 'CHECK_ACTIVE_SESSION_FOR_PROBLEM',
+      problemUrl: problemUrl
+    });
+    
+    if (activeSession.hasActiveSession) {
+      // Show warning about existing session
+      showStartViewWithWarning(activeSession.session);
+  } else {
     // Show start view with algorithm title
     const algorithmTitle = getAlgorithmTitle();
     document.getElementById('dramarama-algo-title').textContent = algorithmTitle;
     showView('start');
+      hideActiveSessionWarning();
+    }
     setAuthStatus("");
   }
+}
+
+function showStartViewWithWarning(existingSession) {
+  const algorithmTitle = getAlgorithmTitle();
+  document.getElementById('dramarama-algo-title').textContent = algorithmTitle;
+  
+  // Show the warning
+  const warningEl = document.getElementById('dramarama-active-session-warning');
+  const startBtn = document.getElementById('dramarama-start-btn');
+  
+  if (warningEl) {
+    warningEl.classList.remove('hidden');
+    currentSession = existingSession; // Store for resume
+  }
+  if (startBtn) {
+    startBtn.classList.add('hidden');
+  }
+  
+  showView('start');
+}
+
+function hideActiveSessionWarning() {
+  const warningEl = document.getElementById('dramarama-active-session-warning');
+  const startBtn = document.getElementById('dramarama-start-btn');
+  
+  if (warningEl) {
+    warningEl.classList.add('hidden');
+  }
+  if (startBtn) {
+    startBtn.classList.remove('hidden');
+  }
+}
+
+async function resumeExistingSession() {
+  if (!currentSession) {
+    await checkAuthAndSession();
+    return;
+  }
+  
+  currentPromptIndex = currentSession.currentPromptIndex || 0;
+  
+  if (currentSession.sessionComplete) {
+    showView('hint');
+  } else {
+    showView('session');
+    updatePromptDisplay();
+  }
+}
+
+async function cancelAndStartNew() {
+  if (currentSession?.id) {
+    const ok = confirm("Cancel the existing session and start fresh?");
+    if (!ok) return;
+    
+    try {
+      await chrome.runtime.sendMessage({
+        type: 'CANCEL_SESSION',
+        sessionId: currentSession.id,
+        reason: 'user_cancelled_to_restart',
+      });
+    } catch (e) {
+      // Continue anyway
+    }
+    
+    await chrome.runtime.sendMessage({ type: 'CLEAR_SESSION' });
+  }
+  
+  currentSession = null;
+  hideActiveSessionWarning();
+  await startSession();
 }
 
 function getAlgorithmTitle() {
@@ -287,7 +478,7 @@ function getAlgorithmTitle() {
 
 async function startSession() {
   const algorithmTitle = getAlgorithmTitle();
-  const algorithmUrl = window.location.href;
+  const algorithmUrl = getProblemUrl();
 
   const response = await chrome.runtime.sendMessage({
     type: 'START_SESSION',
@@ -383,11 +574,11 @@ async function submitResponse() {
         });
         alert(
           'Your DramaRama login token expired. Re-auth is running in the background.\n\n' +
-            'Wait a second, then click “Submit Response” again.'
+            'Wait a second, then click "Submit Response" again.'
         );
       } catch {
         alert(
-          'Your DramaRama login token expired. Please go to DramaRama HQ and click “Start New Session” to refresh.'
+          'Your DramaRama login token expired. Please go to DramaRama HQ and click "Start New Session" to refresh.'
         );
       }
       return;
@@ -582,6 +773,7 @@ async function resetSession() {
   
   const algorithmTitle = getAlgorithmTitle();
   document.getElementById('dramarama-algo-title').textContent = algorithmTitle;
+  hideActiveSessionWarning();
   
   showView('start');
 }
@@ -603,4 +795,3 @@ if (document.readyState === 'loading') {
 } else {
   createChatUI();
 }
-

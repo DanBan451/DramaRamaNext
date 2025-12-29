@@ -4,6 +4,7 @@ import { SignedIn, SignedOut, SignInButton, useAuth } from "@clerk/nextjs";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@nextui-org/button";
+import Footer from "@/components/Footer";
 
 // Assumption: this JWT template exists in Clerk and is configured correctly.
 const EXTENSION_TOKEN_TEMPLATE = "dramarama-extension";
@@ -54,7 +55,8 @@ export default function GoLeetCodePage() {
   }, [getToken, isLoaded, target]);
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-6">
+    <div className="min-h-screen bg-white flex flex-col">
+      <div className="flex-1 flex items-center justify-center px-6">
       <div className="max-w-md w-full border border-mist rounded-xl p-6 text-center">
         <SignedIn>
           <div className="text-3xl mb-3">🎭</div>
@@ -77,6 +79,11 @@ export default function GoLeetCodePage() {
             </Button>
           </SignInButton>
         </SignedOut>
+      </div>
+      </div>
+      
+      <div className="mt-16">
+        <Footer />
       </div>
     </div>
   );

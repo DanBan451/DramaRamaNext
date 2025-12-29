@@ -46,11 +46,8 @@ async def start_session(
     current_user: dict = Depends(get_current_user)
 ):
     """Start a new MUYOM session"""
-    # Get or create user in our database
-    user = await user_repo.get_or_create(
-        clerk_id=current_user["user_id"],
-        email=current_user.get("email")
-    )
+    # User is automatically created by get_current_user dependency
+    user = current_user["db_user"]
     
     # Create new session
     session = await session_repo.create(
@@ -75,14 +72,15 @@ async def submit_response(
     current_user: dict = Depends(get_current_user)
 ):
     """Submit a response to the current prompt"""
+    user = current_user["db_user"]
+    
     # Get session
     session = await session_repo.get_by_id(request.session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
     # Verify user owns session
-    user = await user_repo.get_by_clerk_id(current_user["user_id"])
-    if not user or session.user_id != user.id:
+    if session.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     # Get prompt info
@@ -133,13 +131,20 @@ async def analyze_session(
     Returns SSE stream.
     """
     # Auth: EventSource can't send Authorization headers reliably, so allow ?token=... for SSE.
+    # Note: We need to manually get_or_create here since we're not using the dependency
     if token:
-        current_user = await get_user_from_token(token)
+        jwt_user = await get_user_from_token(token)
     else:
         auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
         if not auth_header or not auth_header.lower().startswith("bearer "):
             raise HTTPException(status_code=401, detail="Missing auth token")
-        current_user = await get_user_from_token(auth_header.split(" ", 1)[1].strip())
+        jwt_user = await get_user_from_token(auth_header.split(" ", 1)[1].strip())
+    
+    # Ensure user exists in database
+    user = await user_repo.get_or_create(
+        clerk_id=jwt_user["user_id"],
+        email=jwt_user.get("email")
+    )
 
     # Get session
     session = await session_repo.get_by_id(session_id)
@@ -147,8 +152,7 @@ async def analyze_session(
         raise HTTPException(status_code=404, detail="Session not found")
     
     # Verify user owns session
-    user = await user_repo.get_by_clerk_id(current_user["user_id"])
-    if not user or session.user_id != user.id:
+    if session.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     # Get all responses
@@ -231,13 +235,14 @@ async def complete_session(
     current_user: dict = Depends(get_current_user)
 ):
     """Complete a session after receiving hint"""
+    user = current_user["db_user"]
+    
     session = await session_repo.get_by_id(request.session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
     # Verify user owns session
-    user = await user_repo.get_by_clerk_id(current_user["user_id"])
-    if not user or session.user_id != user.id:
+    if session.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     # Update hint with final response if provided
@@ -263,12 +268,13 @@ async def cancel_session(
     current_user: dict = Depends(get_current_user)
 ):
     """Cancel (abandon) a session."""
+    user = current_user["db_user"]
+    
     session = await session_repo.get_by_id(request.session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    user = await user_repo.get_by_clerk_id(current_user["user_id"])
-    if not user or session.user_id != user.id:
+    if session.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     from datetime import datetime
@@ -287,9 +293,7 @@ async def get_user_sessions(
     current_user: dict = Depends(get_current_user)
 ):
     """Get all sessions for the current user"""
-    user = await user_repo.get_by_clerk_id(current_user["user_id"])
-    if not user:
-        return UserSessionsResponse(sessions=[], total_count=0)
+    user = current_user["db_user"]
     
     sessions = await session_repo.get_user_sessions(user.id, limit)
     
@@ -316,13 +320,14 @@ async def get_session_detail(
     current_user: dict = Depends(get_current_user)
 ):
     """Get detailed session with responses and hint"""
+    user = current_user["db_user"]
+    
     session = await session_repo.get_by_id(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
     # Verify user owns session
-    user = await user_repo.get_by_clerk_id(current_user["user_id"])
-    if not user or session.user_id != user.id:
+    if session.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     # Get responses
@@ -367,12 +372,13 @@ async def delete_session(
     current_user: dict = Depends(get_current_user),
 ):
     """Delete a session (and its responses/hints via cascade)."""
+    user = current_user["db_user"]
+    
     session = await session_repo.get_by_id(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    user = await user_repo.get_by_clerk_id(current_user["user_id"])
-    if not user or session.user_id != user.id:
+    if session.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     deleted = await session_repo.delete(session_id)
@@ -383,15 +389,7 @@ async def get_user_stats(
     current_user: dict = Depends(get_current_user)
 ):
     """Get dashboard stats for current user"""
-    user = await user_repo.get_by_clerk_id(current_user["user_id"])
-    if not user:
-        return DashboardStatsResponse(
-            total_sessions=0,
-            completed_sessions=0,
-            total_joules=0,
-            current_streak=0,
-            element_breakdown={"earth": 0, "fire": 0, "air": 0, "water": 0},
-        )
+    user = current_user["db_user"]
     
     sessions = await session_repo.get_user_sessions(user.id, limit=100)
     

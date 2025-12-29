@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@nextui-org/button";
 import { useAuth } from "@clerk/nextjs";
+import Footer from "@/components/Footer";
 
 export default function SessionsPage() {
   const { getToken, isLoaded, isSignedIn } = useAuth();
@@ -11,6 +12,8 @@ export default function SessionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const sessionsPerPage = 15;
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
@@ -54,6 +57,17 @@ export default function SessionsPage() {
     return session.status === filter;
   });
 
+  // Pagination
+  const totalPages = Math.ceil(filteredSessions.length / sessionsPerPage);
+  const startIndex = (currentPage - 1) * sessionsPerPage;
+  const endIndex = startIndex + sessionsPerPage;
+  const paginatedSessions = filteredSessions.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
+
   if (!isLoaded) {
     return (
       <div className="min-h-screen bg-white pt-24 pb-16 flex items-center justify-center">
@@ -66,7 +80,8 @@ export default function SessionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white pt-24 pb-16">
+    <div className="min-h-screen bg-white flex flex-col">
+      <div className="flex-1 pt-24 pb-16">
       <div className="max-w-[1200px] mx-auto px-6 lp:px-20">
         {/* Header */}
         <div className="flex flex-col tb:flex-row tb:items-center tb:justify-between gap-6 mb-12">
@@ -130,8 +145,9 @@ export default function SessionsPage() {
             </Button>
         </div>
         ) : filteredSessions.length > 0 ? (
-        <div className="space-y-4">
-          {filteredSessions.map((session) => (
+          <>
+        <div className="space-y-4 mb-8">
+          {paginatedSessions.map((session) => (
             <Link
               key={session.id}
               href={`/sessions/${session.id}`}
@@ -208,6 +224,62 @@ export default function SessionsPage() {
             </Link>
           ))}
         </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  isDisabled={currentPage === 1}
+                  className="bg-mist text-black hover:bg-smoke hover:text-white disabled:opacity-50"
+                  radius="none"
+                >
+                  ← Previous
+                </Button>
+                
+                <div className="flex items-center gap-2">
+                  {[...Array(totalPages)].map((_, index) => {
+                    const page = index + 1;
+                    // Show first page, last page, current page, and pages around current
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-10 h-10 rounded-lg font-medium transition-all ${
+                            currentPage === page
+                              ? "bg-black text-white"
+                              : "bg-mist text-smoke hover:bg-smoke hover:text-white"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    } else if (
+                      page === currentPage - 2 ||
+                      page === currentPage + 2
+                    ) {
+                      return <span key={page} className="text-smoke">...</span>;
+                    }
+                    return null;
+                  })}
+                </div>
+
+                <Button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  isDisabled={currentPage === totalPages}
+                  className="bg-mist text-black hover:bg-smoke hover:text-white disabled:opacity-50"
+                  radius="none"
+                >
+                  Next →
+                </Button>
+              </div>
+            )}
+          </>
         ) : (
           <div className="text-center py-16 bg-mist/30 rounded-xl">
             <div className="text-4xl mb-4">🧩</div>
@@ -231,6 +303,11 @@ export default function SessionsPage() {
             </Button>
           </div>
         )}
+      </div>
+      </div>
+      
+      <div className="mt-16">
+        <Footer />
       </div>
     </div>
   );

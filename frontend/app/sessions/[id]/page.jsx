@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@nextui-org/button";
 import { useAuth } from "@clerk/nextjs";
 import { useParams } from "next/navigation";
+import Footer from "@/components/Footer";
 
 const elementEmojis = {
   earth: "🌳",
@@ -104,7 +105,8 @@ export default function SessionDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white pt-24 pb-16">
+    <div className="min-h-screen bg-white flex flex-col">
+      <div className="flex-1 pt-24 pb-16">
       <div className="max-w-[1000px] mx-auto px-6 lp:px-20">
         {/* Header */}
         <div className="mb-8">
@@ -285,6 +287,11 @@ export default function SessionDetailPage() {
             <div className="text-sm text-smoke">Avg Words/Prompt</div>
           </div>
         </div>
+      </div>
+      </div>
+      
+      <div className="mt-16">
+        <Footer />
       </div>
     </div>
   );

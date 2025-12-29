@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@nextui-org/button";
 import { motion } from "framer-motion";
+import Footer from "@/components/Footer";
 
 const elements = [
   {
@@ -359,30 +360,39 @@ export default function ElementsPage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-20 px-6 lp:px-20 bg-black text-white">
-        <div className="max-w-[800px] mx-auto text-center">
-          <h2 className="font-display text-4xl mb-6">Ready to apply the Elements?</h2>
-          <p className="text-white/70 text-lg mb-8">
-            Install our browser extension and start training your mind on real algorithms.
+      {/* CTA - Matches homepage "Ready to transform" section */}
+      <section
+        className="py-32 px-6 lp:px-20 relative"
+        style={{
+          backgroundImage: 'url("/images/background-daniel.png")',
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        <div className="absolute inset-0 bg-black/80" />
+        <div className="relative z-10 max-w-[1400px] mx-auto text-center">
+          <h2 className="font-display text-4xl lp:text-6xl text-white mb-6">
+            Ready to transform how you think?
+          </h2>
+          <p className="text-xl text-white/70 max-w-[600px] mx-auto mb-10">
+            Join the mental gym. Stop memorizing algorithms. Start understanding them.
           </p>
           <div className="flex flex-col tb:flex-row gap-4 justify-center">
             <Link href="/login">
-              <Button className="bg-white text-black hover:bg-mist px-8 py-6 text-lg" radius="none">
-                Get Started Free
+              <Button className="bg-white text-black hover:bg-mist w-full tb:w-[260px] h-[72px] text-lg rounded-none font-semibold">
+                Create Free Account
               </Button>
             </Link>
-            <Link href="/dashboard">
-              <Button
-                className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-black px-8 py-6 text-lg"
-                radius="none"
-              >
-                View Dashboard Demo
+            <Link href="/">
+              <Button className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-black w-full tb:w-[260px] h-[72px] text-lg rounded-none font-semibold">
+                Back to Home
               </Button>
             </Link>
           </div>
         </div>
       </section>
+
+      <Footer />
     </div>
   );
 }

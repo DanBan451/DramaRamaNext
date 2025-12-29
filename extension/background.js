@@ -9,6 +9,8 @@ const FRONTEND_BASE_URL = 'http://localhost:3000';
 // Store session state
 let currentSession = null;
 let authToken = null;
+// Map of problem URL -> session for tracking one session per problem
+let sessionsByProblem = {};
 
 function decodeJwtSub(token) {
   try {
@@ -41,7 +43,8 @@ async function handleMessage(request, sender) {
         const nextSub = decodeJwtSub(request.token);
         if (prevSub && nextSub && prevSub !== nextSub) {
           currentSession = null;
-          await chrome.storage.local.remove('currentSession');
+          sessionsByProblem = {};
+          await chrome.storage.local.remove(['currentSession', 'sessionsByProblem']);
         }
       }
       authToken = request.token;
@@ -81,9 +84,27 @@ async function handleMessage(request, sender) {
     case 'GET_CURRENT_SESSION':
       return { session: currentSession };
 
-    case 'CLEAR_SESSION':
+    case 'GET_SESSION_FOR_PROBLEM':
+      return await getSessionForProblem(request.problemUrl);
+
+    case 'CHECK_ACTIVE_SESSION_FOR_PROBLEM':
+      return await checkActiveSessionForProblem(request.problemUrl);
+
+    case 'LOGOUT':
+      // Clear all auth and session data
+      authToken = null;
       currentSession = null;
-      await chrome.storage.local.remove('currentSession');
+      sessionsByProblem = {};
+      await chrome.storage.local.remove(['authToken', 'currentSession', 'sessionsByProblem']);
+      return { success: true };
+
+    case 'CLEAR_SESSION':
+      // Clear current session and remove from problem map
+      if (currentSession?.algorithmUrl) {
+        delete sessionsByProblem[currentSession.algorithmUrl];
+      }
+      currentSession = null;
+      await chrome.storage.local.set({ currentSession: null, sessionsByProblem });
       return { success: true };
 
     case 'OPEN_REAUTH': {
@@ -101,6 +122,37 @@ async function handleMessage(request, sender) {
     default:
       return { error: 'Unknown message type' };
   }
+}
+
+async function getSessionForProblem(problemUrl) {
+  // Load sessions from storage if not in memory
+  if (Object.keys(sessionsByProblem).length === 0) {
+    const stored = await chrome.storage.local.get('sessionsByProblem');
+    sessionsByProblem = stored.sessionsByProblem || {};
+  }
+  
+  const session = sessionsByProblem[problemUrl];
+  if (session && !session.sessionComplete) {
+    currentSession = session;
+    return { session };
+  }
+  
+  return { session: null };
+}
+
+async function checkActiveSessionForProblem(problemUrl) {
+  // Load sessions from storage if not in memory
+  if (Object.keys(sessionsByProblem).length === 0) {
+    const stored = await chrome.storage.local.get('sessionsByProblem');
+    sessionsByProblem = stored.sessionsByProblem || {};
+  }
+  
+  const session = sessionsByProblem[problemUrl];
+  if (session && !session.sessionComplete && session.currentPromptIndex > 0) {
+    return { hasActiveSession: true, session };
+  }
+  
+  return { hasActiveSession: false };
 }
 
 async function fetchTextFromResponse(response) {
@@ -225,12 +277,16 @@ async function startSession(algorithmTitle, algorithmUrl) {
     currentSession = {
       id: result.session_id,
       algorithmTitle: result.algorithm_title,
+      algorithmUrl: algorithmUrl,
       currentPromptIndex: result.current_prompt_index,
       currentPrompt: result.current_prompt,
       responses: [],
     };
 
-    await chrome.storage.local.set({ currentSession });
+    // Store in sessions by problem
+    sessionsByProblem[algorithmUrl] = currentSession;
+
+    await chrome.storage.local.set({ currentSession, sessionsByProblem });
 
     return { success: true, session: currentSession };
   } catch (error) {
@@ -257,7 +313,12 @@ async function submitResponse(sessionId, promptIndex, responseText, timeSpentSec
       currentSession.currentPrompt = result.next_prompt;
       currentSession.sessionComplete = result.session_complete;
       
-      await chrome.storage.local.set({ currentSession });
+      // Update in sessions by problem
+      if (currentSession.algorithmUrl) {
+        sessionsByProblem[currentSession.algorithmUrl] = currentSession;
+      }
+      
+      await chrome.storage.local.set({ currentSession, sessionsByProblem });
     }
 
     return {
@@ -290,6 +351,16 @@ async function completeSession(sessionId) {
       session_id: sessionId,
       final_response: null,
     });
+    
+    // Mark session as complete in our map
+    if (currentSession && currentSession.id === sessionId) {
+      currentSession.sessionComplete = true;
+      if (currentSession.algorithmUrl) {
+        sessionsByProblem[currentSession.algorithmUrl] = currentSession;
+      }
+      await chrome.storage.local.set({ currentSession, sessionsByProblem });
+    }
+    
     return { success: true, result };
   } catch (error) {
     return { error: error.message };
@@ -302,6 +373,13 @@ async function cancelSession(sessionId, reason = null) {
       session_id: sessionId,
       reason,
     });
+    
+    // Remove session from our map
+    if (currentSession && currentSession.id === sessionId && currentSession.algorithmUrl) {
+      delete sessionsByProblem[currentSession.algorithmUrl];
+      await chrome.storage.local.set({ sessionsByProblem });
+    }
+    
     return { success: true, result };
   } catch (error) {
     return { error: error.message };
@@ -309,12 +387,14 @@ async function cancelSession(sessionId, reason = null) {
 }
 
 // Restore session on startup
-chrome.storage.local.get(['currentSession', 'authToken'], (result) => {
+chrome.storage.local.get(['currentSession', 'authToken', 'sessionsByProblem'], (result) => {
   if (result.currentSession) {
     currentSession = result.currentSession;
   }
   if (result.authToken) {
     authToken = result.authToken;
   }
+  if (result.sessionsByProblem) {
+    sessionsByProblem = result.sessionsByProblem;
+  }
 });
-

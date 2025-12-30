@@ -25,15 +25,3 @@ class ClaudeStreamingAdapter(LLMClient):
             for text in stream.text_stream:
                 yield text
     
-    async def generate(self, prompt: str) -> str:
-        """Generate complete response from Claude"""
-        message = self.client.messages.create(
-            model=self.model,
-            max_tokens=500,
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            system="You are a helpful thinking coach who guides users through the 5 Elements of Effective Thinking without giving away solutions. Be encouraging, specific, and concise."
-        )
-        return message.content[0].text
-

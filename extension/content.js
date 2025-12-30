@@ -94,13 +94,20 @@ function getProblemUrl() {
 function checkUrlChange() {
   const newUrl = getProblemUrl();
   if (currentProblemUrl && newUrl !== currentProblemUrl) {
-    // URL changed - reset session for new problem
-    handleProblemChange(newUrl);
+    // URL changed - only reset if we're NOT in an active session
+    // If user is mid-session, don't interrupt them!
+    if (!currentSession || currentSession.prompts_completed === 0) {
+      handleProblemChange(newUrl);
+    } else {
+      // User is in the middle of a session, don't reset
+      console.log("🎭 DramaRama: In active session, ignoring URL change");
+    }
   }
   currentProblemUrl = newUrl;
 }
 
 async function handleProblemChange(newUrl) {
+  console.log("🎭 DramaRama: Problem URL changed, resetting session");
   // Clear current session from memory
   currentSession = null;
   currentPromptIndex = 0;
@@ -119,6 +126,14 @@ function createChatUI() {
   // Create container
   chatContainer = document.createElement('div');
   chatContainer.id = 'dramarama-container';
+  
+  // Build the login URL with current page as return destination
+  const currentUrl = window.location.href;
+  const encodedUrl = encodeURIComponent(currentUrl);
+  const redirectPath = `/go/leetcode?url=${encodedUrl}`;
+  const encodedRedirect = encodeURIComponent(redirectPath);
+  const loginUrl = `http://localhost:3000/login?redirect=${encodedRedirect}`;
+  
   chatContainer.innerHTML = `
     <div id="dramarama-toggle" class="dramarama-toggle">
       <span class="dramarama-icon">🎭</span>
@@ -136,7 +151,7 @@ function createChatUI() {
           <div class="dramarama-auth-message">
             <div class="dramarama-auth-icon">🔒</div>
             <p>Connect to start training</p>
-            <a href="http://localhost:3000/login?redirect=/go/leetcode" target="_blank" class="dramarama-btn dramarama-btn-primary">
+            <a href="${loginUrl}" target="_blank" class="dramarama-btn dramarama-btn-primary">
               Login / Sign Up
             </a>
             <p class="dramarama-auth-hint">After signing in, you'll be automatically connected.</p>
@@ -144,7 +159,7 @@ function createChatUI() {
           </div>
         </div>
         <div id="dramarama-start-view" class="dramarama-view hidden">
-          <div id="dramarama-user-greeting" class="dramarama-user-greeting"></div>
+          <div id="dramarama-user-greeting" class="dramarama-user-greeting" style="display: none;"></div>
           <h3>Ready to think through this problem?</h3>
           <p class="dramarama-algorithm-title" id="dramarama-algo-title"></p>
           <button id="dramarama-start-btn" class="dramarama-btn dramarama-btn-primary">
@@ -249,8 +264,8 @@ function createChatUI() {
     });
   }
 
-  // Start URL change detection
-  urlCheckInterval = setInterval(checkUrlChange, 1000);
+  // Start URL change detection (less aggressive - every 3 seconds)
+  urlCheckInterval = setInterval(checkUrlChange, 3000);
   
   // Also check on popstate (back/forward navigation)
   window.addEventListener('popstate', () => {

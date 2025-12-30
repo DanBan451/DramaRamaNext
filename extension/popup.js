@@ -7,7 +7,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Event listeners
   document.getElementById('logout-btn')?.addEventListener('click', logout);
+  document.getElementById('login-btn')?.addEventListener('click', handleLogin);
 });
+
+async function handleLogin(e) {
+  e.preventDefault();
+  
+  // Get the current tab URL
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const currentUrl = tab?.url || 'https://leetcode.com/';
+  
+  // Construct the login URL with redirect back to current LeetCode page
+  const API_URL = 'http://localhost:3000';
+  const encodedUrl = encodeURIComponent(currentUrl);
+  const redirectPath = `/go/leetcode?url=${encodedUrl}`;
+  const encodedRedirect = encodeURIComponent(redirectPath);
+  const loginUrl = `${API_URL}/login?redirect=${encodedRedirect}`;
+  
+  // Open the login page
+  chrome.tabs.create({ url: loginUrl });
+}
 
 function base64UrlDecode(str) {
   // Convert base64url -> base64

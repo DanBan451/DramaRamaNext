@@ -173,30 +173,13 @@ async def analyze_session(
     )
     
     async def generate():
-        """
-        SSE generator. If Anthropic isn't configured, fall back to a deterministic hint so the
-        full extension flow can be tested locally.
-        """
+        """SSE generator for streaming hint from Claude."""
         hint_text = ""
-        try:
-            if not settings.ANTHROPIC_API_KEY:
-                hint_text = (
-                    "Dev mode hint (no Anthropic key configured).\n\n"
-                    "Review your shortest responses and pick ONE element to go deeper on.\n"
-                    "Try rewriting your Earth 1.0 answer with a concrete example and explicit constraints."
-                )
-                yield f"data: {hint_text}\n\n"
-            else:
-                async for chunk in llm_client.generate_stream(prompt):
-                    hint_text += chunk
-                    yield f"data: {chunk}\n\n"
-        except Exception:
-            if not hint_text:
-                hint_text = (
-                    "Hint generation failed (stream error). "
-                    "Still, your session is saved—review your Earth responses and ground them with a specific example."
-                )
-                yield f"data: {hint_text}\n\n"
+        
+        # Stream hint from Claude
+        async for chunk in llm_client.generate_stream(prompt):
+            hint_text += chunk
+            yield f"data: {chunk}\n\n"
 
         # Save hint to database (best-effort)
         try:

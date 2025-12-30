@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Generate Bright DramaRama Icons</title>
+  <style>
+    body {
+      font-family: system-ui;
+      padding: 40px;
+      background: #f0f0f0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #111;
+      margin-bottom: 10px;
+    }
+    p {
+      color: #666;
+      margin-bottom: 30px;
+    }
+    canvas {
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      margin: 10px;
+    }
+    button {
+      background: #111;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      margin: 5px;
+    }
+    button:hover {
+      background: #333;
+    }
+    .preview {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin: 20px 0;
+    }
+    .icon-wrapper {
+      text-align: center;
+    }
+    .icon-wrapper label {
+      display: block;
+      margin-top: 10px;
+      color: #666;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎭 Generate Bright DramaRama Icons</h1>
+    <p>Click "Generate Icons" to create bright, colorful extension icons. Then click each icon to download it.</p>
+    
+    <button onclick="generateIcons()">Generate Icons</button>
+    
+    <div class="preview" id="preview"></div>
+  </div>
+
+  <script>
+    function generateIcons() {
+      const sizes = [16, 32, 48, 128];
+      const preview = document.getElementById('preview');
+      preview.innerHTML = '';
+      
+      sizes.forEach(size => {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        
+        // Bright gradient background
+        const gradient = ctx.createLinearGradient(0, 0, size, size);
+        gradient.addColorStop(0, '#FF6B6B');    // Bright red
+        gradient.addColorStop(0.5, '#4ECDC4');  // Bright cyan
+        gradient.addColorStop(1, '#FFE66D');    // Bright yellow
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        // White drama mask emoji/symbol
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = `bold ${size * 0.6}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🎭', size / 2, size / 2);
+        
+        // Add white border for contrast
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = size * 0.05;
+        ctx.strokeRect(0, 0, size, size);
+        
+        // Create wrapper
+        const wrapper = document.createElement('div');
+        wrapper.className = 'icon-wrapper';
+        
+        const label = document.createElement('label');
+        label.textContent = `icon${size}.png`;
+        
+        canvas.style.cursor = 'pointer';
+        canvas.onclick = () => downloadIcon(canvas, size);
+        
+        wrapper.appendChild(canvas);
+        wrapper.appendChild(label);
+        preview.appendChild(wrapper);
+      });
+    }
+    
+    function downloadIcon(canvas, size) {
+      canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `icon${size}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    }
+    
+    // Auto-generate on load
+    window.onload = generateIcons;
+  </script>
+</body>
+</html>
+

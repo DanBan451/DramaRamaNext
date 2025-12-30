@@ -10,8 +10,3 @@ class LLMClient(ABC):
         """Generate streaming response from LLM"""
         pass
     
-    @abstractmethod
-    async def generate(self, prompt: str) -> str:
-        """Generate complete response from LLM"""
-        pass
-

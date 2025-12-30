@@ -18,16 +18,48 @@ export default function LoginPage() {
   // Get redirect URL from query params (for extension flow)
   const redirectUrl = useMemo(() => {
     const redirect = searchParams.get("redirect");
-    // Only allow internal redirects for security
-    if (redirect && redirect.startsWith("/")) {
-      return redirect;
+    console.log("🔍 Login page - raw redirect param:", redirect);
+    
+    // Allow internal redirects for security
+    if (redirect) {
+      try {
+        // Try to decode (in case it's double-encoded)
+        const decoded = decodeURIComponent(redirect);
+        console.log("🔍 Login page - decoded redirect:", decoded);
+        if (decoded.startsWith("/")) {
+          console.log("✅ Login page - using decoded redirect:", decoded);
+          // Store in localStorage as backup (survives OAuth redirects)
+          localStorage.setItem('clerk_redirect_url', decoded);
+          return decoded;
+        }
+      } catch (e) {
+        console.log("⚠️ Login page - decode error, trying raw:", e);
+        // If decoding fails, check raw value
+        if (redirect.startsWith("/")) {
+          console.log("✅ Login page - using raw redirect:", redirect);
+          localStorage.setItem('clerk_redirect_url', redirect);
+          return redirect;
+        }
+      }
     }
+    
+    // Try to get from localStorage (in case we came back from OAuth)
+    const stored = localStorage.getItem('clerk_redirect_url');
+    if (stored && stored.startsWith("/")) {
+      console.log("📦 Login page - found stored redirect:", stored);
+      return stored;
+    }
+    
+    console.log("📌 Login page - falling back to /dashboard");
     return "/dashboard";
   }, [searchParams]);
 
   // Redirect if already signed in
   useEffect(() => {
     if (isLoaded && isSignedIn) {
+      console.log("🚀 Redirecting signed-in user to:", redirectUrl);
+      // Clear the stored redirect after using it
+      localStorage.removeItem('clerk_redirect_url');
       router.push(redirectUrl);
     }
   }, [isLoaded, isSignedIn, router, redirectUrl]);
@@ -156,6 +188,9 @@ export default function LoginPage() {
                   },
                 }}
                 routing="hash"
+                signInUrl="/login"
+                signUpUrl="/login"
+                fallbackRedirectUrl={redirectUrl}
                 forceRedirectUrl={redirectUrl}
               />
             ) : (
@@ -182,6 +217,9 @@ export default function LoginPage() {
                   },
                 }}
                 routing="hash"
+                signInUrl="/login"
+                signUpUrl="/login"
+                fallbackRedirectUrl={redirectUrl}
                 forceRedirectUrl={redirectUrl}
               />
             )}

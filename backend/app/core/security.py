@@ -101,11 +101,13 @@ async def get_user_from_token(token: str) -> dict:
         )
     
     try:
+        # Add leeway for clock skew (60 seconds tolerance)
         payload = jwt.decode(
             token,
             public_key,
             algorithms=["RS256"],
-            options={"verify_aud": False}
+            options={"verify_aud": False},
+            leeway=60  # Allow 60 seconds of clock skew for iat, nbf, exp
         )
         
         return {

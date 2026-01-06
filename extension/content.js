@@ -12,6 +12,8 @@ let chatContainer = null;
 let authTokenCached = null;
 let currentProblemUrl = null;
 let urlCheckInterval = null;
+let savedResponseText = ''; // Store textarea content when panel is closed
+let lastDisplayedPromptIndex = -1; // Track which prompt we last displayed
 
 function setAuthStatus(message) {
   const el = document.getElementById("dramarama-auth-status");
@@ -86,8 +88,25 @@ async function ingestTokenHandoffIfPresent() {
 // Get the normalized problem URL (without query params or hash)
 function getProblemUrl() {
   const url = new URL(window.location.href);
-  // Remove hash and query params for comparison
-  return `${url.origin}${url.pathname}`;
+  let pathname = url.pathname;
+  
+  // Normalize LeetCode URLs: /problems/slug/description/ -> /problems/slug/
+  if (url.hostname.includes('leetcode.com')) {
+    const match = pathname.match(/^(\/problems\/[^\/]+)\/?.*$/);
+    if (match) {
+      pathname = match[1] + '/';
+    }
+  }
+  
+  // Normalize HackerRank URLs: /challenges/slug/problem/ -> /challenges/slug/
+  if (url.hostname.includes('hackerrank.com')) {
+    const match = pathname.match(/^(\/challenges\/[^\/]+)\/?.*$/);
+    if (match) {
+      pathname = match[1] + '/';
+    }
+  }
+  
+  return `${url.origin}${pathname}`;
 }
 
 // Check if URL has changed and handle it
@@ -111,6 +130,8 @@ async function handleProblemChange(newUrl) {
   // Clear current session from memory
   currentSession = null;
   currentPromptIndex = 0;
+  savedResponseText = ''; // Clear saved text when changing problems
+  lastDisplayedPromptIndex = -1; // Reset prompt tracking
   
   // Check auth and load session for new problem
   await checkAuthAndSession();
@@ -273,9 +294,10 @@ function createChatUI() {
   });
 }
 
-function togglePanel() {
+async function togglePanel() {
   const panel = document.getElementById('dramarama-panel');
   const toggle = document.getElementById('dramarama-toggle');
+  const responseTextarea = document.getElementById('dramarama-response');
   
   isOpen = !isOpen;
   
@@ -283,8 +305,18 @@ function togglePanel() {
     panel.classList.remove('hidden');
     toggle.classList.add('active');
     // Re-check auth every time panel opens (so "connect token" works without page refresh)
-    checkAuthAndSession();
+    await checkAuthAndSession();
+    // Restore saved response text if available (after checkAuthAndSession completes)
+    const updatedTextarea = document.getElementById('dramarama-response');
+    if (updatedTextarea && savedResponseText) {
+      updatedTextarea.value = savedResponseText;
+      updateWordCount();
+    }
   } else {
+    // Save current response text before closing
+    if (responseTextarea) {
+      savedResponseText = responseTextarea.value;
+    }
     panel.classList.add('hidden');
     toggle.classList.remove('active');
   }
@@ -369,13 +401,32 @@ async function checkAuthAndSession() {
 
   // Check for existing session for THIS problem
   const problemUrl = getProblemUrl();
+  console.log('🎭 DramaRama: Checking for session at URL:', problemUrl);
+  
   const sessionResponse = await chrome.runtime.sendMessage({ 
     type: 'GET_SESSION_FOR_PROBLEM',
     problemUrl: problemUrl 
   });
   
+  console.log('🎭 DramaRama: Session response:', sessionResponse);
+  
   if (sessionResponse.session) {
     currentSession = sessionResponse.session;
+    console.log('🎭 DramaRama: Resuming existing session:', currentSession);
+    
+    // Validate that the session has a valid ID (not a ghost session)
+    if (!currentSession.id) {
+      console.error('🎭 DramaRama: Ghost session detected (no ID), clearing...');
+      await chrome.runtime.sendMessage({ type: 'CLEAR_SESSION' });
+      currentSession = null;
+      // Show start view
+      const algorithmTitle = getAlgorithmTitle();
+      document.getElementById('dramarama-algo-title').textContent = algorithmTitle;
+      showView('start');
+      hideActiveSessionWarning();
+      setAuthStatus("");
+      return;
+    }
     
     if (currentSession.sessionComplete) {
       showView('hint');
@@ -387,13 +438,27 @@ async function checkAuthAndSession() {
       setAuthStatus("");
     }
   } else {
+    console.log('🎭 DramaRama: No existing session, checking for active sessions...');
     // Check if there's an active session for this problem that needs attention
     const activeSession = await chrome.runtime.sendMessage({
       type: 'CHECK_ACTIVE_SESSION_FOR_PROBLEM',
       problemUrl: problemUrl
     });
     
+    console.log('🎭 DramaRama: Active session check:', activeSession);
+    
     if (activeSession.hasActiveSession) {
+      // Validate session has ID
+      if (!activeSession.session || !activeSession.session.id) {
+        console.error('🎭 DramaRama: Ghost session detected in active check, clearing...');
+        await chrome.runtime.sendMessage({ type: 'CLEAR_SESSION' });
+        const algorithmTitle = getAlgorithmTitle();
+        document.getElementById('dramarama-algo-title').textContent = algorithmTitle;
+        showView('start');
+        hideActiveSessionWarning();
+        setAuthStatus("");
+        return;
+      }
       // Show warning about existing session
       showStartViewWithWarning(activeSession.session);
   } else {
@@ -502,13 +567,36 @@ async function startSession() {
   });
 
   if (response.error) {
-    alert('Error starting session: ' + response.error);
+    console.error('🎭 DramaRama: Failed to start session:', response.error);
+    
+    // Clear any local session data if backend creation failed
+    await chrome.runtime.sendMessage({ type: 'CLEAR_SESSION' });
+    currentSession = null;
+    
+    // Show user-friendly error message
+    alert('Error starting session: ' + response.error + '\n\nPlease try refreshing the page and logging in again.');
+    
+    // Return to start view
+    showView('start');
+    return;
+  }
+
+  if (!response.session || !response.session.id) {
+    console.error('🎭 DramaRama: Invalid session response:', response);
+    await chrome.runtime.sendMessage({ type: 'CLEAR_SESSION' });
+    currentSession = null;
+    alert('Failed to create session. Please try again.');
+    showView('start');
     return;
   }
 
   currentSession = response.session;
   currentPromptIndex = 0;
   promptStartTime = Date.now();
+  savedResponseText = ''; // Clear saved text when starting new session
+  lastDisplayedPromptIndex = -1; // Reset prompt tracking
+  
+  console.log('🎭 DramaRama: Session started successfully:', currentSession);
   
   showView('session');
   updatePromptDisplay();
@@ -518,6 +606,7 @@ function updatePromptDisplay() {
   if (!currentSession || !currentSession.currentPrompt) return;
 
   const prompt = currentSession.currentPrompt;
+  const isNewPrompt = (lastDisplayedPromptIndex !== currentPromptIndex);
   
   // Update progress
   document.getElementById('dramarama-progress-fill').style.width = 
@@ -541,12 +630,17 @@ function updatePromptDisplay() {
   // Update prompt text
   document.getElementById('dramarama-prompt-text').textContent = prompt.prompt;
 
-  // Clear response textarea
-  document.getElementById('dramarama-response').value = '';
-  updateWordCount();
-
-  // Reset timer
-  promptStartTime = Date.now();
+  // Only clear response textarea and saved text if this is a NEW prompt
+  if (isNewPrompt) {
+    document.getElementById('dramarama-response').value = '';
+    savedResponseText = ''; // Clear saved text when moving to new prompt
+    updateWordCount();
+    // Reset timer only for new prompts
+    promptStartTime = Date.now();
+  }
+  
+  // Remember we displayed this prompt
+  lastDisplayedPromptIndex = currentPromptIndex;
 }
 
 function updateWordCount() {
@@ -608,10 +702,12 @@ async function submitResponse() {
 
   if (response.sessionComplete) {
     // Get hint
+    savedResponseText = ''; // Clear saved text after session completion
     await getHint();
   } else {
     currentPromptIndex = response.promptsCompleted;
     currentSession.currentPrompt = response.nextPrompt;
+    savedResponseText = ''; // Clear saved text when moving to next prompt
     updatePromptDisplay();
   }
 
@@ -785,6 +881,8 @@ async function cancelSession() {
 async function resetSession() {
   currentSession = null;
   currentPromptIndex = 0;
+  savedResponseText = ''; // Clear saved text when resetting session
+  lastDisplayedPromptIndex = -1; // Reset prompt tracking
   
   const algorithmTitle = getAlgorithmTitle();
   document.getElementById('dramarama-algo-title').textContent = algorithmTitle;

@@ -125,30 +125,31 @@ async function handleMessage(request, sender) {
 }
 
 async function getSessionForProblem(problemUrl) {
-  // Load sessions from storage if not in memory
-  if (Object.keys(sessionsByProblem).length === 0) {
-    const stored = await chrome.storage.local.get('sessionsByProblem');
-    sessionsByProblem = stored.sessionsByProblem || {};
-  }
+  // Always load from storage to ensure we have the latest data
+  const stored = await chrome.storage.local.get('sessionsByProblem');
+  sessionsByProblem = stored.sessionsByProblem || {};
   
   const session = sessionsByProblem[problemUrl];
+  // Return any session that exists and isn't complete
   if (session && !session.sessionComplete) {
     currentSession = session;
+    console.log('🎭 Found existing session for problem:', problemUrl, session);
     return { session };
   }
   
+  console.log('🎭 No existing session found for problem:', problemUrl);
   return { session: null };
 }
 
 async function checkActiveSessionForProblem(problemUrl) {
-  // Load sessions from storage if not in memory
-  if (Object.keys(sessionsByProblem).length === 0) {
-    const stored = await chrome.storage.local.get('sessionsByProblem');
-    sessionsByProblem = stored.sessionsByProblem || {};
-  }
+  // Always load from storage to ensure we have the latest data
+  const stored = await chrome.storage.local.get('sessionsByProblem');
+  sessionsByProblem = stored.sessionsByProblem || {};
   
   const session = sessionsByProblem[problemUrl];
-  if (session && !session.sessionComplete && session.currentPromptIndex > 0) {
+  // Check if session exists and is in progress (even at prompt 0)
+  if (session && !session.sessionComplete) {
+    console.log('🎭 Active session detected for problem:', problemUrl, session);
     return { hasActiveSession: true, session };
   }
   
@@ -281,12 +282,16 @@ async function startSession(algorithmTitle, algorithmUrl) {
       currentPromptIndex: result.current_prompt_index,
       currentPrompt: result.current_prompt,
       responses: [],
+      sessionComplete: false,
     };
 
     // Store in sessions by problem
     sessionsByProblem[algorithmUrl] = currentSession;
 
     await chrome.storage.local.set({ currentSession, sessionsByProblem });
+    
+    console.log('🎭 Session created and saved:', currentSession);
+    console.log('🎭 Sessions by problem:', sessionsByProblem);
 
     return { success: true, session: currentSession };
   } catch (error) {
@@ -319,6 +324,8 @@ async function submitResponse(sessionId, promptIndex, responseText, timeSpentSec
       }
       
       await chrome.storage.local.set({ currentSession, sessionsByProblem });
+      
+      console.log('🎭 Response submitted, session updated:', currentSession);
     }
 
     return {

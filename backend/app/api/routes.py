@@ -49,6 +49,22 @@ async def start_session(
     # User is automatically created by get_current_user dependency
     user = current_user["db_user"]
     
+    # Check if there's already an active session for this problem
+    if request.algorithm_url:
+        existing_session = await session_repo.get_active_session_for_problem(
+            user_id=user.id,
+            algorithm_url=request.algorithm_url
+        )
+        if existing_session:
+            # Return the existing session instead of creating a duplicate
+            current_prompt = get_prompt(existing_session.prompts_completed)
+            return SessionStartResponse(
+                session_id=existing_session.id,
+                algorithm_title=existing_session.algorithm_title,
+                current_prompt_index=existing_session.prompts_completed,
+                current_prompt=current_prompt,
+            )
+    
     # Create new session
     session = await session_repo.create(
         user_id=user.id,
@@ -187,7 +203,7 @@ async def analyze_session(
                 id="",
                 session_id=session_id,
                 hint_text=hint_text or "(empty hint)",
-                element_focus=Element(analysis["weakest_element"]) if analysis.get("weakest_element") else None,
+                element_focus=Element(analysis["strongest_element"]) if analysis.get("strongest_element") else None,
                 patterns_detected=analysis,
             )
             await hint_repo.create(hint)

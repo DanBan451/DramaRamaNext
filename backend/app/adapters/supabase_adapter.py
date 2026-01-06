@@ -98,6 +98,24 @@ class SupabaseSessionRepository(SessionRepository):
             ))
         return sessions
     
+    async def get_active_session_for_problem(self, user_id: str, algorithm_url: str) -> Optional[Session]:
+        """Find an active (in_progress) session for a specific problem URL"""
+        result = self.client.table("sessions").select("*").eq("user_id", user_id).eq("algorithm_url", algorithm_url).eq("status", SessionStatus.IN_PROGRESS.value).order("created_at", desc=True).limit(1).execute()
+        if result.data:
+            row = result.data[0]
+            return Session(
+                id=row["id"],
+                user_id=row["user_id"],
+                algorithm_title=row["algorithm_title"],
+                algorithm_url=row.get("algorithm_url"),
+                started_at=datetime.fromisoformat(row["started_at"].replace("Z", "+00:00")),
+                ended_at=datetime.fromisoformat(row["ended_at"].replace("Z", "+00:00")) if row.get("ended_at") else None,
+                status=SessionStatus(row["status"]),
+                prompts_completed=row["prompts_completed"],
+                created_at=datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")) if row.get("created_at") else None,
+            )
+        return None
+    
     async def update(self, session_id: str, **kwargs) -> Session:
         # Convert enums to values
         if "status" in kwargs and isinstance(kwargs["status"], SessionStatus):

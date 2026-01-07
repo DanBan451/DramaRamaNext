@@ -1,7 +1,8 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+ "use client";
 
-export const dynamic = "force-dynamic";
+import { useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export const metadata = {
   title: "Sessions | DramaRama",
@@ -9,8 +10,16 @@ export const metadata = {
 };
 
 export default function SessionsLayout({ children }) {
-  const { userId } = auth();
-  if (!userId) redirect("/login");
-  return children;
+  const { isLoaded, isSignedIn } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) router.replace("/login");
+  }, [isLoaded, isSignedIn, router]);
+
+  if (!isLoaded) return null;
+  if (!isSignedIn) return null;
+
+  return <>{children}</>;
 }
 

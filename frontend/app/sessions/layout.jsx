@@ -3,7 +3,12 @@ export const metadata = {
   description: "Your algorithm thinking sessions",
 };
 
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+
 export default function SessionsLayout({ children }) {
+  const { userId } = auth();
+  if (!userId) redirect("/login");
   return children;
 }
 

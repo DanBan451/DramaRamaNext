@@ -2,6 +2,9 @@
 	"name": "dramarama-frontend",
 	"version": "0.1.0",
 	"private": true,
+	"engines": {
+		"node": ">=20 <23"
+	},
 	"scripts": {
 		"dev": "next dev",
 		"dev:turbo": "next dev --turbo",

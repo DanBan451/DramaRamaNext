@@ -31,24 +31,44 @@ async function proxy(req, { path }) {
   const url = new URL(req.url);
   const upstream = `${base}/api/${(path || []).join("/")}${url.search}`;
 
-  const init = {
-    method: req.method,
-    headers: filterRequestHeaders(req.headers),
-    // Don’t cache auth’d requests
-    cache: "no-store",
-  };
+  try {
+    const init = {
+      method: req.method,
+      headers: filterRequestHeaders(req.headers),
+      // Don’t cache auth’d requests
+      cache: "no-store",
+    };
 
-  // Only include body when it makes sense
-  if (!["GET", "HEAD"].includes(req.method)) {
-    init.body = await req.arrayBuffer();
+    // Only include body when it makes sense
+    if (!["GET", "HEAD"].includes(req.method)) {
+      init.body = await req.arrayBuffer();
+    }
+
+    const res = await fetch(upstream, init);
+    const headers = filterResponseHeaders(res.headers);
+    headers.set("x-backend-proxy-upstream", upstream);
+
+    return new Response(res.body, {
+      status: res.status,
+      headers,
+    });
+  } catch (err) {
+    // This means the Vercel server could not reach your backend at all
+    console.error("[backend-api proxy] fetch failed", { upstream, err: String(err) });
+    return new Response(
+      JSON.stringify({
+        detail: "Backend connection failed (proxy could not reach the backend).",
+        upstream,
+      }),
+      {
+        status: 502,
+        headers: {
+          "content-type": "application/json",
+          "cache-control": "no-store",
+        },
+      }
+    );
   }
-
-  const res = await fetch(upstream, init);
-
-  return new Response(res.body, {
-    status: res.status,
-    headers: filterResponseHeaders(res.headers),
-  });
 }
 
 export async function GET(req, ctx) {

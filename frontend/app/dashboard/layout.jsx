@@ -1,8 +1,4 @@
- "use client";
-
-import { useAuth } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { ClerkLoaded, ClerkLoading, RedirectToSignIn, SignedIn, SignedOut } from "@clerk/nextjs";
 
 export const metadata = {
   title: "Dashboard | DramaRama",
@@ -10,17 +6,16 @@ export const metadata = {
 };
 
 export default function DashboardLayout({ children }) {
-  const { isLoaded, isSignedIn } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (isLoaded && !isSignedIn) router.replace("/login");
-  }, [isLoaded, isSignedIn, router]);
-
-  // While Clerk is loading, avoid flashing protected content.
-  if (!isLoaded) return null;
-  if (!isSignedIn) return null;
-
-  return <>{children}</>;
+  return (
+    <>
+      <ClerkLoading />
+      <ClerkLoaded>
+        <SignedIn>{children}</SignedIn>
+        <SignedOut>
+          <RedirectToSignIn />
+        </SignedOut>
+      </ClerkLoaded>
+    </>
+  );
 }
 

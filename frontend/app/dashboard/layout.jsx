@@ -1,4 +1,4 @@
-import { ClerkLoaded, ClerkLoading, RedirectToSignIn, SignedIn, SignedOut } from "@clerk/nextjs";
+import { AuthGate } from "./AuthGate";
 
 export const metadata = {
   title: "Dashboard | DramaRama",
@@ -6,16 +6,6 @@ export const metadata = {
 };
 
 export default function DashboardLayout({ children }) {
-  return (
-    <>
-      <ClerkLoading />
-      <ClerkLoaded>
-        <SignedIn>{children}</SignedIn>
-        <SignedOut>
-          <RedirectToSignIn />
-        </SignedOut>
-      </ClerkLoaded>
-    </>
-  );
+  return <AuthGate>{children}</AuthGate>;
 }
 

@@ -31,9 +31,9 @@ export default function SessionsPage() {
         return;
       }
 
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const API_URL = "/api/backend-api";
 
-      const response = await fetch(`${API_URL}/api/user/sessions?limit=100`, {
+      const response = await fetch(`${API_URL}/user/sessions?limit=100`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

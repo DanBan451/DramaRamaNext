@@ -45,10 +45,10 @@ export default function DashboardPage() {
         return;
       }
 
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const API_URL = "/api/backend-api";
 
       // Fetch stats
-      const statsResponse = await fetch(`${API_URL}/api/user/stats`, {
+      const statsResponse = await fetch(`${API_URL}/user/stats`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -61,7 +61,7 @@ export default function DashboardPage() {
       }
 
       // Fetch sessions (limit to 5 for dashboard preview)
-      const sessionsResponse = await fetch(`${API_URL}/api/user/sessions?limit=5`, {
+      const sessionsResponse = await fetch(`${API_URL}/user/sessions?limit=5`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

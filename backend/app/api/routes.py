@@ -470,6 +470,8 @@ async def demo_nudge(
     # Validate token (no DB writes)
     await get_user_from_token(token)
 
+    MIN_WORDS = 20
+
     if not request.responses or len(request.responses) < 12:
         raise HTTPException(status_code=400, detail="Demo requires 12 responses.")
 
@@ -481,6 +483,12 @@ async def demo_nudge(
             raise HTTPException(status_code=400, detail=f"Invalid prompt_index: {r.prompt_index}")
 
         response_text = (r.response_text or "").strip()
+        wc = len(response_text.split())
+        if wc < MIN_WORDS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Response for prompt_index={r.prompt_index} is too short ({wc} words). Minimum is {MIN_WORDS} words.",
+            )
         responses.append(
             Response(
                 id="",
@@ -489,12 +497,28 @@ async def demo_nudge(
                 element=Element(prompt_info["element"]),
                 sub_element=SubElement(prompt_info["sub_element"]),
                 response_text=response_text,
-                word_count=len(response_text.split()),
+                word_count=wc,
                 time_spent_seconds=int(r.time_spent_seconds or 0),
             )
         )
 
     analysis = analyze_responses(responses)
+
+    # If the user provided placeholder/low-signal responses, do not waste LLM calls
+    # and do not fabricate "strengths". Return an honest, grounded coaching message.
+    quality_gate = analysis.get("quality_gate") or {}
+    if not bool(quality_gate.get("ok_to_praise", True)):
+        return DemoNudgeResponse(
+            nudge_text=(
+                "I can’t accurately assess your strengths from these responses yet—they read like placeholders or very low-signal text.\n\n"
+                "Try answering with one concrete example. For Two Sum, for example:\n"
+                "“Let me use nums=[2,7,11,15], target=9. I’ll scan left to right and keep track of what I need to reach the target. "
+                "When I see 2, I need 7; when I see 7, I’ve found the needed partner.”\n\n"
+                "Next step: go back to prompt 1 and write real, specific thinking (examples, assumptions, edge cases, and what you’d try first)."
+            ),
+            analysis=analysis,
+        )
+
     prompt = build_hint_prompt(
         algorithm_title=request.algorithm_title or "Two Sum",
         algorithm_url=request.algorithm_url or "",

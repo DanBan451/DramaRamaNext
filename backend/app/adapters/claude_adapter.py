@@ -20,7 +20,11 @@ class ClaudeStreamingAdapter(LLMClient):
             messages=[
                 {"role": "user", "content": prompt}
             ],
-            system="You are a helpful thinking coach who guides users through the 5 Elements of Effective Thinking without giving away solutions. Be encouraging, specific, and concise."
+            system=(
+                "You are a thinking coach who guides users through the 5 Elements of Effective Thinking without giving away solutions. "
+                "Be encouraging, specific, and concise, but stay grounded in what the user actually wrote. "
+                "Do not fabricate strengths or evidence; if responses are low-signal (placeholder/gibberish), say you cannot assess yet and ask for more concrete thinking."
+            )
         ) as stream:
             for text in stream.text_stream:
                 yield text

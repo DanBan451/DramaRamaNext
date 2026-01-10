@@ -2,7 +2,71 @@
 Domain Services - Business logic
 """
 from typing import List, Dict
+import re
 from app.domain.entities import Response, Element, PROMPTS
+
+
+def _tokenize(text: str) -> list[str]:
+    return [t for t in re.split(r"\s+", (text or "").strip()) if t]
+
+
+def assess_response_quality(text: str) -> Dict:
+    """
+    Heuristic quality check to prevent the LLM from "hallucinating" strengths
+    from placeholder / nonsense responses.
+
+    This is intentionally conservative: it only flags obviously low-signal content.
+    """
+    raw = (text or "").strip()
+    tokens = _tokenize(raw)
+    wc = len(tokens)
+    if wc == 0:
+        return {"word_count": 0, "low_signal": True, "reasons": ["empty"]}
+
+    normalized = [re.sub(r"[^\w]", "", t.lower()) for t in tokens]
+    normalized = [t for t in normalized if t]
+    if not normalized:
+        return {"word_count": wc, "low_signal": True, "reasons": ["no_words"]}
+
+    unique_ratio = len(set(normalized)) / max(1, len(normalized))
+    longest_run = 1
+    run = 1
+    for i in range(1, len(normalized)):
+        if normalized[i] == normalized[i - 1]:
+            run += 1
+            longest_run = max(longest_run, run)
+        else:
+            run = 1
+    repetition_run_ratio = longest_run / max(1, len(normalized))
+
+    # Character-level alpha ratio: "aaaa !!!" tends to be mostly non-word or very repetitive.
+    letters = sum(1 for c in raw if c.isalpha())
+    alnum = sum(1 for c in raw if c.isalnum())
+    alpha_ratio = letters / max(1, alnum)
+
+    reasons: list[str] = []
+
+    # Too little information (even if non-empty)
+    if wc < 10:
+        reasons.append("too_short")
+
+    # Extremely repetitive content (e.g., "a a a a a ..." or same word pasted)
+    if unique_ratio < 0.25 or repetition_run_ratio > 0.4:
+        reasons.append("repetitive")
+
+    # Looks like non-language / placeholder noise (very low alpha ratio)
+    if alpha_ratio < 0.35:
+        reasons.append("non_language")
+
+    low_signal = len(reasons) > 0
+    return {
+        "word_count": wc,
+        "unique_ratio": round(unique_ratio, 3),
+        "repetition_run_ratio": round(repetition_run_ratio, 3),
+        "alpha_ratio": round(alpha_ratio, 3),
+        "low_signal": low_signal,
+        "reasons": reasons,
+    }
 
 # ============================================================================
 # RUBRIC: Quality criteria for each of the 12 prompts
@@ -254,8 +318,15 @@ def analyze_responses(responses: List[Response]) -> Dict:
     
     total_word_count = 0
     total_time = 0
+    quality_by_prompt: dict[int, dict] = {}
+    low_signal_prompt_indices: list[int] = []
     
     for response in responses:
+        q = assess_response_quality(response.response_text)
+        quality_by_prompt[response.prompt_index] = q
+        if q.get("low_signal"):
+            low_signal_prompt_indices.append(response.prompt_index)
+
         element = response.element
         if element in element_stats:
             element_stats[element]["word_count"] += response.word_count
@@ -266,28 +337,46 @@ def analyze_responses(responses: List[Response]) -> Dict:
         total_time += response.time_spent_seconds
     
     avg_word_count = total_word_count / len(responses) if responses else 0
+
+    low_signal_count = len(low_signal_prompt_indices)
+    quality_gate = {
+        "low_signal_count": low_signal_count,
+        "total_responses": len(responses),
+        "low_signal_prompt_indices": sorted(low_signal_prompt_indices),
+        # If too many responses are low-signal, the model MUST NOT "celebrate strengths".
+        "ok_to_praise": low_signal_count <= 2 and avg_word_count >= 15,
+    }
     
     # Detect positive patterns (what user is doing well)
-    for element, stats in element_stats.items():
-        if stats["responses"] > 0:
-            avg_element_words = stats["word_count"] / stats["responses"]
-            avg_element_time = stats["time_spent"] / stats["responses"]
-            
-            # Pattern: Deep engagement (above average words AND time)
-            if avg_element_words > avg_word_count * 1.2:
-                patterns.append({
-                    "type": "deep_engagement",
-                    "element": element.value,
-                    "message": f"You showed strong engagement with {ELEMENT_DEFINITIONS[element]['emoji']} {element.value.capitalize()}. This is a strength to leverage!"
-                })
-            
-            # Pattern: Rich questioning (for Air especially)
-            if element == Element.AIR and stats["questions"] >= stats["responses"] * 1.5:
-                patterns.append({
-                    "type": "rich_questioning",
-                    "element": element.value,
-                    "message": "Your Air responses are full of genuine curiosity and questions. This is powerful!"
-                })
+    if quality_gate["ok_to_praise"]:
+        for element, stats in element_stats.items():
+            if stats["responses"] > 0:
+                avg_element_words = stats["word_count"] / stats["responses"]
+                avg_element_time = stats["time_spent"] / stats["responses"]
+                
+                # Pattern: Deep engagement (above average words AND time)
+                if avg_element_words > avg_word_count * 1.2:
+                    patterns.append({
+                        "type": "deep_engagement",
+                        "element": element.value,
+                        "message": f"You showed strong engagement with {ELEMENT_DEFINITIONS[element]['emoji']} {element.value.capitalize()}. This is a strength to leverage!"
+                    })
+                
+                # Pattern: Rich questioning (for Air especially)
+                if element == Element.AIR and stats["questions"] >= stats["responses"] * 1.5:
+                    patterns.append({
+                        "type": "rich_questioning",
+                        "element": element.value,
+                        "message": "Your Air responses are full of genuine curiosity and questions. This is powerful!"
+                    })
+    else:
+        patterns.append(
+            {
+                "type": "insufficient_signal",
+                "element": None,
+                "message": "Your responses don’t contain enough concrete thinking to accurately assess strengths yet. Let’s get a bit more specific.",
+            }
+        )
     
     # Find STRONGEST element (highest average word count + time as engagement proxy)
     strongest = None
@@ -310,6 +399,8 @@ def analyze_responses(responses: List[Response]) -> Dict:
         "element_stats": {e.value: s for e, s in element_stats.items()},
         "total_word_count": total_word_count,
         "avg_word_count": avg_word_count,
+        "quality_gate": quality_gate,
+        "quality_by_prompt": quality_by_prompt,
     }
 
 
@@ -360,6 +451,11 @@ Philosophy: {defn['philosophy']}
     patterns_text = ""
     for pattern in analysis.get("patterns", []):
         patterns_text += f"- {pattern['message']}\n"
+
+    quality_gate = analysis.get("quality_gate") or {}
+    ok_to_praise = bool(quality_gate.get("ok_to_praise", True))
+    low_signal_count = int(quality_gate.get("low_signal_count", 0) or 0)
+    total_responses = int(quality_gate.get("total_responses", len(responses)) or len(responses))
     
     return f"""You are a thinking coach trained in Edward Burger's "5 Elements of Effective Thinking" framework from the book MUYOM (Making Up Your Own Mind).
 
@@ -373,6 +469,11 @@ Philosophy: {defn['philosophy']}
 ## Their 12 Responses (with quality rubric)
 {responses_text}
 
+## Reality / Quality Check (IMPORTANT)
+- Some responses may be low-signal (placeholder, repetitive, or not real thinking).
+- Low-signal responses count: {low_signal_count}/{total_responses}
+- ok_to_praise: {ok_to_praise}
+
 ## Analysis of Their Thinking
 - **STRONGEST element:** {strongest_def.get('emoji', '')} {strongest.upper() if strongest else 'Unknown'} - This is where they shine!
 - Average word count: {analysis.get('avg_word_count', 0):.1f}
@@ -381,6 +482,13 @@ Philosophy: {defn['philosophy']}
 ## Your Task: Strength-Leveraging Nudge
 
 Your job is NOT to point out weaknesses. Instead, **leverage their strength** to help them think through the problem.
+
+CRITICAL: Stay grounded in the actual text. Do NOT invent strengths.
+If ok_to_praise is false (or if the responses look like placeholders/gibberish), you MUST:
+1) Say plainly (but kindly) that you can’t accurately assess strengths yet from the provided responses.
+2) Ask for more concrete thinking and give ONE example of what a good answer looks like for ONE of the prompts.
+3) Give ONE next step for how to redo the responses (e.g., “pick a concrete input array and trace it”).
+In that case, do NOT “celebrate their strength” and do NOT quote words as evidence of strength.
 
 1. **Celebrate their strength** - Identify what they did exceptionally well in their strongest element. Quote their actual words.
 

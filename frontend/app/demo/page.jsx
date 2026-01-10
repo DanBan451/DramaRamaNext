@@ -21,6 +21,8 @@ const elementEmojis = {
   water: "🌊",
 };
 
+const MIN_WORDS = 20;
+
 function safeJsonParse(text) {
   try {
     return JSON.parse(text);
@@ -88,12 +90,21 @@ export default function DemoPage() {
     });
   }, [idx]);
 
-  const canGoNext = useMemo(() => String(answers[idx] || "").trim().length > 0, [answers, idx]);
+  const currentWordCount = useMemo(() => {
+    const text = String(answers[idx] || "").trim();
+    if (!text) return 0;
+    return text.split(/\s+/).filter(Boolean).length;
+  }, [answers, idx]);
+
+  const canGoNext = useMemo(() => currentWordCount >= MIN_WORDS, [currentWordCount]);
   const isLastPrompt = idx === 11;
-  const allAnswered = useMemo(
-    () => answers.every((a) => String(a || "").trim().length > 0),
-    [answers]
-  );
+  const allAnswered = useMemo(() => {
+    return answers.every((a) => {
+      const text = String(a || "").trim();
+      const wc = text ? text.split(/\s+/).filter(Boolean).length : 0;
+      return wc >= MIN_WORDS;
+    });
+  }, [answers]);
 
   function setAnswer(i, text) {
     setAnswers((prev) => {
@@ -263,8 +274,15 @@ export default function DemoPage() {
                             }}
                             value={answers[idx]}
                             onValueChange={(v) => setAnswer(idx, v)}
-                            placeholder="Write your thoughts…"
+                            placeholder={`Write your thoughts… (minimum ${MIN_WORDS} words)`}
                           />
+                        </div>
+
+                        <div className="mt-3 flex items-center justify-between text-sm">
+                          <div className={currentWordCount >= MIN_WORDS ? "text-ash" : "text-fire"}>
+                            {currentWordCount} words • minimum {MIN_WORDS}
+                          </div>
+                          <div className="text-ash">Tip: concrete examples > generic text</div>
                         </div>
 
                         <div className="mt-4 flex items-center justify-between gap-3">

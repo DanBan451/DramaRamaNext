@@ -2,6 +2,8 @@
 DramaRama Backend API
 FastAPI application with hexagonal architecture
 """
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -9,6 +11,8 @@ from mangum import Mangum
 
 from app.api.routes import router as api_router
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="DramaRama API",
@@ -26,7 +30,17 @@ except Exception:  # pragma: no cover
 if PostgrestAPIError:
     @app.exception_handler(PostgrestAPIError)  # type: ignore[misc]
     async def postgrest_error_handler(request: Request, exc: Exception):
+        # Log the underlying PostgREST/Supabase error so we can diagnose issues
+        # (missing tables vs RLS/permissions vs bad query vs network, etc.).
         msg = str(exc)
+        detail = getattr(exc, "message", None) or getattr(exc, "details", None) or msg
+        logger.error(
+            "PostgREST API error: method=%s path=%s detail=%s",
+            request.method,
+            request.url.path,
+            detail,
+            exc_info=exc,
+        )
         if "PGRST205" in msg or "schema cache" in msg or "Could not find the table" in msg:
             return JSONResponse(
                 status_code=500,

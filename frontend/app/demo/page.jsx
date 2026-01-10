@@ -282,7 +282,7 @@ export default function DemoPage() {
                           <div className={currentWordCount >= MIN_WORDS ? "text-ash" : "text-fire"}>
                             {currentWordCount} words • minimum {MIN_WORDS}
                           </div>
-                          <div className="text-ash">Tip: concrete examples > generic text</div>
+                          <div className="text-ash">Tip: concrete examples &gt; generic text</div>
                         </div>
 
                         <div className="mt-4 flex items-center justify-between gap-3">

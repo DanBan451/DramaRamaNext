@@ -20,12 +20,26 @@ function readDramaRamaTokenFromFragment() {
   }
 }
 
+function readDramaRamaHqFromFragment() {
+  try {
+    const hash = window.location.hash || "";
+    if (!hash.startsWith("#")) return null;
+    const params = new URLSearchParams(hash.slice(1));
+    return params.get("dramarama_hq");
+  } catch {
+    return null;
+  }
+}
+
 function stripDramaRamaTokenFromFragment() {
   try {
     const url = new URL(window.location.href);
     const params = new URLSearchParams((url.hash || "").replace(/^#/, ""));
-    if (!params.has("dramarama_token")) return;
+    const hadToken = params.has("dramarama_token");
+    const hadHq = params.has("dramarama_hq");
+    if (!hadToken && !hadHq) return;
     params.delete("dramarama_token");
+    params.delete("dramarama_hq");
     url.hash = params.toString();
     history.replaceState(null, "", url.toString());
   } catch {
@@ -35,9 +49,23 @@ function stripDramaRamaTokenFromFragment() {
 
 async function ingest() {
   const token = readDramaRamaTokenFromFragment();
-  if (!token) return;
+  const hq = readDramaRamaHqFromFragment();
+  if (!token && !hq) return;
   try {
-    await chrome.runtime.sendMessage({ type: "SET_AUTH_TOKEN", token });
+    if (token) {
+      await chrome.runtime.sendMessage({ type: "SET_AUTH_TOKEN", token });
+    }
+    // If HQ origin is provided, auto-configure extension endpoints:
+    // - API: use the HQ proxy route so the extension doesn't need direct access to EC2
+    // - Frontend: use HQ for login/dashboard
+    if (hq) {
+      const trimmed = String(hq).replace(/\/+$/, "");
+      await chrome.runtime.sendMessage({
+        type: "SET_CONFIG",
+        apiBaseUrl: `${trimmed}/api/backend-api`,
+        frontendBaseUrl: trimmed,
+      });
+    }
     stripDramaRamaTokenFromFragment();
   } catch {
     // ignore

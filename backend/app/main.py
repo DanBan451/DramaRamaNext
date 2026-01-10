@@ -12,7 +12,9 @@ from mangum import Mangum
 from app.api.routes import router as api_router
 from app.core.config import settings
 
-logger = logging.getLogger(__name__)
+# Route app logs through Uvicorn's configured logger so they reliably show up in
+# `journalctl -u dramarama.service` when running under systemd.
+logger = logging.getLogger("uvicorn.error")
 
 app = FastAPI(
     title="DramaRama API",

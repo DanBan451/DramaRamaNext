@@ -14,6 +14,13 @@ function withDramaRamaTokenFragment(urlString, token) {
   // Put token in the fragment so it is NOT sent to LeetCode servers (only readable by the extension).
   const fragment = new URLSearchParams(url.hash.replace(/^#/, ""));
   fragment.set("dramarama_token", token);
+  // Also attach HQ origin so the extension can auto-configure where to call API/auth endpoints.
+  // This avoids hardcoding localhost in the extension and avoids requiring end-user configuration.
+  try {
+    fragment.set("dramarama_hq", window.location.origin);
+  } catch {
+    // ignore
+  }
   url.hash = fragment.toString();
   return url.toString();
 }

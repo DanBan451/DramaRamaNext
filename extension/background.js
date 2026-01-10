@@ -3,8 +3,28 @@
  * Handles API communication and session state
  */
 
-const API_BASE_URL = 'http://localhost:8000/api';
-const FRONTEND_BASE_URL = 'http://localhost:3000';
+// Defaults are for local development only. In production, the extension should
+// auto-configure via the HQ handoff flow (/go/leetcode) and use the HQ proxy.
+const DEFAULT_API_BASE_URL = 'http://localhost:8000/api';
+const DEFAULT_FRONTEND_BASE_URL = 'http://localhost:3000';
+
+let API_BASE_URL = DEFAULT_API_BASE_URL;
+let FRONTEND_BASE_URL = DEFAULT_FRONTEND_BASE_URL;
+
+async function loadConfig() {
+  const { apiBaseUrl, frontendBaseUrl } = await chrome.storage.sync.get([
+    'apiBaseUrl',
+    'frontendBaseUrl',
+  ]);
+  API_BASE_URL = String(apiBaseUrl || DEFAULT_API_BASE_URL).replace(/\/+$/, '');
+  FRONTEND_BASE_URL = String(frontendBaseUrl || DEFAULT_FRONTEND_BASE_URL).replace(/\/+$/, '');
+  return { apiBaseUrl: API_BASE_URL, frontendBaseUrl: FRONTEND_BASE_URL };
+}
+
+async function ensureConfigLoaded() {
+  // MV3 service workers can be spun down between events; reload config on wake.
+  await loadConfig();
+}
 
 // Store session state
 let currentSession = null;
@@ -34,7 +54,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function handleMessage(request, sender) {
+  // Ensure config is loaded on every event (service worker may restart).
+  await ensureConfigLoaded();
+
   switch (request.type) {
+    case 'GET_CONFIG':
+      return await loadConfig();
+
+    case 'SET_CONFIG': {
+      const apiBaseUrl = String(request.apiBaseUrl || DEFAULT_API_BASE_URL).replace(/\/+$/, '');
+      const frontendBaseUrl = String(request.frontendBaseUrl || DEFAULT_FRONTEND_BASE_URL).replace(/\/+$/, '');
+      await chrome.storage.sync.set({ apiBaseUrl, frontendBaseUrl });
+      // Update in-memory values immediately.
+      API_BASE_URL = apiBaseUrl;
+      FRONTEND_BASE_URL = frontendBaseUrl;
+      return { success: true, apiBaseUrl, frontendBaseUrl };
+    }
+
     case 'SET_AUTH_TOKEN':
       // If user identity changes, discard any in-progress session tied to the old token.
       // But if token rotates for the same user (common), keep the session.
@@ -256,7 +292,7 @@ async function apiRequest(endpoint, method = 'GET', body = null) {
   } catch (e) {
     // Network/CORS failures show up as TypeError: Failed to fetch
     throw new Error(
-      'Failed to fetch. Make sure the backend is running on http://localhost:8000 and CORS allows your chrome-extension:// origin.'
+      'Failed to fetch. Please sign in via DramaRama HQ (so the extension can auto-configure), then refresh and try again.'
     );
   }
   

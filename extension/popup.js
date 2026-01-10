@@ -4,6 +4,7 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
   await checkAuthStatus();
+  await loadAndRenderConfig();
   
   // Event listeners
   document.getElementById('logout-btn')?.addEventListener('click', logout);
@@ -18,7 +19,8 @@ async function handleLogin(e) {
   const currentUrl = tab?.url || 'https://leetcode.com/';
   
   // Construct the login URL with redirect back to current LeetCode page
-  const API_URL = 'http://localhost:3000';
+  const { frontendBaseUrl } = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
+  const API_URL = frontendBaseUrl || 'http://localhost:3000';
   const encodedUrl = encodeURIComponent(currentUrl);
   const redirectPath = `/go/leetcode?url=${encodedUrl}`;
   const encodedRedirect = encodeURIComponent(redirectPath);
@@ -120,7 +122,24 @@ async function checkAuthStatus() {
   }
 }
 
+async function loadAndRenderConfig() {
+  const config = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
+  const saveNote = document.getElementById('save-note');
+  if (saveNote) {
+    saveNote.textContent = config.frontendBaseUrl
+      ? `Connected to: ${config.frontendBaseUrl}`
+      : 'Not connected yet. Click “Login / Sign Up” to connect.';
+  }
+
+  const dash = document.getElementById('dashboard-link');
+  if (dash) {
+    const base = config.frontendBaseUrl || 'http://localhost:3000';
+    dash.href = `${base}/dashboard`;
+  }
+}
+
 async function logout() {
   await chrome.runtime.sendMessage({ type: 'LOGOUT' });
   await checkAuthStatus();
+  await loadAndRenderConfig();
 }

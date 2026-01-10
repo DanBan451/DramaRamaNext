@@ -62,3 +62,22 @@ class PromptResponse(BaseModel):
     name: str
     prompt: str
 
+
+# Demo schemas (no persistence)
+class DemoPromptResponseInput(BaseModel):
+    prompt_index: int
+    response_text: str
+    time_spent_seconds: Optional[int] = None
+
+
+class DemoNudgeRequest(BaseModel):
+    # Intentionally keep this flexible, but the HQ demo will use Two Sum.
+    algorithm_title: Optional[str] = None
+    algorithm_url: Optional[str] = None
+    responses: List[DemoPromptResponseInput]
+
+
+class DemoNudgeResponse(BaseModel):
+    nudge_text: str
+    analysis: dict
+

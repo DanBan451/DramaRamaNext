@@ -15,6 +15,7 @@ from app.api.schemas import (
     SessionCancelRequest,
     UserSessionsResponse, SessionDetailResponse,
     DashboardStatsResponse, PromptResponse,
+    DemoNudgeRequest, DemoNudgeResponse,
 )
 from app.domain.entities import (
     Response, Hint, Element, SubElement, SessionStatus,
@@ -448,4 +449,63 @@ async def get_all_prompts():
         )
         for p in PROMPTS
     ]
+
+
+# ============ Demo Endpoints (no persistence) ============
+
+@router.post("/demo/nudge", response_model=DemoNudgeResponse)
+async def demo_nudge(
+    request: DemoNudgeRequest,
+    http_request: Request,
+):
+    """
+    Generate a "nudge" for the HQ demo without creating sessions/responses/hints in the DB.
+    Auth is required (Bearer token), but we do NOT store anything in Supabase.
+    """
+    auth_header = http_request.headers.get("authorization") or http_request.headers.get("Authorization")
+    if not auth_header or not auth_header.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing auth token")
+
+    token = auth_header.split(" ", 1)[1].strip()
+    # Validate token (no DB writes)
+    await get_user_from_token(token)
+
+    if not request.responses or len(request.responses) < 12:
+        raise HTTPException(status_code=400, detail="Demo requires 12 responses.")
+
+    # Build Response entities in-memory (no persistence)
+    responses: list[Response] = []
+    for r in request.responses[:12]:
+        prompt_info = get_prompt(r.prompt_index)
+        if not prompt_info:
+            raise HTTPException(status_code=400, detail=f"Invalid prompt_index: {r.prompt_index}")
+
+        response_text = (r.response_text or "").strip()
+        responses.append(
+            Response(
+                id="",
+                session_id="demo",
+                prompt_index=r.prompt_index,
+                element=Element(prompt_info["element"]),
+                sub_element=SubElement(prompt_info["sub_element"]),
+                response_text=response_text,
+                word_count=len(response_text.split()),
+                time_spent_seconds=int(r.time_spent_seconds or 0),
+            )
+        )
+
+    analysis = analyze_responses(responses)
+    prompt = build_hint_prompt(
+        algorithm_title=request.algorithm_title or "Two Sum",
+        algorithm_url=request.algorithm_url or "",
+        responses=responses,
+        analysis=analysis,
+    )
+
+    # Collect the streaming output into one string for the demo
+    out = ""
+    async for chunk in llm_client.generate_stream(prompt):
+        out += chunk
+
+    return DemoNudgeResponse(nudge_text=out.strip() or "(empty nudge)", analysis=analysis)
 

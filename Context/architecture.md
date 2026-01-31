@@ -369,3 +369,7 @@ This architecture provides:
 - **Migration path:** Can move to AWS RDS later (same PostgreSQL)
 
 **Build it. Ship it. Learn from users. Then scale.**
+
+---
+
+This architecture will be extended and trancended by research-workspace

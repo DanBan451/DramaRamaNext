@@ -130,9 +130,7 @@ export default function DashboardPage() {
             </Button>
             <Button
               as={Link}
-              href="/go/leetcode?url=https%3A%2F%2Fleetcode.com%2F"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/workspace"
               className="bg-black text-white hover:bg-ash transition-colors"
               radius="none"
             >
@@ -313,17 +311,15 @@ export default function DashboardPage() {
                   <div className="text-4xl mb-4">🧩</div>
                   <h3 className="font-display text-xl text-black mb-2">No sessions yet</h3>
                   <p className="text-smoke mb-6">
-                    Start your first session by opening a problem on LeetCode!
+                    Start your first session by entering an algorithm in the workspace!
                   </p>
                   <Button
                     as={Link}
-                    href="/go/leetcode?url=https%3A%2F%2Fleetcode.com%2F"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href="/workspace"
                     className="bg-black text-white"
                     radius="none"
                   >
-                    Go to LeetCode
+                    Start New Session
                   </Button>
                 </div>
               )}

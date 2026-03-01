@@ -81,3 +81,12 @@ class DemoNudgeResponse(BaseModel):
     nudge_text: str
     analysis: dict
 
+
+# Puzzle generation schemas
+class PuzzleGenerateRequest(BaseModel):
+    algorithm_title: str
+    algorithm_url: Optional[str] = None
+
+class PuzzleGenerateResponse(BaseModel):
+    puzzle_text: str
+

@@ -404,6 +404,29 @@ def analyze_responses(responses: List[Response]) -> Dict:
     }
 
 
+def build_puzzle_prompt(algorithm_title: str, algorithm_url: str = "") -> str:
+    """
+    Build a prompt for Claude to generate an engaging story-format puzzle
+    from a standard algorithm problem.
+    """
+    url_line = f"\nOriginal problem URL: {algorithm_url}" if algorithm_url else ""
+    return f"""You are a creative educator who transforms dry algorithm problems into engaging, visual story-puzzles.
+
+Algorithm: {algorithm_title}{url_line}
+
+Transform this algorithm into an engaging puzzle with the following structure:
+
+1. **The Story Setup** (2-3 sentences): Give the problem a vivid real-world narrative. Make it feel alive and concrete. Use a relatable scenario.
+
+2. **The Challenge** (1-2 sentences): State the challenge clearly within the story context.
+
+3. **A Concrete Example** (visual trace): Show a small, specific example with actual values. Use a table or step-by-step trace to make it visual. Show the input and desired output clearly.
+
+4. **What Makes This Interesting** (1 sentence): Point out the one thing that makes this problem uniquely tricky or elegant.
+
+Keep the full puzzle under 200 words. Do NOT give away the solution or hint at an approach. The goal is to make the reader lean forward with curiosity."""
+
+
 def build_hint_prompt(
     algorithm_title: str,
     algorithm_url: str,

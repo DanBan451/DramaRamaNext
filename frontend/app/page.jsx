@@ -315,13 +315,13 @@ export default function Home() {
             <div className="text-center">
               <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-6">
                 <span className="text-3xl">🧩</span>
-      </div>
-              <h3 className="font-display text-2xl mb-4">1. Open a Problem</h3>
+              </div>
+              <h3 className="font-display text-2xl mb-4">1. Choose a Problem</h3>
               <p className="text-smoke">
-                Visit LeetCode or HackerRank. Our browser extension detects the algorithm
-                and starts your session.
-      </p>
-      </div>
+                Enter any algorithm you want to think through. Our AI transforms it into
+                an engaging, visual story-puzzle.
+              </p>
+            </div>
 
             <div className="text-center">
               <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-6">
@@ -340,8 +340,8 @@ export default function Home() {
               </div>
               <h3 className="font-display text-2xl mb-4">3. Receive Your Nudge</h3>
               <p className="text-smoke">
-                Our AI analyzes your engagement and nudges you toward the element you
-                need—without spoiling the answer.
+                Request a nudge whenever you're ready. Our AI analyzes your thinking and
+                guides you toward your next breakthrough—without spoiling the answer.
               </p>
             </div>
           </div>
@@ -349,16 +349,16 @@ export default function Home() {
           <div className="text-center mt-16">
             {/* Logged in → go to dashboard; logged out → go to login */}
             <SignedIn>
-              <Link href="/dashboard">
+              <Link href="/workspace">
                 <Button className="bg-white text-black hover:bg-mist px-8 py-6 text-lg rounded-none font-semibold">
-                  Get the Extension
+                  Open Workspace
                 </Button>
               </Link>
             </SignedIn>
             <SignedOut>
               <Link href="/login">
                 <Button className="bg-white text-black hover:bg-mist px-8 py-6 text-lg rounded-none font-semibold">
-                  Get the Extension
+                  Start Thinking
                 </Button>
               </Link>
             </SignedOut>

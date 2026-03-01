@@ -16,12 +16,13 @@ from app.api.schemas import (
     UserSessionsResponse, SessionDetailResponse,
     DashboardStatsResponse, PromptResponse,
     DemoNudgeRequest, DemoNudgeResponse,
+    PuzzleGenerateRequest, PuzzleGenerateResponse,
 )
 from app.domain.entities import (
     Response, Hint, Element, SubElement, SessionStatus,
     PROMPTS, get_prompt,
 )
-from app.domain.services import analyze_responses, build_hint_prompt
+from app.domain.services import analyze_responses, build_hint_prompt, build_puzzle_prompt
 from app.adapters.supabase_adapter import (
     SupabaseUserRepository,
     SupabaseSessionRepository,
@@ -126,8 +127,8 @@ async def submit_response(
     prompts_completed = request.prompt_index + 1
     await session_repo.update(session.id, prompts_completed=prompts_completed)
     
-    # Check if session is complete
-    session_complete = prompts_completed >= 12
+    # Check if session is complete (13 prompts: 12 + Change/Transform)
+    session_complete = prompts_completed >= 13
     next_prompt = None if session_complete else get_prompt(prompts_completed)
     
     return ResponseSubmitResponse(
@@ -175,8 +176,8 @@ async def analyze_session(
     # Get all responses
     responses = await response_repo.get_session_responses(session_id)
     
-    if len(responses) < 12:
-        raise HTTPException(status_code=400, detail="Session not complete. Need 12 responses.")
+    if len(responses) < 1:
+        raise HTTPException(status_code=400, detail="At least one response is required before requesting a nudge.")
     
     # Analyze responses
     analysis = analyze_responses(responses)
@@ -210,12 +211,6 @@ async def analyze_session(
             await hint_repo.create(hint)
         except Exception:
             # Don't fail the stream if saving hint fails
-            pass
-
-        # Mark session as completed (best-effort)
-        try:
-            await session_repo.update(session_id, status=SessionStatus.COMPLETED)
-        except Exception:
             pass
 
         yield "data: [DONE]\n\n"
@@ -449,6 +444,22 @@ async def get_all_prompts():
         )
         for p in PROMPTS
     ]
+
+
+# ============ Puzzle Endpoints ============
+
+@router.post("/puzzle/generate", response_model=PuzzleGenerateResponse)
+async def generate_puzzle(
+    request: PuzzleGenerateRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Generate an engaging story-format puzzle from an algorithm title."""
+    prompt = build_puzzle_prompt(
+        algorithm_title=request.algorithm_title,
+        algorithm_url=request.algorithm_url or "",
+    )
+    puzzle_text = await llm_client.generate_text(prompt)
+    return PuzzleGenerateResponse(puzzle_text=puzzle_text)
 
 
 # ============ Demo Endpoints (no persistence) ============

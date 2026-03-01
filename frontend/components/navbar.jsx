@@ -29,11 +29,11 @@ export const Navbar = () => {
   const baseNavItems = [
     { name: "Home", path: "/" },
     { name: "Elements", path: "/elements" },
-    { name: "Demo", path: "/demo" },
   ];
 
   // Auth-only nav items
   const authNavItems = [
+    { name: "Workspace", path: "/workspace" },
     { name: "Dashboard", path: "/dashboard" },
   ];
 
@@ -41,16 +41,15 @@ export const Navbar = () => {
   const signedOutMenuItems = [
     { name: "Home", path: "/" },
     { name: "Elements", path: "/elements" },
-    { name: "Demo", path: "/demo" },
   ];
 
   // Mobile menu items for signed in users
   const signedInMenuItems = [
     { name: "Home", path: "/" },
     { name: "Elements", path: "/elements" },
+    { name: "Workspace", path: "/workspace" },
     { name: "Dashboard", path: "/dashboard" },
     { name: "Sessions", path: "/sessions" },
-    { name: "Demo", path: "/demo" },
   ];
 
   const isActive = (path) => pathname === path;

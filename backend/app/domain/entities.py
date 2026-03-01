@@ -11,11 +11,13 @@ class Element(str, Enum):
     FIRE = "fire"
     AIR = "air"
     WATER = "water"
+    CHANGE = "change"
 
 class SubElement(str, Enum):
     ONE = "1.0"
     TWO = "2.0"
     THREE = "3.0"
+    TRANSFORM = "transform"
 
 class SessionStatus(str, Enum):
     IN_PROGRESS = "in_progress"
@@ -150,10 +152,18 @@ PROMPTS = [
         "name": "Never Stop",
         "prompt": "Never stop. Where does this idea lead? What's the next step after solving this?",
     },
+    # Change (Be Open to Change)
+    {
+        "index": 12,
+        "element": Element.CHANGE,
+        "sub_element": SubElement.TRANSFORM,
+        "name": "Transform",
+        "prompt": "How has this problem changed your understanding? What do you see now that you didn't before?",
+    },
 ]
 
 def get_prompt(index: int) -> dict:
-    """Get prompt by index (0-11)"""
+    """Get prompt by index (0-12)"""
     if 0 <= index < len(PROMPTS):
         return PROMPTS[index]
     return None

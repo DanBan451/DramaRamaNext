@@ -287,19 +287,17 @@ export default function SessionsPage() {
               No {filter === "all" ? "" : filter.replace("_", " ")} sessions
             </h3>
             <p className="text-smoke mb-6">
-              {filter === "all" 
-                ? "Start your first session on LeetCode!"
+              {filter === "all"
+                ? "Start your first session in the workspace!"
                 : `You don't have any ${filter.replace("_", " ")} sessions.`}
             </p>
             <Button
               as={Link}
-              href="/go/leetcode?url=https%3A%2F%2Fleetcode.com%2F"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/workspace"
               className="bg-black text-white"
               radius="none"
             >
-              Go to LeetCode
+              Start New Session
             </Button>
           </div>
         )}

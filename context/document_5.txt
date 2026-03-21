@@ -1,0 +1,23 @@
+DramaRama – MUYSEM Architecture
+See my refined attachment that I gave you. I now need 1 more paper that I am currently constructing which is the architecture and tech-stack I will be using. I don’t want you to just give me the most optimal and best way to build this that you think is right. Although I would like to build this in the most optimal way, I want to hit 2 birds one one stone where the second bird is Learning that will get me a job at Google. Now, I have already worked on a project with 2 people who work at META where they got a potential client that was going to give them access to a bunch of oil & gas documents. The app they were building was a chatbot that had multiple tools where when enabled, each tool would be a dataset which would be RAG’d through. Here was the process:
+
+On the frontend NextJS application, there would be a chatbot. The user would type in a question and then enable a tool which would be associated with a dataset. They hit send, which would call an endpoint on a websocket-lambda application (FastAPI) that would process_message. This process_message does a LOT like figuring out which tools were enabled, RAGing through those datasets and pulling out the best ranked chunks, and then we’d stream the response back to the frontend and after the streaming was done we’d call the save message from another lambda service that is solely forgetting the existing messages, storing them, chat history, etc. 
+Now, I’ve kinda gone over the tech stack and approaches that we used which you will see below:
+
+Langraph & Langchain
+RAG
+Tools
+Pre-processing & Post-processing
+Testing LLMs
+Hexagonal Architecture 
+Prompt and context engineering
+AWS
+Lambda
+SAM (build, deploy, accelerate)
+Web-sockets
+Security
+Clerk
+JWT
+
+Now, I obviously have a goal of getting a job at META and therefore want to pick a tech stack & approach that would indeed help me get that job. But I still don’t want to be overkill with applying concepts that don’t make sense to my app. 
+

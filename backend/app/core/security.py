@@ -110,9 +110,12 @@ async def get_user_from_token(token: str) -> dict:
             leeway=60  # Allow 60 seconds of clock skew for iat, nbf, exp
         )
         
+        print(f"[DEBUG] JWT payload keys: {list(payload.keys())}")
+        # Clerk may put email in different places
+        email = payload.get("email") or payload.get("primary_email_address") or payload.get("email_addresses", [{}])[0].get("email_address")
         return {
             "user_id": payload.get("sub"),
-            "email": payload.get("email"),
+            "email": email,
         }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired. Get a fresh token from DramaRama and try again.")

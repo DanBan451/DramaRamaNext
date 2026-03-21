@@ -12,11 +12,11 @@ class ClaudeStreamingAdapter(LLMClient):
         self.client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         self.model = "claude-3-haiku-20240307"  # Fast and cheap for MVP
 
-    async def generate_stream(self, prompt: str) -> AsyncGenerator[str, None]:
+    async def generate_stream(self, prompt: str, max_tokens: int = 500) -> AsyncGenerator[str, None]:
         """Generate streaming response from Claude"""
         with self.client.messages.stream(
             model=self.model,
-            max_tokens=500,
+            max_tokens=max_tokens,
             messages=[
                 {"role": "user", "content": prompt}
             ],
@@ -29,11 +29,11 @@ class ClaudeStreamingAdapter(LLMClient):
             for text in stream.text_stream:
                 yield text
 
-    async def generate_text(self, prompt: str, system: str = "") -> str:
+    async def generate_text(self, prompt: str, system: str = "", max_tokens: int = 1500) -> str:
         """Generate a complete (non-streaming) response from Claude."""
         message = self.client.messages.create(
             model=self.model,
-            max_tokens=600,
+            max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
             **({"system": system} if system else {}),
         )

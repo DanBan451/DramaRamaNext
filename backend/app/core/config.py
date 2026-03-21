@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     # Frontend
     FRONTEND_URL: str = "http://localhost:3000"
     
+    # Developer email (unlimited nudges, puzzle generation access)
+    DEV_EMAIL: str = ""
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

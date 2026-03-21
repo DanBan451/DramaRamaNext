@@ -7,12 +7,11 @@ from datetime import datetime
 
 # Session schemas
 class SessionStartRequest(BaseModel):
-    algorithm_title: str
-    algorithm_url: Optional[str] = None
+    puzzle_id: str
 
 class SessionStartResponse(BaseModel):
     session_id: str
-    algorithm_title: str
+    puzzle_id: str
     current_prompt_index: int
     current_prompt: dict
 
@@ -63,6 +62,29 @@ class PromptResponse(BaseModel):
     prompt: str
 
 
+# Puzzle schemas
+class PuzzleOut(BaseModel):
+    id: str
+    title: str
+    scenario: str
+    constraints: List[str]
+    example: str
+    created_at: Optional[str] = None
+
+class PuzzleListResponse(BaseModel):
+    puzzles: List[PuzzleOut]
+
+class PuzzleGenerateResponse(BaseModel):
+    puzzle_id: str
+    title: str
+    status: str
+
+class NudgeLimitResponse(BaseModel):
+    used: int
+    limit: int
+    unlimited: bool
+
+
 # Demo schemas (no persistence)
 class DemoPromptResponseInput(BaseModel):
     prompt_index: int
@@ -71,22 +93,11 @@ class DemoPromptResponseInput(BaseModel):
 
 
 class DemoNudgeRequest(BaseModel):
-    # Intentionally keep this flexible, but the HQ demo will use Two Sum.
-    algorithm_title: Optional[str] = None
-    algorithm_url: Optional[str] = None
+    puzzle_id: Optional[str] = None
     responses: List[DemoPromptResponseInput]
 
 
 class DemoNudgeResponse(BaseModel):
     nudge_text: str
     analysis: dict
-
-
-# Puzzle generation schemas
-class PuzzleGenerateRequest(BaseModel):
-    algorithm_title: str
-    algorithm_url: Optional[str] = None
-
-class PuzzleGenerateResponse(BaseModel):
-    puzzle_text: str
 

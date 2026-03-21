@@ -20,21 +20,21 @@ const ELEMENTS = [
         name: "Start with the Simple",
         description:
           "Start with a basic or trivial version of the challenge—one where you have a firm intellectual foothold. Probe that simple scenario more deeply to see the detail and structure that always lies beneath the surface.",
-        prompt: "What are the absolute basics of this problem? Break it down to its simplest form.",
+        prompt: "What are the fundamentals of this problem that you'd need to ground yourself in before using AI? What context is essential?",
       },
       {
         version: "2.0",
         name: "Spotlight the Specific",
         description:
           "Warm up with a special case or specific example to gain new insight that can then be extended to the general situation. Reframe any structure discovered in that example to expose a general principle hidden in the original issue.",
-        prompt: "Create a specific, simple example. What does the problem look like with concrete numbers?",
+        prompt: "Create a simpler, concrete version of this scenario. What would a minimal example look like?",
       },
       {
         version: "3.0",
         name: "Add the Adjective",
         description:
           "To understand anything in greater detail, challenge yourself to add as many descriptors as possible. Do not leave an adjective for another descriptor until some new facet is revealed.",
-        prompt: "Add an adjective. How would you describe this problem to a colleague? What makes it unique?",
+        prompt: "Add a descriptor to your approach. Is it iterative? Exploratory? Defensive? How does that lens change how you'd tackle this with AI?",
       },
     ],
   },
@@ -50,21 +50,21 @@ const ELEMENTS = [
         name: "Fail Fast",
         description:
           "Free yourself from a focus on perfection and instead focus on process. Try doing it quickly and lousily—now you have something to respond to. Get that first failed effort out of the way as quickly as possible and start learning from it.",
-        prompt: "Fail fast. Write a rough solution even if it's wrong. What's your first instinct?",
+        prompt: "Try something — even if it's wrong. What's your rough first attempt at solving this with AI?",
       },
       {
         version: "2.0",
         name: "Fail Again",
         description:
           "Imagine you must fail ten times to succeed. With this mindset, each failure becomes progress. Embrace the need to make ten initial mistakes—be open to being wrong and doubt those aspects of which you are certain.",
-        prompt: "Fail again. What went wrong with your first approach? How can you improve it?",
+        prompt: "What went wrong with that attempt? Where did the AI approach break down?",
       },
       {
         version: "3.0",
         name: "Fail Intentionally",
         description:
           "Consider extreme cases and remove all real constraints to create completely impractical thoughts and solutions. Determine the precise breakpoint where things went wrong—study it for what has promise.",
-        prompt: "Fail intentionally. What's an extreme or impossible scenario? What breaks your solution?",
+        prompt: "What's an extreme or impossible AI approach? What does that failure teach you about the right approach?",
       },
     ],
   },
@@ -80,21 +80,21 @@ const ELEMENTS = [
         name: "Be Your Own Socrates",
         description:
           "Asking meta-questions throughout any thoughtful process will always shine a light onto the big picture. Ask 'What is the real issue here?'—it opens your mind to the possibility that you are considering the wrong question or problem.",
-        prompt: "Be your own Socrates. What is the REAL question here? Are you solving the right problem?",
+        prompt: "What is the REAL question here? Are you even approaching the right problem with AI?",
       },
       {
         version: "2.0",
         name: "Create Basic Questions",
         description:
           "Ask fundamental questions to make fundamental breakthroughs. Even wondering 'What does the simplest case look like?' is a powerful way of probing into the original, subtler scenario.",
-        prompt: "Ask a basic question. What fundamental concept are you missing or taking for granted?",
+        prompt: "What fundamental concept about this domain or these AI tools are you missing?",
       },
       {
         version: "3.0",
         name: "Ask Something Else",
         description:
           "Whether you are stuck or not, considering something else not only resets your thinking, but allows you to refocus on the issue in an entirely original way. Ask 'What's a different but related question?'",
-        prompt: "Ask another question. What related question might give you insight into this one?",
+        prompt: "What related problem might give you insight into this one? Is there an adjacent question worth exploring?",
       },
     ],
   },
@@ -110,21 +110,21 @@ const ELEMENTS = [
         name: "Run Down All Paths",
         description:
           "Whenever you are able, consider all possible cases, even the obviously impossible ones. Follow the flow of each scenario to its very end—most will lead to dead ends, but learn from those before traveling down the next.",
-        prompt: "Run down all paths. What are ALL the possible approaches? Don't dismiss any yet.",
+        prompt: "What are ALL the possible approaches to solving this with AI? Map out every path.",
       },
       {
         version: "2.0",
         name: "Embrace Doubt",
         description:
           "Challenge your own narrow thinking and opinions to see where that flow takes you. Embrace doubt as a strength—wonder 'What if I'm wrong?' The opposite of doubt is not certainty, but rather closed-mindedness.",
-        prompt: "Embrace doubt. What are you uncertain about? Where might you be wrong?",
+        prompt: "What are you uncertain about? Where might your AI approach be wrong?",
       },
       {
         version: "3.0",
         name: "Never Stop",
         description:
           "Following the flow of an idea requires persistence and tenacity to see where that flow will carry you. Do not let go of an idea until it takes you somewhere new, unexpected, or to an insight into something otherwise unrelated.",
-        prompt: "Never stop. Where does this idea lead? What's the next step after solving this?",
+        prompt: "Follow your best approach to its conclusion. Where does it lead? What's the next step after that?",
       },
     ],
   },
@@ -140,7 +140,7 @@ const ELEMENTS = [
         name: "Transform",
         description:
           "The puzzles themselves change through effective thinking: the way you first saw them will be different from how you see them after challenging yourself to understand more deeply. The ultimate goal is to change how you think.",
-        prompt: "How has this problem changed your understanding? What do you see now that you didn't before?",
+        prompt: "How has thinking through this puzzle changed how you'd approach AI-assisted work?",
       },
     ],
   },
@@ -240,49 +240,63 @@ function ElementsSidebar({ currentPromptIdx, expandedElements, onToggle }) {
 // ─── Setup Phase ─────────────────────────────────────────────────────────────
 
 function SetupPhase({ onStart }) {
-  const [input, setInput] = useState("");
+  const [puzzles, setPuzzles] = useState([]);
+  const [selectedPuzzleId, setSelectedPuzzleId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [puzzlesLoading, setPuzzlesLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [genTopic, setGenTopic] = useState("");
+  const [genLoading, setGenLoading] = useState(false);
+  const [genErr, setGenErr] = useState("");
+  const [showGenerate, setShowGenerate] = useState(false);
   const { getToken } = useAuth();
 
-  async function handleGenerate(e) {
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPuzzles() {
+      try {
+        const res = await fetch("/api/backend-api/puzzles", { cache: "no-store" });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (!cancelled) setPuzzles(data.puzzles || []);
+      } catch {
+        // puzzles may not exist yet
+      } finally {
+        if (!cancelled) setPuzzlesLoading(false);
+      }
+    }
+    loadPuzzles();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function handleStart(e) {
     e.preventDefault();
-    const title = input.trim();
-    if (!title) return;
+    if (!selectedPuzzleId) return;
     setLoading(true);
     setErr("");
     try {
       const token = await getToken({ skipCache: true });
       if (!token) throw new Error("Unable to authenticate. Please sign in.");
 
-      const puzzleRes = await fetch("/api/backend-api/puzzle/generate", {
-        method: "POST",
-        headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ algorithm_title: title }),
-      });
-      if (!puzzleRes.ok) {
-        const j = await puzzleRes.json().catch(() => ({}));
-        throw new Error(j.detail || "Failed to generate puzzle.");
-      }
-      const { puzzle_text } = await puzzleRes.json();
-
       const sessionRes = await fetch("/api/backend-api/session/start", {
         method: "POST",
         headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ algorithm_title: title }),
+        body: JSON.stringify({ puzzle_id: selectedPuzzleId }),
       });
       if (!sessionRes.ok) {
         const j = await sessionRes.json().catch(() => ({}));
         throw new Error(j.detail || "Failed to start session.");
       }
-      const { session_id } = await sessionRes.json();
+      const { session_id, puzzle_id } = await sessionRes.json();
 
-      // Cache puzzle so revisiting /workspace doesn't regenerate it
-      localStorage.setItem(`dramarama_puzzle_${session_id}`, puzzle_text);
+      const selectedPuzzle = puzzles.find((p) => p.id === selectedPuzzleId);
 
       onStart({
-        algorithmTitle: title,
-        puzzleText: puzzle_text,
+        puzzleId: puzzle_id,
+        puzzleTitle: selectedPuzzle?.title || "Puzzle",
+        puzzleScenario: selectedPuzzle?.scenario || "",
+        puzzleConstraints: selectedPuzzle?.constraints || [],
+        puzzleExample: selectedPuzzle?.example || "",
         sessionId: session_id,
         initialSavedIndices: new Set(),
         initialAnswers: {},
@@ -295,6 +309,40 @@ function SetupPhase({ onStart }) {
     }
   }
 
+  async function handleGenerate(e) {
+    e.preventDefault();
+    if (!genTopic.trim()) return;
+    setGenLoading(true);
+    setGenErr("");
+    try {
+      const token = await getToken({ skipCache: true });
+      const res = await fetch(`/api/backend-api/puzzle/generate?topic=${encodeURIComponent(genTopic.trim())}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.detail || "Failed to generate puzzle.");
+      }
+      const data = await res.json();
+      // Refresh puzzle list
+      const listRes = await fetch("/api/backend-api/puzzles", { cache: "no-store" });
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        setPuzzles(listData.puzzles || []);
+      }
+      setSelectedPuzzleId(data.puzzle_id);
+      setGenTopic("");
+      setShowGenerate(false);
+    } catch (e) {
+      setGenErr(e?.message || "Failed to generate.");
+    } finally {
+      setGenLoading(false);
+    }
+  }
+
+  const selectedPuzzle = puzzles.find((p) => p.id === selectedPuzzleId);
+
   return (
     <div className="flex-1 flex items-center justify-center px-6 pt-24 pb-16">
       <div className="max-w-lg w-full">
@@ -302,38 +350,96 @@ function SetupPhase({ onStart }) {
           <div className="text-5xl mb-4">🎭</div>
           <h1 className="font-display text-4xl text-black mb-3">Workspace</h1>
           <p className="text-smoke">
-            Enter an algorithm to think through. We'll transform it into an engaging puzzle and guide
-            you through the 5 Elements of Effective Thinking.
+            Choose an AI-utilization puzzle and think through it using the 5 Elements of Effective Thinking.
           </p>
         </div>
 
-        <form onSubmit={handleGenerate} className="flex flex-col gap-4">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="e.g. Two Sum, Binary Search, Merge Sort…"
-            className="w-full px-4 py-3 border-2 border-mist focus:border-black outline-none text-black placeholder:text-smoke font-mono text-sm transition-colors"
-            disabled={loading}
-          />
+        <form onSubmit={handleStart} className="flex flex-col gap-4">
+          {puzzlesLoading ? (
+            <div className="text-center text-smoke text-sm py-4">Loading puzzles…</div>
+          ) : puzzles.length === 0 ? (
+            <div className="text-center text-smoke text-sm py-4">No puzzles available yet. Generate one below.</div>
+          ) : (
+            <>
+              <select
+                value={selectedPuzzleId}
+                onChange={(e) => setSelectedPuzzleId(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-mist focus:border-black outline-none text-black font-mono text-sm transition-colors bg-white appearance-none cursor-pointer"
+                disabled={loading}
+              >
+                <option value="">Select a puzzle…</option>
+                {puzzles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
+                ))}
+              </select>
+
+              {selectedPuzzle && (
+                <div className="border border-mist rounded-lg p-4 bg-mist/20">
+                  <div className="text-sm text-black leading-relaxed mb-2">{selectedPuzzle.scenario}</div>
+                  {selectedPuzzle.constraints?.length > 0 && (
+                    <div className="text-xs text-smoke">
+                      <span className="font-semibold">Constraints:</span>{" "}
+                      {selectedPuzzle.constraints.join(" · ")}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
           {err && <div className="text-fire text-sm">{err}</div>}
           <Button
             type="submit"
             className="bg-black text-white w-full"
             radius="none"
             isLoading={loading}
-            isDisabled={!input.trim() || loading}
+            isDisabled={!selectedPuzzleId || loading}
           >
-            {loading ? "Generating your puzzle…" : "Generate Puzzle →"}
+            {loading ? "Starting session…" : "Start Session →"}
           </Button>
         </form>
 
+        {/* Dev-only generate button */}
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => setShowGenerate((v) => !v)}
+            className="text-xs text-smoke hover:text-black transition-colors underline"
+          >
+            {showGenerate ? "Hide generator" : "Generate new puzzle (dev)"}
+          </button>
+          {showGenerate && (
+            <form onSubmit={handleGenerate} className="mt-3 flex gap-2">
+              <input
+                type="text"
+                value={genTopic}
+                onChange={(e) => setGenTopic(e.target.value)}
+                placeholder="Topic, e.g. legal research, data analysis…"
+                className="flex-1 px-3 py-2 border border-mist focus:border-black outline-none text-black placeholder:text-smoke font-mono text-xs transition-colors"
+                disabled={genLoading}
+              />
+              <Button
+                type="submit"
+                size="sm"
+                radius="none"
+                className="bg-black text-white text-xs"
+                isLoading={genLoading}
+                isDisabled={!genTopic.trim() || genLoading}
+              >
+                Generate
+              </Button>
+            </form>
+          )}
+          {genErr && <div className="text-fire text-xs mt-2">{genErr}</div>}
+        </div>
+
         <div className="mt-8 flex items-center justify-center gap-4 text-sm text-smoke">
-          <span>12 prompts</span>
+          <span>13 prompts</span>
           <span>•</span>
           <span>5 Elements</span>
           <span>•</span>
-          <span>On-demand nudge</span>
+          <span>AI-utilization puzzles</span>
         </div>
       </div>
     </div>
@@ -343,8 +449,11 @@ function SetupPhase({ onStart }) {
 // ─── Working Phase ────────────────────────────────────────────────────────────
 
 function WorkingPhase({
-  algorithmTitle,
-  puzzleText,
+  puzzleId,
+  puzzleTitle,
+  puzzleScenario,
+  puzzleConstraints,
+  puzzleExample,
   sessionId,
   initialSavedIndices,
   initialAnswers,
@@ -382,6 +491,8 @@ function WorkingPhase({
   const [completeLoading, setCompleteLoading] = useState(false);
   const [completeErr, setCompleteErr] = useState("");
 
+  const [nudgeLimit, setNudgeLimit] = useState({ used: 0, limit: 5, unlimited: false });
+
   const [expandedElements, setExpandedElements] = useState(() => new Set(["earth"]));
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [navbarHidden, setNavbarHidden] = useState(false);
@@ -392,7 +503,7 @@ function WorkingPhase({
   const startYRef = useRef(0);
   const startHeightRef = useRef(0);
 
-  // Fetch prompts
+  // Fetch prompts + nudge limit
   useEffect(() => {
     let cancelled = false;
     fetch("/api/backend-api/prompts", { cache: "no-store" })
@@ -401,6 +512,24 @@ function WorkingPhase({
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadNudgeLimit() {
+      try {
+        const token = await getToken({ skipCache: true });
+        const res = await fetch(`/api/backend-api/session/${sessionId}/nudge-limit`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setNudgeLimit(data);
+        }
+      } catch {}
+    }
+    loadNudgeLimit();
+    return () => { cancelled = true; };
+  }, [sessionId]);
 
   // Timer + sidebar auto-expand
   useEffect(() => {
@@ -498,6 +627,10 @@ function WorkingPhase({
       setNudgeErr("Save at least one response before requesting a nudge.");
       return;
     }
+    if (!nudgeLimit.unlimited && nudgeLimit.used >= nudgeLimit.limit) {
+      setNudgeErr(`Nudge limit reached (${nudgeLimit.limit} per puzzle).`);
+      return;
+    }
     setNudgeLoading(true); setNudgeErr(""); setNudgeText(""); setNudgeVisible(true);
     try {
       const token = await getToken({ skipCache: true });
@@ -520,7 +653,12 @@ function WorkingPhase({
         for (const line of chunk.split("\n")) {
           if (!line.startsWith("data: ")) continue;
           const data = line.slice(6);
-          if (data === "[DONE]") { setNudgeLoading(false); return; }
+          if (data === "[DONE]") {
+            setNudgeLoading(false);
+            // Refresh nudge limit
+            setNudgeLimit((prev) => prev.unlimited ? prev : { ...prev, used: prev.used + 1 });
+            return;
+          }
           setNudgeText((prev) => prev + data);
         }
       }
@@ -541,7 +679,6 @@ function WorkingPhase({
         body: JSON.stringify({ session_id: sessionId }),
       });
       if (!res.ok) throw new Error("Failed to complete session.");
-      localStorage.removeItem(`dramarama_puzzle_${sessionId}`);
       onComplete();
     } catch (e) {
       setCompleteErr(e?.message || "Failed to complete.");
@@ -613,7 +750,7 @@ function WorkingPhase({
         {/* Header */}
         <div className="flex-shrink-0 bg-white border-b border-mist px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="font-display text-lg text-black">{algorithmTitle}</span>
+            <span className="font-display text-lg text-black">{puzzleTitle}</span>
             <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${allAnswered ? "bg-earth/15 text-earth" : "bg-mist text-smoke"}`}>
               {completedCount}/13
             </span>
@@ -644,9 +781,25 @@ function WorkingPhase({
           {/* Puzzle — full width, no box */}
           <div className="px-8 lp:px-14 pt-10 pb-8 border-b border-mist/50">
             <div className="text-xs uppercase tracking-widest text-smoke mb-5">The Puzzle</div>
-            <div className="font-display text-xl lp:text-2xl text-black leading-relaxed whitespace-pre-wrap">
-              {puzzleText}
+            <div className="font-display text-xl lp:text-2xl text-black leading-relaxed mb-4">
+              {puzzleScenario}
             </div>
+            {puzzleConstraints?.length > 0 && (
+              <div className="mb-3">
+                <div className="text-xs font-semibold text-smoke uppercase tracking-wider mb-2">Constraints</div>
+                <ul className="list-disc list-inside text-sm text-ash space-y-1">
+                  {puzzleConstraints.map((c, i) => <li key={i}>{c}</li>)}
+                </ul>
+              </div>
+            )}
+            {puzzleExample && (
+              <div>
+                <div className="text-xs font-semibold text-smoke uppercase tracking-wider mb-2">Example</div>
+                <div className="text-sm text-ash leading-relaxed whitespace-pre-wrap bg-mist/30 px-4 py-3 rounded-lg font-mono">
+                  {puzzleExample}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Prompt dots */}
@@ -781,12 +934,17 @@ function WorkingPhase({
                   radius="none"
                   size="sm"
                   className={`border ${
-                    nudgeLoading ? "border-smoke text-smoke" : "border-black text-black bg-white"
+                    nudgeLoading ? "border-smoke text-smoke"
+                    : (!nudgeLimit.unlimited && nudgeLimit.used >= nudgeLimit.limit) ? "border-mist text-smoke cursor-not-allowed"
+                    : "border-black text-black bg-white"
                   }`}
                   isLoading={nudgeLoading}
+                  isDisabled={!nudgeLimit.unlimited && nudgeLimit.used >= nudgeLimit.limit}
                   onPress={getNudge}
                 >
-                  Get Nudge
+                  {nudgeLimit.unlimited
+                    ? "Get Nudge"
+                    : `Nudge (${nudgeLimit.limit - nudgeLimit.used} left)`}
                 </Button>
               </div>
             </div>
@@ -822,28 +980,20 @@ export default function WorkspacePage() {
         const active = (data.sessions || []).find((s) => s.status === "in_progress");
 
         if (active) {
-          // Check cache first — only regenerate if not cached
-          const cachedPuzzle = localStorage.getItem(`dramarama_puzzle_${active.id}`);
-
-          const detailRes = await fetch(`/api/backend-api/user/sessions/${active.id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-
-          let puzzleText = cachedPuzzle;
-          if (!puzzleText) {
-            const puzzleRes = await fetch("/api/backend-api/puzzle/generate", {
-              method: "POST",
-              headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ algorithm_title: active.algorithm_title }),
-            });
-            const puzzleData = puzzleRes.ok ? await puzzleRes.json() : {};
-            puzzleText = puzzleData.puzzle_text || active.algorithm_title;
-            localStorage.setItem(`dramarama_puzzle_${active.id}`, puzzleText);
-          }
+          // Fetch session detail and puzzle data in parallel
+          const [detailRes, puzzleRes] = await Promise.all([
+            fetch(`/api/backend-api/user/sessions/${active.id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+            active.puzzle_id
+              ? fetch(`/api/backend-api/puzzles/${active.puzzle_id}`, { cache: "no-store" })
+              : Promise.resolve(null),
+          ]);
 
           if (cancelled) return;
 
           const detail = detailRes.ok ? await detailRes.json() : null;
+          const puzzleData = puzzleRes?.ok ? await puzzleRes.json() : null;
 
           if (cancelled) return;
 
@@ -853,14 +1003,16 @@ export default function WorkspacePage() {
             initialAnswers[r.prompt_index] = r.response_text;
           });
 
-          // Start at first unsaved prompt
           const firstUnsaved = Array.from({ length: 13 }, (_, i) => i).find(
             (i) => !savedIdx.has(i)
           ) ?? 0;
 
           setSessionData({
-            algorithmTitle: active.algorithm_title,
-            puzzleText,
+            puzzleId: active.puzzle_id,
+            puzzleTitle: puzzleData?.title || active.puzzle_title || "Puzzle",
+            puzzleScenario: puzzleData?.scenario || detail?.session?.puzzle_scenario || "",
+            puzzleConstraints: puzzleData?.constraints || [],
+            puzzleExample: puzzleData?.example || "",
             sessionId: active.id,
             initialSavedIndices: savedIdx,
             initialAnswers,

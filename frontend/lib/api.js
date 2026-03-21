@@ -41,13 +41,12 @@ class ApiClient {
   }
 
   // Session endpoints
-  async startSession(token, algorithmTitle, algorithmUrl) {
+  async startSession(token, puzzleId) {
     return this.request('/api/session/start', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        algorithm_title: algorithmTitle,
-        algorithm_url: algorithmUrl,
+        puzzle_id: puzzleId,
       }),
     });
   }
@@ -91,6 +90,21 @@ class ApiClient {
 
   async getUserStats(token) {
     return this.request('/api/user/stats', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
+  // Puzzle endpoints
+  async getPuzzles() {
+    return this.request('/api/puzzles');
+  }
+
+  async getPuzzle(puzzleId) {
+    return this.request(`/api/puzzles/${puzzleId}`);
+  }
+
+  async getNudgeLimit(token, sessionId) {
+    return this.request(`/api/session/${sessionId}/nudge-limit`, {
       headers: { Authorization: `Bearer ${token}` },
     });
   }

@@ -70,33 +70,33 @@ def assess_response_quality(text: str) -> Dict:
 
 # ============================================================================
 # RUBRIC: Quality criteria for each of the 12 prompts
-# Based on Edward Burger's "The 5 Elements of Effective Thinking" and MUYOM
+# Based on Edward Burger's "The 5 Elements of Effective Thinking" — AI-utilization
 # ============================================================================
 
 ELEMENT_DEFINITIONS = {
     Element.EARTH: {
         "name": "Deep Understanding",
         "emoji": "🌳",
-        "core_principle": "Understanding is a spectrum—wherever you are, you can always go deeper. Masters excel at fundamentals.",
-        "philosophy": "When the going gets tough, the tough leave. Avoid the hard problem and probe simpler ones where you're grounded.",
+        "core_principle": "Understanding is a spectrum—wherever you are, you can always go deeper. Ground yourself before using AI.",
+        "philosophy": "Before engaging AI, master the basics. Start simple, spotlight specifics, add descriptors to sharpen your understanding.",
     },
     Element.FIRE: {
         "name": "Embrace Failure", 
         "emoji": "🔥",
         "core_principle": "We may not know how to do something right, but we always know how to do it wrong. Each failure is a precious joule of insight.",
-        "philosophy": "Never stare at a blank page. Create junk quickly, then find the gems hidden within.",
+        "philosophy": "Try an AI approach quickly and lousily. Analyze the failure. Then intentionally push to extremes to learn boundaries.",
     },
     Element.AIR: {
         "name": "Create Questions",
         "emoji": "💨", 
-        "core_principle": "The art of continuously creating questions, not just asking them. Be innately curious, never a passive observer.",
-        "philosophy": "The right question can completely reframe a problem. Socrates asked meta-questions—are we even solving the right problem?",
+        "core_principle": "The art of continuously creating questions, not just asking them. Be innately curious about the problem and the AI tools.",
+        "philosophy": "The right question reframes the problem. Are you even approaching the right problem with AI? What fundamentals are you missing?",
     },
     Element.WATER: {
         "name": "Flow of Ideas",
         "emoji": "🌊",
         "core_principle": "Every idea flows from a prior idea and transcends into the next. Nothing stands alone.",
-        "philosophy": "Run down all paths with determination. Embrace doubt and alternative perspectives. Never stop—ask 'what's next?'",
+        "philosophy": "Map out every AI approach. Embrace doubt and alternative perspectives. Follow the best path to its conclusion and beyond.",
     },
 }
 
@@ -106,30 +106,30 @@ RUBRIC = {
         "element": Element.EARTH,
         "sub_element": "1.0",
         "name": "Start with Simple",
-        "what_good_looks_like": "The user strips away complexity to reveal the core mechanism. They identify the most fundamental operation or pattern the problem requires.",
+        "what_good_looks_like": "The user identifies the fundamental context and knowledge needed before engaging AI. They strip away complexity to find the essential ground truth.",
         "must_haves": [
-            "Identifies the single most basic operation (e.g., 'at its core, this is comparing two things')",
-            "Removes distracting details to see the skeleton",
-            "Grounds themselves before tackling complexity",
+            "Identifies what context is absolutely essential before using AI",
+            "Strips away distracting details to find the core of the problem",
+            "Grounds themselves in the domain before reaching for tools",
         ],
         "failure_modes": [
             "Restates the problem without simplifying",
-            "Jumps to solution approaches instead of understanding basics",
-            "Gets lost in edge cases before understanding the main case",
+            "Jumps straight to AI tools without understanding the domain",
+            "Skips foundational understanding in favor of tool-first thinking",
         ],
     },
     1: {  # Earth 2.0 - Spotlight Specific
         "element": Element.EARTH,
         "sub_element": "2.0", 
         "name": "Spotlight Specific",
-        "what_good_looks_like": "The user creates a small, concrete example with actual numbers/values and traces through it manually to reveal the structure.",
+        "what_good_looks_like": "The user creates a simpler, concrete version of the scenario to reveal its structure and test their understanding.",
         "must_haves": [
-            "Provides specific, concrete values (not abstract 'n' or 'list')",
-            "Traces through the example step-by-step",
-            "Uses the example to reveal hidden structure or patterns",
+            "Provides a concrete, minimal example of the scenario",
+            "Traces through the example to expose hidden structure",
+            "Uses the simple case to build intuition for the full problem",
         ],
         "failure_modes": [
-            "Gives an abstract description instead of concrete example",
+            "Stays abstract instead of getting concrete",
             "Creates an example but doesn't trace through it",
             "Picks an example too complex to be illuminating",
         ],
@@ -138,14 +138,14 @@ RUBRIC = {
         "element": Element.EARTH,
         "sub_element": "3.0",
         "name": "Add the Adjective", 
-        "what_good_looks_like": "The user describes the problem with a revealing adjective that captures its essence, helping them see what makes this problem unique.",
+        "what_good_looks_like": "The user adds a descriptor to their approach that changes how they'd tackle the problem with AI—iterative, exploratory, defensive, etc.",
         "must_haves": [
-            "Uses a descriptive word that reveals the problem's character",
-            "The adjective helps distinguish this problem from similar ones",
-            "Shows deeper understanding of what makes the problem tick",
+            "Uses a meaningful descriptor that reframes their approach",
+            "The adjective changes how they think about using AI",
+            "Shows deeper understanding of the problem's character",
         ],
         "failure_modes": [
-            "Uses generic adjectives ('hard', 'complex') that don't reveal anything",
+            "Uses generic adjectives that don't reveal anything",
             "Describes surface features instead of essential character",
             "Skips reflection and jumps to categorization",
         ],
@@ -155,9 +155,9 @@ RUBRIC = {
         "element": Element.FIRE,
         "sub_element": "1.0",
         "name": "Fail Fast",
-        "what_good_looks_like": "The user writes a rough first attempt without worrying about correctness, giving themselves something concrete to respond to and learn from.",
+        "what_good_looks_like": "The user produces a rough first attempt at solving with AI—even if wrong—giving themselves something to respond to and learn from.",
         "must_haves": [
-            "Produces an actual attempt (code idea, algorithm sketch, approach)",
+            "Produces an actual attempt (prompt idea, workflow sketch, approach)",
             "Doesn't self-censor or aim for perfection",
             "Creates something to critique and improve upon",
         ],
@@ -171,9 +171,9 @@ RUBRIC = {
         "element": Element.FIRE,
         "sub_element": "2.0",
         "name": "Fail Again",
-        "what_good_looks_like": "The user analyzes what went wrong with their first approach and extracts specific lessons to inform a better attempt.",
+        "what_good_looks_like": "The user analyzes what went wrong with their AI approach and extracts specific lessons to inform a better attempt.",
         "must_haves": [
-            "Identifies specific flaws in the previous attempt",
+            "Identifies specific flaws in the previous AI approach",
             "Extracts a lesson or insight from the failure",
             "Uses the failure to inform an improved approach",
         ],
@@ -187,14 +187,14 @@ RUBRIC = {
         "element": Element.FIRE,
         "sub_element": "3.0",
         "name": "Fail Intentionally",
-        "what_good_looks_like": "The user deliberately constructs extreme or impossible scenarios to stress-test their thinking and find the breaking points.",
+        "what_good_looks_like": "The user deliberately constructs extreme or impossible AI approaches to stress-test their thinking and find the breaking points.",
         "must_haves": [
-            "Creates an extreme, edge, or absurd case on purpose",
+            "Creates an extreme or absurd AI approach on purpose",
             "Identifies exactly what breaks and why",
-            "Gains insight into the boundaries of their solution",
+            "Gains insight into the boundaries of viable approaches",
         ],
         "failure_modes": [
-            "Only considers 'normal' cases",
+            "Only considers 'normal' approaches",
             "Fears extremes instead of embracing them as tools",
             "Creates an extreme case but doesn't analyze the break point",
         ],
@@ -204,11 +204,11 @@ RUBRIC = {
         "element": Element.AIR,
         "sub_element": "1.0",
         "name": "Be Your Own Socrates",
-        "what_good_looks_like": "The user asks meta-questions that challenge whether they're even solving the right problem. They question assumptions at the deepest level.",
+        "what_good_looks_like": "The user asks meta-questions that challenge whether they're approaching the right problem with AI. They question assumptions at the deepest level.",
         "must_haves": [
             "Asks 'what is the REAL question here?'",
             "Challenges the framing of the problem itself",
-            "Considers if they might be solving the wrong problem entirely",
+            "Considers if they might be approaching the wrong problem with AI",
         ],
         "failure_modes": [
             "Asks surface-level questions about implementation",
@@ -220,9 +220,9 @@ RUBRIC = {
         "element": Element.AIR,
         "sub_element": "2.0",
         "name": "Ask Basic Questions",
-        "what_good_looks_like": "The user identifies fundamental concepts they might be missing or taking for granted, and asks questions to fill those gaps.",
+        "what_good_looks_like": "The user identifies fundamental concepts about the domain or AI tools they might be missing, and asks questions to fill those gaps.",
         "must_haves": [
-            "Admits what they don't know or might be assuming",
+            "Admits what they don't know about the domain or AI tools",
             "Asks questions about foundational concepts",
             "Seeks fundamental understanding before advanced techniques",
         ],
@@ -239,7 +239,7 @@ RUBRIC = {
         "what_good_looks_like": "The user asks a related but different question that might provide insight into the original problem from a fresh angle.",
         "must_haves": [
             "Poses a question related to but distinct from the main problem",
-            "The new question offers a fresh perspective",
+            "The new question offers a fresh perspective on AI utilization",
             "Uses the related question to approach the original differently",
         ],
         "failure_modes": [
@@ -253,9 +253,9 @@ RUBRIC = {
         "element": Element.WATER,
         "sub_element": "1.0",
         "name": "Run Down All Paths",
-        "what_good_looks_like": "The user brainstorms multiple possible approaches without prematurely dismissing any, exploring the landscape of solutions.",
+        "what_good_looks_like": "The user brainstorms multiple possible AI approaches without prematurely dismissing any, exploring the landscape of solutions.",
         "must_haves": [
-            "Lists multiple distinct approaches",
+            "Lists multiple distinct AI approaches",
             "Doesn't immediately dismiss 'bad' ideas",
             "Explores each path far enough to understand it",
         ],
@@ -269,9 +269,9 @@ RUBRIC = {
         "element": Element.WATER,
         "sub_element": "2.0",
         "name": "Embrace Doubt",
-        "what_good_looks_like": "The user acknowledges uncertainty and considers where they might be wrong, staying open-minded about alternative perspectives.",
+        "what_good_looks_like": "The user acknowledges uncertainty about their AI approach and considers where they might be wrong.",
         "must_haves": [
-            "Explicitly states what they're uncertain about",
+            "Explicitly states what they're uncertain about in their AI approach",
             "Considers where they might be wrong",
             "Remains open to being completely mistaken",
         ],
@@ -285,14 +285,14 @@ RUBRIC = {
         "element": Element.WATER,
         "sub_element": "3.0",
         "name": "Never Stop",
-        "what_good_looks_like": "The user extends their thinking beyond the immediate problem, asking 'what's next?' and seeing where the idea leads.",
+        "what_good_looks_like": "The user follows their best approach to its conclusion and beyond, asking 'what's next?' and seeing where the idea leads.",
         "must_haves": [
-            "Considers implications beyond the current problem",
-            "Asks 'what comes after solving this?'",
-            "Sees the problem as part of a larger flow",
+            "Follows the approach to its logical conclusion",
+            "Asks 'what comes after this step?'",
+            "Sees the problem as part of a larger flow of AI-assisted work",
         ],
         "failure_modes": [
-            "Stops at the solution without extending the idea",
+            "Stops at the first workable answer without extending",
             "Treats the problem as isolated from everything else",
             "Lacks curiosity about where the idea leads",
         ],
@@ -404,38 +404,44 @@ def analyze_responses(responses: List[Response]) -> Dict:
     }
 
 
-def build_puzzle_prompt(algorithm_title: str, algorithm_url: str = "") -> str:
+def build_puzzle_prompt(topic: str) -> str:
     """
-    Build a prompt for Claude to generate an engaging story-format puzzle
-    from a standard algorithm problem.
+    Build a prompt for Claude to generate an AI-utilization puzzle.
+    Returns JSON with scenario, constraints, example, solution, and title.
     """
-    url_line = f"\nOriginal problem URL: {algorithm_url}" if algorithm_url else ""
-    return f"""You are a creative educator who transforms dry algorithm problems into engaging, visual story-puzzles.
+    return f"""You are an expert educator designing AI-utilization puzzles. These puzzles present realistic scenarios where a person must figure out how to effectively use AI tools (LLMs, code assistants, image generators, data analysis tools, etc.) to solve a problem.
 
-Algorithm: {algorithm_title}{url_line}
+Topic/domain: {topic}
 
-Transform this algorithm into an engaging puzzle with the following structure:
+Generate an AI-utilization puzzle as a JSON object with these fields:
 
-1. **The Story Setup** (2-3 sentences): Give the problem a vivid real-world narrative. Make it feel alive and concrete. Use a relatable scenario.
+{{
+  "title": "Short, memorable puzzle title (3-6 words)",
+  "scenario": "A realistic 2-4 sentence scenario describing a situation where someone needs to leverage AI tools to accomplish a goal. Make it vivid and grounded in a real profession or context. The scenario should NOT have an obvious solution.",
+  "constraints": ["Constraint 1 that limits naive approaches", "Constraint 2 that adds realism", "Constraint 3 (optional)"],
+  "example": "A concrete, minimal example of the scenario with specific details that help the solver understand the problem.",
+  "solution": "A thorough explanation (3-5 sentences) of the best approach to solving this with AI tools. Be specific about which tools, what prompts, what workflow. This is the HIDDEN solution that users should discover through thinking."
+}}
 
-2. **The Challenge** (1-2 sentences): State the challenge clearly within the story context.
-
-3. **A Concrete Example** (visual trace): Show a small, specific example with actual values. Use a table or step-by-step trace to make it visual. Show the input and desired output clearly.
-
-4. **What Makes This Interesting** (1 sentence): Point out the one thing that makes this problem uniquely tricky or elegant.
-
-Keep the full puzzle under 200 words. Do NOT give away the solution or hint at an approach. The goal is to make the reader lean forward with curiosity."""
+Rules:
+- The puzzle should require genuine thinking about HOW to use AI, not just WHETHER to use it.
+- Constraints should make the naive approach (e.g., 'just paste it into ChatGPT') insufficient.
+- The solution should involve a thoughtful AI workflow or strategy.
+- Keep scenario under 100 words. Keep solution under 150 words.
+- Output ONLY the JSON object, no markdown fences, no extra text."""
 
 
 def build_hint_prompt(
-    algorithm_title: str,
-    algorithm_url: str,
+    puzzle_scenario: str,
+    puzzle_constraints: list,
     responses: List[Response],
-    analysis: Dict
+    analysis: Dict,
+    matched_flow_steps: list = None,
 ) -> str:
     """
     Build the prompt for Claude to generate a personalized, strength-leveraging nudge.
     Includes the full rubric so the LLM can properly evaluate response quality.
+    Uses the matched teacher flow for targeted coaching when available.
     """
     
     # Build responses text with rubric context
@@ -480,50 +486,53 @@ Philosophy: {defn['philosophy']}
     low_signal_count = int(quality_gate.get("low_signal_count", 0) or 0)
     total_responses = int(quality_gate.get("total_responses", len(responses)) or len(responses))
     
-    return f"""You are a thinking coach trained in Edward Burger's "5 Elements of Effective Thinking" framework from the book MUYOM (Making Up Your Own Mind).
+    constraints_text = "\n".join(f"- {c}" for c in (puzzle_constraints or []))
+
+    # Teacher flow coaching context
+    flow_context = ""
+    if matched_flow_steps:
+        flow_context = "\n## Teacher Flow (expert thinking path — do NOT reveal directly)\n"
+        for step in matched_flow_steps:
+            flow_context += f"- {step.get('prompt_name', '')}: {step.get('insight', '')}\n"
+        flow_context += "\nUse this flow to understand WHERE the user is in the thinking process and what they should explore NEXT. Do NOT copy the flow text verbatim.\n"
+    
+    return f"""You are a thinking coach trained in Edward Burger's "5 Elements of Effective Thinking" framework.
 
 ## The 5 Elements Framework
 {elements_context}
 
-## The User's Problem
-**Algorithm:** {algorithm_title}
-**URL:** {algorithm_url or 'N/A'}
+## The Puzzle
+**Scenario:** {puzzle_scenario}
+**Constraints:**
+{constraints_text}
 
-## Their 12 Responses (with quality rubric)
+## Their Responses (with quality rubric)
 {responses_text}
-
+{flow_context}
 ## Reality / Quality Check (IMPORTANT)
-- Some responses may be low-signal (placeholder, repetitive, or not real thinking).
 - Low-signal responses count: {low_signal_count}/{total_responses}
 - ok_to_praise: {ok_to_praise}
 
 ## Analysis of Their Thinking
-- **STRONGEST element:** {strongest_def.get('emoji', '')} {strongest.upper() if strongest else 'Unknown'} - This is where they shine!
+- **STRONGEST element:** {strongest_def.get('emoji', '')} {strongest.upper() if strongest else 'Unknown'}
 - Average word count: {analysis.get('avg_word_count', 0):.1f}
 {patterns_text if patterns_text else '- Building their thinking muscles!'}
 
 ## Your Task: Strength-Leveraging Nudge
 
-Your job is NOT to point out weaknesses. Instead, **leverage their strength** to help them think through the problem.
+Your job is NOT to point out weaknesses. Instead, **leverage their strength** to help them think through the puzzle.
 
 CRITICAL: Stay grounded in the actual text. Do NOT invent strengths.
-If ok_to_praise is false (or if the responses look like placeholders/gibberish), you MUST:
-1) Say plainly (but kindly) that you can’t accurately assess strengths yet from the provided responses.
-2) Ask for more concrete thinking and give ONE example of what a good answer looks like for ONE of the prompts.
-3) Give ONE next step for how to redo the responses (e.g., “pick a concrete input array and trace it”).
-In that case, do NOT “celebrate their strength” and do NOT quote words as evidence of strength.
+If ok_to_praise is false (or if responses look like placeholders), you MUST:
+1) Say plainly (but kindly) that you can't assess strengths yet.
+2) Ask for more concrete thinking and give ONE example of what a good answer looks like.
+3) Give ONE next step.
+In that case, do NOT "celebrate their strength" and do NOT quote words as evidence.
 
-1. **Celebrate their strength** - Identify what they did exceptionally well in their strongest element. Quote their actual words.
-
-2. **Show how to leverage it** - Explain how they can USE this strong thinking style to break through on the problem. For example:
-   - If strong in Earth: "Your grounding is excellent. Use this same concrete thinking to..."
-   - If strong in Fire: "You embrace failure well. Apply this same courage to..."
-   - If strong in Air: "Your questioning is powerful. Turn these questions toward..."
-   - If strong in Water: "You see connections beautifully. Follow this flow to..."
-
-3. **Give ONE concrete next step** - Based on their strength, give them exactly one thing to try next. Make it specific to THIS problem.
-
+1. **Celebrate their strength** - Identify what they did well in their strongest element. Quote their actual words.
+2. **Show how to leverage it** - Explain how to USE this thinking style on the puzzle.
+3. **Give ONE concrete next step** - Based on their strength. Make it specific to THIS puzzle.
 4. **Do NOT give away the solution** - Guide their thinking, don't solve for them.
 
-Keep your response under 200 words. Be warm, specific, and empowering. Help them feel like the strong thinker they already are.
+Keep your response under 200 words. Be warm, specific, and empowering.
 """

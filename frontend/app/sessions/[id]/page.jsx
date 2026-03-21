@@ -120,7 +120,7 @@ export default function SessionDetailPage() {
           <div className="flex flex-col tb:flex-row tb:items-start tb:justify-between gap-4">
             <div>
               <h1 className="font-display text-3xl lp:text-4xl text-black mb-2">
-                {session?.algorithm_title}
+                {session?.puzzle_title || "Puzzle"}
                 </h1>
               <div className="flex items-center gap-4 text-sm text-smoke">
                 <span>
@@ -142,16 +142,10 @@ export default function SessionDetailPage() {
             </div>
           </div>
 
-            {session?.algorithm_url && (
-              <Button
-                as="a"
-                href={session.algorithm_url}
-                target="_blank"
-                className="bg-mist text-black hover:bg-smoke hover:text-white transition-colors"
-                radius="none"
-              >
-                View Problem →
-              </Button>
+            {session?.puzzle_scenario && (
+              <div className="max-w-md text-sm text-smoke leading-relaxed">
+                {session.puzzle_scenario.slice(0, 120)}{session.puzzle_scenario.length > 120 ? "…" : ""}
+              </div>
             )}
           </div>
         </div>
@@ -161,13 +155,13 @@ export default function SessionDetailPage() {
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-black">Progress</span>
             <span className="text-sm font-mono text-smoke">
-              {session?.prompts_completed || 0}/12 prompts
+              {session?.prompts_completed || 0}/13 prompts
             </span>
             </div>
           <div className="progress-bar h-3">
             <div
               className="progress-bar-fill bg-change"
-              style={{ width: `${((session?.prompts_completed || 0) / 12) * 100}%` }}
+              style={{ width: `${((session?.prompts_completed || 0) / 13) * 100}%` }}
             />
             </div>
           <div className="flex justify-between mt-2 text-xs text-smoke">

@@ -171,7 +171,7 @@ export default function DashboardPage() {
             <div className="text-4xl font-bold text-black">
               {loading ? "-" : stats?.total_sessions || 0}
             </div>
-            <div className="text-sm text-smoke">algorithms explored</div>
+            <div className="text-sm text-smoke">puzzles explored</div>
           </div>
 
           <div className="bg-gradient-to-br from-air/10 to-air/5 rounded-xl p-6 border border-air/20">
@@ -263,14 +263,14 @@ export default function DashboardPage() {
                     <div className="flex items-start gap-4">
                       {/* Element indicator */}
                         <div className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl bg-mist">
-                          {session.prompts_completed >= 12 ? "✅" : "🎭"}
+                          {session.prompts_completed >= 13 ? "✅" : "🎭"}
                       </div>
 
                       {/* Session info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold text-black truncate">
-                              {session.algorithm_title}
+                              {session.puzzle_title || "Puzzle"}
                           </h3>
                           {session.status === "completed" ? (
                             <span className="text-xs bg-earth/10 text-earth px-2 py-0.5 rounded">
@@ -285,7 +285,7 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-4 text-sm text-smoke">
                             <span>{new Date(session.started_at).toLocaleDateString()}</span>
                           <span>•</span>
-                            <span>{session.prompts_completed}/12 prompts</span>
+                            <span>{session.prompts_completed}/13 prompts</span>
                         </div>
                       </div>
 
@@ -300,7 +300,7 @@ export default function DashboardPage() {
                     <div className="mt-3 progress-bar h-1">
                       <div
                           className="progress-bar-fill bg-change"
-                          style={{ width: `${(session.prompts_completed / 12) * 100}%` }}
+                          style={{ width: `${(session.prompts_completed / 13) * 100}%` }}
                       />
                     </div>
                   </Link>
@@ -311,7 +311,7 @@ export default function DashboardPage() {
                   <div className="text-4xl mb-4">🧩</div>
                   <h3 className="font-display text-xl text-black mb-2">No sessions yet</h3>
                   <p className="text-smoke mb-6">
-                    Start your first session by entering an algorithm in the workspace!
+                    Start your first session by choosing a puzzle in the workspace!
                   </p>
                   <Button
                     as={Link}
@@ -364,10 +364,10 @@ function getWeakestElementTip(breakdown) {
   );
 
   const tips = {
-    earth: "Your Earth element could use more attention. Focus on understanding the fundamentals—what are the absolute basics of each problem?",
-    fire: "Your Fire element is lower than others. Remember to embrace failure! Try writing rough solutions quickly, even if they're wrong.",
-    air: "Your Air element needs work. Practice asking more questions—what is the REAL problem you're trying to solve?",
-    water: "Your Water element engagement is lower. Try seeing the flow of ideas—how does one concept connect to another?",
+    earth: "Your Earth element could use more attention. Focus on understanding the fundamentals—what context is essential before using AI?",
+    fire: "Your Fire element is lower than others. Remember to embrace failure! Try rough AI approaches quickly, even if they're wrong.",
+    air: "Your Air element needs work. Practice asking more questions—are you even approaching the right problem with AI?",
+    water: "Your Water element engagement is lower. Try mapping out ALL possible AI approaches—how does one idea flow into another?",
   };
 
   return tips[weakest] || "Keep practicing all elements for balanced growth!";

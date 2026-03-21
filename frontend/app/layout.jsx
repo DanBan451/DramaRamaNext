@@ -10,7 +10,7 @@ export const metadata = {
     default: "DramaRama",
     template: "%s | DramaRama",
   },
-  description: "Train your mind. Master algorithms. DramaRama is your mental gym for algorithms using the 5 Elements of Effective Thinking.",
+  description: "Train your mind. Master AI. DramaRama is your mental gym for AI-utilization using the 5 Elements of Effective Thinking.",
   icons: {
     icon: "/favicon.ico",
   },

@@ -1,0 +1,149 @@
+DramaRama
+MUYAIUM Initiative Plan
+Making Up Your AI Utilizing Mind
+March 2026 — Single Pivot from LeetCode to AI Thinking
+1. The Two Goals of DramaRama
+DramaRama has two clear goals:
+Provide a mental gym that any software engineer can use to train their mental muscles around utilizing AI in their day-to-day work, using the framework of the 5 Elements of Effective Thinking applied to smaller, real-world puzzles.
+Provide a reliable measurement tool that tracks the user’s engagement toward the puzzles, rewarding the process of applying the elements rather than rewarding solutions.
+These goals have not changed. What has changed is the target of the puzzles.
+2. Why We Pivot Away from LeetCode
+The current platform is built around LeetCode algorithm problems. There are two reasons this does not work:
+The puzzle-to-work gap is too wide. People who are preparing for coding interviews will have difficulty using this platform because it specifically teaches being an effective thinker rather than solving the LeetCode problem directly. The user has to do constant context switching between the puzzle generated on our platform and the LeetCode problem itself. There may be a way to make this platform useful for the full context of an algorithm problem, but the investment of tweaking and ensuring that linkage is not worth it — because LeetCode problems are projected to decline in relevance as AI handles more of the algorithmic coding work.
+The real problems engineers face now are about AI. The day-to-day challenges software engineers deal with are no longer about reversing linked lists. They are about how to utilize AI — understanding codebases with AI assistance, debugging with AI, deciding which tools to use, figuring out whether to build an agent, and much more. This is the new frontier, and the platform should train engineers for it.
+Therefore, the entire platform pivots away from LeetCode and toward AI-utilization puzzles. Everything should be on our website — no external dependencies, no context switching.
+3. The Insight
+The 5 Elements of Effective Thinking are a proven framework. They have worked for the founder across various real-world scenarios, from learning mathematics to problem-solving in the workforce. The framework is battle-tested. The variables just need to point at AI utilization instead of coding algorithms.
+The new acronym: MUYAIUM — Making Up Your AI Utilizing Mind. Same framework. Same 5 Elements. Same 12 prompts (retaining the original prompt names from the book). New target: real-world AI thinking.
+4. The New Mission
+DramaRama is a mental gym for software engineers that uses the 5 Elements of Effective Thinking to train AI-utilization muscles — helping engineers become better, more creative thinkers when working with AI to solve real-world problems — and provides a measurement tool that rewards engagement over solutions.
+Note: the niche is broad — this essentially targets every software engineer. That may be refined later, but for now the mission stands.
+5. What Changes, What Stays
+Component
+Current State
+After Pivot
+Puzzle Source
+User types a LeetCode algorithm name; Claude re-skins it as a story
+Developer generates AI-utilization puzzles via a dev-only button; puzzles are pre-generated and stored
+The 12 Prompts
+Static, same text for every puzzle, oriented toward algorithm thinking
+Same 5 Elements structure; same prompt names from the book (e.g., “Start with Simple”); language reworded for AI-utilization contexts
+Nudge System
+Single Claude call analyzing strongest element; generic coaching message
+Teacher Agent that has pre-solved the puzzle through methodical elemental flows; matches user’s thought process to a known path
+User’s Goal
+Master the process of thinking through coding algorithm puzzles via the 5 Elements
+Master the process of thinking through AI-utilization puzzles via the 5 Elements; become a better AI-augmented engineer
+Workspace UI
+Unified single-page (elements sidebar + puzzle + nudge)
+Same unified layout. Update all text and labels to reference AI-utilization. Ensure puzzle output has no markdown headers. Add microinteractions (green flash on save, wiggle animations, confetti on milestones).
+Dashboard
+Streaks, joules, element mastery bars, session history
+Same dashboard. Update labels to reference AI-utilization context.
+Tech Stack
+Supabase, FastAPI, Next.js, Clerk, Claude API
+Same stack. Add background job runner (FastAPI BackgroundTasks) for Teacher Agent.
+Database Schema
+users, sessions, responses, hints
+Add puzzles table, teacher_flows table. Update sessions to reference puzzle_id.
+MVP Scope
+User types any LeetCode problem name
+Start with zero puzzles. Developer generates them via dev-only button. Each puzzle gets 10 Teacher Agent flows. 5 nudges per user (unlimited for founder).
+
+
+6. The New Puzzle Model: AI-Utilization Scenarios
+Instead of transforming LeetCode problems into stories, DramaRama will have purpose-built AI-utilization puzzles. Each puzzle is a scenario that a software engineer might actually face, where the core challenge is figuring out how to utilize AI effectively.
+6.1 Puzzles Must Have Concrete Solutions
+This is critical. In Edward Burger’s book, every puzzle has a definite answer. When the reader applies the 5 Elements and naturally arrives at the solution, it is extremely rewarding — that dopamine hit is what keeps people engaged and bought into the process. Users who have never applied the 5 Elements need to see that the framework actually leads somewhere. If the puzzles feel open-ended with no clear resolution, users will not put in the effort.
+Therefore: every AI-utilization puzzle must have at least one concrete solution that the user can arrive at through applying the 5 Elements. Some puzzles may have multiple valid solutions (just as in the book), but there must always be a clear, satisfying answer that confirms the user’s thinking was on the right track.
+6.2 What an AI Puzzle Looks Like
+Each puzzle has three components:
+The Scenario: A concrete, real-world engineering situation involving AI. This is NOT limited to “write a prompt.” It could involve understanding a codebase with AI assistance, debugging with AI, deciding which AI tool to use, figuring out whether to build an agent, getting information from one environment to use in another, or any other real challenge engineers face when working with AI.
+The Constraints: Variables that make the puzzle interesting and specific. What tools are available? What limitations exist? What is the environment?
+The Concrete Example: A small, specific example with actual values or context that grounds the puzzle. This ensures the puzzle is understandable and fits on a single page — just like in the book.
+The puzzle output must NOT contain markdown headers or formatting artifacts from the LLM. The generation prompt must explicitly instruct Claude to produce clean, plain text.
+6.3 Scope of AI-Utilization Problems
+The puzzles should span the real range of AI challenges engineers face. These are broader than just “write a better prompt”:
+Understanding an unfamiliar codebase using AI tools
+Debugging a problem and figuring out how to get the right logs/info with AI
+Working across multiple environments (local IDE + web IDE) and using AI to bridge them
+Deciding whether to build a custom AI agent/tool vs. using an existing one
+Evaluating AI output for correctness and security
+Decomposing a large task into AI-manageable pieces
+Translating a vague requirement into concrete AI-assisted development steps
+Puzzle categories will be introduced later. For now, puzzles are simply AI-utilization scenarios without formal categorization.
+7. How the 5 Elements Map to AI Thinking
+Element
+Prompt Name (from book)
+MUYAIUM Application
+🌳 Earth 1.0
+Start with Simple
+What are the fundamentals of this problem that you’d need to ground yourself in before using AI? What context is essential?
+Earth 2.0
+Spotlight Specific
+Create a simpler, concrete version of this scenario. What would a minimal example look like?
+Earth 3.0
+Add the Adjective
+Add a descriptor to your approach. Is it iterative? Exploratory? Defensive? How does that lens change how you’d tackle this with AI?
+🔥 Fire 1.0
+Fail Fast
+Try something — even if it’s wrong. What’s your rough first attempt at solving this with AI?
+Fire 2.0
+Fail Again
+What went wrong with that attempt? Where did the AI approach break down?
+Fire 3.0
+Fail Intentionally
+What’s an extreme or impossible AI approach? What does that failure teach you about the right approach?
+💨 Air 1.0
+Be Your Own Socrates
+What is the REAL question here? Are you even approaching the right problem with AI?
+Air 2.0
+Ask Basic Questions
+What fundamental concept about this domain or these AI tools are you missing?
+Air 3.0
+Ask Another Question
+What related problem might give you insight into this one? Is there an adjacent question worth exploring?
+🌊 Water 1.0
+Run Down All Paths
+What are ALL the possible approaches to solving this with AI? Map out every path.
+Water 2.0
+Embrace Doubt
+What are you uncertain about? Where might your AI approach be wrong? What alternative perspective would challenge your thinking?
+Water 3.0
+Never Stop
+Follow your best approach to its conclusion. Where does it lead? What’s the next step after that?
+🪨 Change
+Transform
+How has thinking through this puzzle changed how you’d approach AI-assisted work? What do you see differently now?
+
+
+8. The Teacher Agent
+The Teacher Agent is the core innovation. It is included in this pivot — not deferred.
+8.1 What It Does
+When a puzzle is generated (by the developer), the Teacher Agent applies the 5 Elements to the puzzle itself in a methodical, step-by-step order: Earth 1.0 → Earth 2.0 → Earth 3.0 → Fire 1.0 → Fire 2.0 → Fire 3.0 → Air 1.0 → Air 2.0 → Air 3.0 → Water 1.0 → Water 2.0 → Water 3.0 → Change. The agent works through the prompts naturally, where each step builds on the insight from the previous step. The agent arrives at an actual, concrete solution to the puzzle.
+This produces a single “flow of ideas” — a chain of elemental thinking that leads from the first prompt to the answer. For the MVP, each puzzle gets 10 flows. Each flow follows the same methodical order but may arrive at different insights and solutions along the way because the LLM’s responses will vary.
+The steps must be naturally connected. Each step’s insight should inform the next step. The flow should not feel spontaneous or random — it should read as a coherent, step-by-step thinking process that arrives at the answer.
+8.2 How It Nudges
+When a user requests a nudge, the system compares the user’s responses to the 10 pre-generated flows and finds the closest match. The nudge then guides the user toward the next step in that flow — not by giving away the answer, but by suggesting which element to apply next and why, informed by the agent’s own experience thinking through the puzzle.
+This makes spending time on the puzzles more rewarding because the user knows their thought process will be thoroughly analyzed. The quality of the nudge is directly correlated to the user’s level of engagement — both technically (better responses give the system more to match on) and through intellectual honesty.
+9. The User Journey (MVP)
+User logs in and lands on the dashboard showing their streak, joules, and element mastery.
+User opens the workspace and selects from the available pre-generated puzzles. (MVP starts with a small number of puzzles generated by the developer.)
+User reads the scenario in the workspace. The puzzle describes a real AI-utilization engineering situation with constraints and a concrete example.
+User works through the 12 prompts (+1 Change), applying each element to the puzzle. Prompts retain the original names from the book but are reworded for AI-thinking contexts.
+User requests a nudge at any point (max 5 per user, unlimited for founder). The Teacher Agent matches their responses to the closest pre-generated flow and guides them toward the next step.
+User naturally arrives at the solution through the application of the elements — just like in Burger’s book. This is the dopamine hit that keeps them coming back.
+Session is saved. Joules are tracked, element mastery updates, and the session appears in history.
+10. MVP Constraints
+Zero puzzles at start. The developer generates puzzles via a dev-only button in the app. Each generation creates the puzzle and triggers the Teacher Agent to produce 10 flows.
+No puzzle categories. Puzzles are simply AI-utilization scenarios. Categories are a future addition.
+No difficulty levels. All puzzles are equal for now.
+5 nudges per user. Unlimited for the founder (danieldob200@gmail.com).
+Token limit on puzzle generation and nudge responses. Prevent users from running up API costs.
+Microinteractions. Green flash on save, wiggle animations, confetti on milestones. Small dopamine triggers that make the experience addicting.
+11. The Litmus Test
+The single most important question for this pivot: would Daniel use this product himself?
+With LeetCode puzzles, the answer was no. The puzzles felt disconnected, the nudges were generic, and the experience did not map to daily work.
+With AI-utilization puzzles that have concrete solutions, a Teacher Agent that has actually thought through the puzzle, and tracking that rewards engagement over answers — the answer should be yes.
+Train the muscle that actually matters.
+

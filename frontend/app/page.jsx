@@ -59,9 +59,9 @@ const elements = [
 
 // Mock session data for preview
 const recentSessions = [
-  { id: 1, title: "Two Sum", element: "earth", progress: 100, date: "Today" },
-  { id: 2, title: "Valid Parentheses", element: "fire", progress: 75, date: "Yesterday" },
-  { id: 3, title: "Merge Intervals", element: "air", progress: 50, date: "2 days ago" },
+  { id: 1, title: "Legal Research Assistant", element: "earth", progress: 100, date: "Today" },
+  { id: 2, title: "Data Pipeline Builder", element: "fire", progress: 75, date: "Yesterday" },
+  { id: 3, title: "Customer Support Bot", element: "air", progress: 50, date: "2 days ago" },
 ];
 
 export default function Home() {
@@ -109,11 +109,11 @@ export default function Home() {
               <h1 className="font-display text-3xl tb:text-5xl lp:text-6xl text-black mb-4 lp:mb-6 lp:max-w-[1000px] drop-shadow-sm">
                 Train Your Mind.
                 <br />
-                <span className="italic">Master Algorithms.</span>
+                <span className="italic">Master AI.</span>
               </h1>
               <p className="text-lg tb:text-xl lp:text-2xl text-black/80 lp:max-w-[800px] mb-6 lp:mb-8">
-                DramaRama is your mental gym for algorithms. Apply the 5 Elements of
-                Effective Thinking to transform how you solve problems.
+                DramaRama is your mental gym for AI-utilization. Apply the 5 Elements of
+                Effective Thinking to transform how you leverage AI tools.
               </p>
               <div className="flex flex-col tb:flex-row gap-4">
                 <SignedIn>
@@ -178,18 +178,18 @@ export default function Home() {
                 <span className="italic">Start thinking.</span>
               </h2>
               <p className="text-lg text-ash mb-6">
-                Most algorithm platforms reward getting the right answer. But that's not
-                what matters. What matters is whether you're engaging deeply—applying
-                creative thinking, reflecting honestly, and building mental muscles.
+                Most AI tools reward getting things done fast. But that's not
+                what matters. What matters is whether you're thinking deeply—applying
+                creative reasoning, reflecting honestly, and building mental muscles.
               </p>
               <p className="text-lg text-ash mb-8">
-                DramaRama tracks how you <em>think</em>, not just what you solve. We guide
-                you through 12 prompts across the 5 Elements, training your mind to see
-                problems as puzzles to be loved, not obstacles to overcome.
+                DramaRama tracks how you <em>think</em>, not just what you produce. We guide
+                you through 13 prompts across the 5 Elements, training your mind to see
+                AI challenges as puzzles to be loved, not tasks to rush through.
               </p>
               <div className="flex items-center gap-4">
                 <div className="text-center">
-                  <div className="metric-value text-black">12</div>
+                  <div className="metric-value text-black">13</div>
                   <div className="metric-label">Prompts</div>
             </div>
                 <div className="w-px h-12 bg-mist" />
@@ -316,10 +316,10 @@ export default function Home() {
               <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-6">
                 <span className="text-3xl">🧩</span>
               </div>
-              <h3 className="font-display text-2xl mb-4">1. Choose a Problem</h3>
+              <h3 className="font-display text-2xl mb-4">1. Choose a Puzzle</h3>
               <p className="text-smoke">
-                Enter any algorithm you want to think through. Our AI transforms it into
-                an engaging, visual story-puzzle.
+                Pick an AI-utilization puzzle from our library. Each one presents a
+                real-world scenario that requires creative AI thinking.
               </p>
             </div>
 
@@ -327,10 +327,10 @@ export default function Home() {
               <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-6">
                 <span className="text-3xl">🎯</span>
               </div>
-              <h3 className="font-display text-2xl mb-4">2. Answer 12 Prompts</h3>
+              <h3 className="font-display text-2xl mb-4">2. Answer 13 Prompts</h3>
               <p className="text-smoke">
-                Apply each of the 5 Elements (3 sub-elements each) to the problem. Think
-                deeply. Write honestly.
+                Apply each of the 5 Elements to the puzzle. Think
+                deeply. Write honestly. Explore every angle.
               </p>
             </div>
 
@@ -450,7 +450,7 @@ export default function Home() {
                     ✓
                   </span>
                   <span className="text-ash">
-                    <strong className="text-black">Session History</strong> — Every algorithm you've
+                    <strong className="text-black">Session History</strong> — Every puzzle you've
                     thought through, preserved
                   </span>
                 </li>
@@ -494,7 +494,7 @@ export default function Home() {
             Ready to transform how you think?
           </h2>
           <p className="text-xl text-white/70 max-w-[600px] mx-auto mb-10">
-            Join the mental gym. Stop memorizing algorithms. Start understanding them.
+            Join the mental gym. Stop rushing through AI tasks. Start thinking deeply about them.
           </p>
           <div className="flex flex-col tb:flex-row gap-4 justify-center">
             <SignedIn>

@@ -168,7 +168,7 @@ export default function SessionsPage() {
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
                     <h3 className="font-display text-xl text-black">
-                        {session.algorithm_title}
+                        {session.puzzle_title || "Puzzle"}
                     </h3>
                       <span className={`text-xs px-3 py-1 rounded-full font-medium ${
                         session.status === "completed" ? "bg-earth/10 text-earth" :
@@ -187,14 +187,6 @@ export default function SessionsPage() {
                           year: 'numeric'
                         })}
                       </span>
-                      {session.algorithm_url && (
-                        <>
-                          <span>•</span>
-                          <span className="truncate max-w-[200px]">
-                            {new URL(session.algorithm_url).hostname}
-                          </span>
-                        </>
-                    )}
                   </div>
 
                     {/* Progress */}
@@ -203,12 +195,12 @@ export default function SessionsPage() {
                   <div className="progress-bar h-2">
                     <div
                             className="progress-bar-fill bg-change"
-                            style={{ width: `${(session.prompts_completed / 12) * 100}%` }}
+                            style={{ width: `${(session.prompts_completed / 13) * 100}%` }}
                     />
                   </div>
                 </div>
                       <span className="text-sm font-mono text-smoke">
-                        {session.prompts_completed}/12
+                        {session.prompts_completed}/13
                       </span>
                   </div>
                 </div>

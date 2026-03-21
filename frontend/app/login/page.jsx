@@ -94,7 +94,7 @@ export default function LoginPage() {
               <span className="italic text-white/80">Mental Gym</span>
             </h1>
             <p className="text-white/60 text-lg max-w-md mb-12">
-              Where algorithms become puzzles to love, not obstacles to overcome.
+              Where AI challenges become puzzles to love, not tasks to rush through.
             </p>
 
             {/* Elements showcase */}

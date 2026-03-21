@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
+import json
 
 class Element(str, Enum):
     EARTH = "earth"
@@ -34,8 +35,7 @@ class User(BaseModel):
 class Session(BaseModel):
     id: str
     user_id: str
-    algorithm_title: str
-    algorithm_url: Optional[str] = None
+    puzzle_id: Optional[str] = None
     started_at: datetime
     ended_at: Optional[datetime] = None
     status: SessionStatus = SessionStatus.IN_PROGRESS
@@ -60,9 +60,35 @@ class Hint(BaseModel):
     element_focus: Optional[Element] = None
     patterns_detected: Optional[dict] = None
     user_final_response: Optional[str] = None
+    matched_flow_id: Optional[str] = None
     created_at: Optional[datetime] = None
 
-# The 12 prompts (4 elements × 3 sub-elements)
+class Puzzle(BaseModel):
+    id: str
+    title: str
+    scenario: str
+    constraints: List[str] = []
+    example: str
+    solution: str
+    created_at: Optional[datetime] = None
+
+class TeacherFlowStep(BaseModel):
+    element: str
+    sub_element: str
+    prompt_name: str
+    response: str
+    insight: str
+
+class TeacherFlow(BaseModel):
+    id: str
+    puzzle_id: str
+    flow_index: int
+    steps: List[TeacherFlowStep] = []
+    solution_reached: str = ""
+    created_at: Optional[datetime] = None
+
+# The 12 prompts + Change (4 elements × 3 sub-elements + 1)
+# MUYAIUM: AI-utilization wording. Original prompt names from the book retained.
 PROMPTS = [
     # Earth (Deep Understanding)
     {
@@ -70,21 +96,21 @@ PROMPTS = [
         "element": Element.EARTH,
         "sub_element": SubElement.ONE,
         "name": "Start with Simple",
-        "prompt": "What are the absolute basics of this problem? Break it down to its simplest form.",
+        "prompt": "What are the fundamentals of this problem that you'd need to ground yourself in before using AI? What context is essential?",
     },
     {
         "index": 1,
         "element": Element.EARTH,
         "sub_element": SubElement.TWO,
         "name": "Spotlight Specific",
-        "prompt": "Create a specific, simple example. What does the problem look like with concrete numbers?",
+        "prompt": "Create a simpler, concrete version of this scenario. What would a minimal example look like?",
     },
     {
         "index": 2,
         "element": Element.EARTH,
         "sub_element": SubElement.THREE,
         "name": "Add the Adjective",
-        "prompt": "Add an adjective. How would you describe this problem to a colleague? What makes it unique?",
+        "prompt": "Add a descriptor to your approach. Is it iterative? Exploratory? Defensive? How does that lens change how you'd tackle this with AI?",
     },
     # Fire (Embrace Failure)
     {
@@ -92,21 +118,21 @@ PROMPTS = [
         "element": Element.FIRE,
         "sub_element": SubElement.ONE,
         "name": "Fail Fast",
-        "prompt": "Fail fast. Write a rough solution even if it's wrong. What's your first instinct?",
+        "prompt": "Try something — even if it's wrong. What's your rough first attempt at solving this with AI?",
     },
     {
         "index": 4,
         "element": Element.FIRE,
         "sub_element": SubElement.TWO,
         "name": "Fail Again",
-        "prompt": "Fail again. What went wrong with your first approach? How can you improve it?",
+        "prompt": "What went wrong with that attempt? Where did the AI approach break down?",
     },
     {
         "index": 5,
         "element": Element.FIRE,
         "sub_element": SubElement.THREE,
         "name": "Fail Intentionally",
-        "prompt": "Fail intentionally. What's an extreme or impossible scenario? What breaks your solution?",
+        "prompt": "What's an extreme or impossible AI approach? What does that failure teach you about the right approach?",
     },
     # Air (Create Questions)
     {
@@ -114,21 +140,21 @@ PROMPTS = [
         "element": Element.AIR,
         "sub_element": SubElement.ONE,
         "name": "Be Your Own Socrates",
-        "prompt": "Be your own Socrates. What is the REAL question here? Are you solving the right problem?",
+        "prompt": "What is the REAL question here? Are you even approaching the right problem with AI?",
     },
     {
         "index": 7,
         "element": Element.AIR,
         "sub_element": SubElement.TWO,
         "name": "Ask Basic Questions",
-        "prompt": "Ask a basic question. What fundamental concept are you missing or taking for granted?",
+        "prompt": "What fundamental concept about this domain or these AI tools are you missing?",
     },
     {
         "index": 8,
         "element": Element.AIR,
         "sub_element": SubElement.THREE,
         "name": "Ask Another Question",
-        "prompt": "Ask another question. What related question might give you insight into this one?",
+        "prompt": "What related problem might give you insight into this one? Is there an adjacent question worth exploring?",
     },
     # Water (Flow of Ideas)
     {
@@ -136,21 +162,21 @@ PROMPTS = [
         "element": Element.WATER,
         "sub_element": SubElement.ONE,
         "name": "Run Down All Paths",
-        "prompt": "Run down all paths. What are ALL the possible approaches? Don't dismiss any yet.",
+        "prompt": "What are ALL the possible approaches to solving this with AI? Map out every path.",
     },
     {
         "index": 10,
         "element": Element.WATER,
         "sub_element": SubElement.TWO,
         "name": "Embrace Doubt",
-        "prompt": "Embrace doubt. What are you uncertain about? Where might you be wrong?",
+        "prompt": "What are you uncertain about? Where might your AI approach be wrong?",
     },
     {
         "index": 11,
         "element": Element.WATER,
         "sub_element": SubElement.THREE,
         "name": "Never Stop",
-        "prompt": "Never stop. Where does this idea lead? What's the next step after solving this?",
+        "prompt": "Follow your best approach to its conclusion. Where does it lead? What's the next step after that?",
     },
     # Change (Be Open to Change)
     {
@@ -158,7 +184,7 @@ PROMPTS = [
         "element": Element.CHANGE,
         "sub_element": SubElement.TRANSFORM,
         "name": "Transform",
-        "prompt": "How has this problem changed your understanding? What do you see now that you didn't before?",
+        "prompt": "How has thinking through this puzzle changed how you'd approach AI-assisted work?",
     },
 ]
 

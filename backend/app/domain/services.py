@@ -406,133 +406,159 @@ def analyze_responses(responses: List[Response]) -> Dict:
 
 def build_puzzle_prompt(topic: str) -> str:
     """
-    Build a prompt for Claude to generate an AI-utilization puzzle.
-    Returns JSON with scenario, constraints, example, solution, and title.
+    Build a prompt for Claude to generate a simple AI-utilization puzzle.
+    Assumes the user knows basics but nothing advanced.
+    Returns JSON with scenario, constraints, example, solution, premise, and title.
+    No markdown formatting in output.
     """
-    return f"""You are an expert educator designing AI-utilization puzzles. These puzzles present realistic scenarios where a person must figure out how to effectively use AI tools (LLMs, code assistants, image generators, data analysis tools, etc.) to solve a problem.
+    return f"""You are an expert educator designing AI-utilization puzzles for people who know the basics of their field but nothing advanced about AI. These puzzles present realistic scenarios where a person must figure out how to effectively use AI tools to solve a problem.
 
 Topic/domain: {topic}
+
+Design principles:
+- The puzzle should be understandable in under 5 minutes and fit on one page.
+- Keep it simple and concrete. Think of a real person in a real situation.
+- Assume the user knows the basics of {topic} but has no advanced AI knowledge.
+- The scenario should be grounded and vivid, not abstract or technical.
+- Do NOT use any markdown formatting in the output (no bold, no headers, no bullet markers).
 
 Generate an AI-utilization puzzle as a JSON object with these fields:
 
 {{
   "title": "Short, memorable puzzle title (3-6 words)",
-  "scenario": "A realistic 2-4 sentence scenario describing a situation where someone needs to leverage AI tools to accomplish a goal. Make it vivid and grounded in a real profession or context. The scenario should NOT have an obvious solution.",
-  "constraints": ["Constraint 1 that limits naive approaches", "Constraint 2 that adds realism", "Constraint 3 (optional)"],
-  "example": "A concrete, minimal example of the scenario with specific details that help the solver understand the problem.",
-  "solution": "A thorough explanation (3-5 sentences) of the best approach to solving this with AI tools. Be specific about which tools, what prompts, what workflow. This is the HIDDEN solution that users should discover through thinking."
+  "scenario": "A realistic 2-3 sentence scenario. Simple, concrete, grounded in a real profession. Understandable by anyone. No jargon.",
+  "constraints": ["Constraint 1 that limits naive approaches", "Constraint 2 that adds realism"],
+  "example": "A concrete, minimal example with specific details that help understand the problem. Plain text, no formatting.",
+  "solution": "A clear explanation (3-5 sentences) of the best approach using AI tools. Be specific about which tools and workflow. Plain text, no formatting."
 }}
 
 Rules:
 - The puzzle should require genuine thinking about HOW to use AI, not just WHETHER to use it.
-- Constraints should make the naive approach (e.g., 'just paste it into ChatGPT') insufficient.
-- The solution should involve a thoughtful AI workflow or strategy.
-- Keep scenario under 100 words. Keep solution under 150 words.
-- Output ONLY the JSON object, no markdown fences, no extra text."""
+- Constraints should make the naive approach (just paste it into ChatGPT) insufficient.
+- Keep scenario under 80 words. Keep solution under 120 words.
+- Output ONLY the JSON object. No markdown fences. No extra text. No formatting."""
 
 
-def build_hint_prompt(
-    puzzle_scenario: str,
-    puzzle_constraints: list,
-    responses: List[Response],
-    analysis: Dict,
-    matched_flow_steps: list = None,
+def build_nudge_prompt(
+    puzzle,
+    current_prompt_index: int,
+    current_response_text: str,
+    all_responses: List[Response],
 ) -> str:
     """
-    Build the prompt for Claude to generate a personalized, strength-leveraging nudge.
-    Includes the full rubric so the LLM can properly evaluate response quality.
-    Uses the matched teacher flow for targeted coaching when available.
+    Build the Stockfish nudge prompt for Claude.
+    Provides full puzzle context (including solution), the current element definition,
+    the user's current response, all prior responses, and all 5 Element definitions.
+    The nudge is specific to the element the user is currently on.
     """
+    # Current prompt info
+    current_prompt_info = PROMPTS[current_prompt_index] if current_prompt_index < len(PROMPTS) else {}
+    current_element = current_prompt_info.get('element', Element.EARTH)
+    current_element_def = ELEMENT_DEFINITIONS.get(current_element, {})
+    current_rubric = RUBRIC.get(current_prompt_index, {})
     
-    # Build responses text with rubric context
-    responses_text = ""
-    for resp in responses:
-        prompt_info = PROMPTS[resp.prompt_index] if resp.prompt_index < len(PROMPTS) else {}
-        rubric_info = RUBRIC.get(resp.prompt_index, {})
-        element = prompt_info.get('element', Element.EARTH)
-        element_def = ELEMENT_DEFINITIONS.get(element, {})
-        
-        responses_text += f"""
----
-**{element_def.get('emoji', '')} {prompt_info.get('element', '').value.upper() if hasattr(prompt_info.get('element', ''), 'value') else ''} {prompt_info.get('sub_element', '')} - {prompt_info.get('name', '')}**
-Prompt: {prompt_info.get('prompt', '')}
-User's Response: {resp.response_text}
-(Words: {resp.word_count}, Time: {resp.time_spent_seconds}s)
-
-Quality Criteria:
-- Good looks like: {rubric_info.get('what_good_looks_like', 'N/A')}
-- Must-haves: {', '.join(rubric_info.get('must_haves', [])[:2])}
-"""
-    
-    # Build element definitions for context
+    # Build all element definitions
     elements_context = ""
     for elem, defn in ELEMENT_DEFINITIONS.items():
-        elements_context += f"""
-**{defn['emoji']} {elem.value.upper()} - {defn['name']}**
-Core: {defn['core_principle']}
-Philosophy: {defn['philosophy']}
-"""
+        elements_context += f"{defn['emoji']} {elem.value.upper()} - {defn['name']}\n"
+        elements_context += f"Core: {defn['core_principle']}\n"
+        elements_context += f"Philosophy: {defn['philosophy']}\n\n"
 
-    strongest = analysis.get("strongest_element", "unknown")
-    strongest_elem = Element(strongest) if strongest and strongest != "unknown" else None
-    strongest_def = ELEMENT_DEFINITIONS.get(strongest_elem, {}) if strongest_elem else {}
-    
-    patterns_text = ""
-    for pattern in analysis.get("patterns", []):
-        patterns_text += f"- {pattern['message']}\n"
+    # Build prior responses context
+    prior_responses_text = ""
+    for resp in all_responses:
+        p_info = PROMPTS[resp.prompt_index] if resp.prompt_index < len(PROMPTS) else {}
+        p_element = p_info.get('element', Element.EARTH)
+        p_def = ELEMENT_DEFINITIONS.get(p_element, {})
+        prior_responses_text += f"- {p_def.get('emoji', '')} {p_element.value.upper() if hasattr(p_element, 'value') else ''} {p_info.get('sub_element', '')} ({p_info.get('name', '')}): {resp.response_text}\n"
 
-    quality_gate = analysis.get("quality_gate") or {}
-    ok_to_praise = bool(quality_gate.get("ok_to_praise", True))
-    low_signal_count = int(quality_gate.get("low_signal_count", 0) or 0)
-    total_responses = int(quality_gate.get("total_responses", len(responses)) or len(responses))
-    
-    constraints_text = "\n".join(f"- {c}" for c in (puzzle_constraints or []))
+    constraints_text = "\n".join(f"- {c}" for c in (puzzle.constraints or []))
 
-    # Teacher flow coaching context
-    flow_context = ""
-    if matched_flow_steps:
-        flow_context = "\n## Teacher Flow (expert thinking path — do NOT reveal directly)\n"
-        for step in matched_flow_steps:
-            flow_context += f"- {step.get('prompt_name', '')}: {step.get('insight', '')}\n"
-        flow_context += "\nUse this flow to understand WHERE the user is in the thinking process and what they should explore NEXT. Do NOT copy the flow text verbatim.\n"
-    
-    return f"""You are a thinking coach trained in Edward Burger's "5 Elements of Effective Thinking" framework.
+    return f"""You are a thinking coach trained in Edward Burger's "5 Elements of Effective Thinking." You are coaching a user through an AI-utilization puzzle in real time.
 
-## The 5 Elements Framework
+## The 5 Elements of Effective Thinking
 {elements_context}
 
 ## The Puzzle
-**Scenario:** {puzzle_scenario}
-**Constraints:**
+Title: {puzzle.title}
+Scenario: {puzzle.scenario}
+Constraints:
 {constraints_text}
+Example: {puzzle.example}
 
-## Their Responses (with quality rubric)
+## The Solution (HIDDEN — you know this but NEVER reveal it directly)
+{puzzle.solution}
+
+## Current Element: {current_element_def.get('emoji', '')} {current_element.value.upper() if hasattr(current_element, 'value') else ''} {current_prompt_info.get('sub_element', '')} — {current_prompt_info.get('name', '')}
+Definition: {current_element_def.get('core_principle', '')}
+Philosophy: {current_element_def.get('philosophy', '')}
+Prompt: {current_prompt_info.get('prompt', '')}
+What good looks like: {current_rubric.get('what_good_looks_like', 'N/A')}
+
+## The User's Current Response (for this element)
+{current_response_text if current_response_text else "(No response yet for this element)"}
+
+## All Prior Responses in This Session
+{prior_responses_text if prior_responses_text else "(No prior responses yet)"}
+
+## Your Task: Nudge Within This Element
+
+Provide a nudge that helps the user think more deeply WITHIN the element they are currently on ({current_element.value.upper() if hasattr(current_element, 'value') else ''}).
+
+Rules:
+1. Stay within the current element. Do NOT tell them to switch to a different element.
+2. Read what they actually wrote. Respond to their specific thinking, not generic advice.
+3. If their response is empty or placeholder, ground them in the basics of this element and give a concrete starting point.
+4. If their response shows real thinking, push them deeper within this element.
+5. Guide toward the solution without giving it away. You know the answer — use that knowledge to ask the right questions.
+6. Be warm, specific, and concise.
+7. Keep your response under 150 words.
+8. Do not use markdown formatting."""
+
+
+def build_session_completion_prompt(
+    puzzle,
+    responses: List[Response],
+) -> str:
+    """
+    Build the prompt for Claude to analyze a completed session.
+    Returns structured analysis: strongest element, thinking evolution, key knowledge gained.
+    """
+    # Build responses summary
+    responses_text = ""
+    for resp in responses:
+        p_info = PROMPTS[resp.prompt_index] if resp.prompt_index < len(PROMPTS) else {}
+        p_element = p_info.get('element', Element.EARTH)
+        p_def = ELEMENT_DEFINITIONS.get(p_element, {})
+        responses_text += f"{p_def.get('emoji', '')} {p_element.value.upper() if hasattr(p_element, 'value') else ''} {p_info.get('sub_element', '')} ({p_info.get('name', '')}): {resp.response_text}\n\n"
+
+    puzzle_context = ""
+    if puzzle:
+        puzzle_context = f"""Title: {puzzle.title}
+Scenario: {puzzle.scenario}
+Solution: {puzzle.solution}"""
+
+    return f"""You are analyzing a completed thinking session where a user worked through an AI-utilization puzzle using the 5 Elements of Effective Thinking.
+
+## The Puzzle
+{puzzle_context}
+
+## The User's Responses (in order)
 {responses_text}
-{flow_context}
-## Reality / Quality Check (IMPORTANT)
-- Low-signal responses count: {low_signal_count}/{total_responses}
-- ok_to_praise: {ok_to_praise}
 
-## Analysis of Their Thinking
-- **STRONGEST element:** {strongest_def.get('emoji', '')} {strongest.upper() if strongest else 'Unknown'}
-- Average word count: {analysis.get('avg_word_count', 0):.1f}
-{patterns_text if patterns_text else '- Building their thinking muscles!'}
+## Your Task
+Analyze this session and return a JSON object with these fields:
 
-## Your Task: Strength-Leveraging Nudge
+{{
+  "title": "A short title summarizing the key insight from this session (under 10 words)",
+  "key_insight": "What was the most important thing the user learned or discovered? What was their strongest element and why? How did their thinking evolve across the session? (3-5 sentences, plain text)",
+  "input_context": "What was the problem context they were working with? (1-2 sentences summarizing the puzzle scenario)",
+  "output_capability": "What new thinking capability did they develop? What can they now do that they couldn't before? (2-3 sentences, plain text)"
+}}
 
-Your job is NOT to point out weaknesses. Instead, **leverage their strength** to help them think through the puzzle.
-
-CRITICAL: Stay grounded in the actual text. Do NOT invent strengths.
-If ok_to_praise is false (or if responses look like placeholders), you MUST:
-1) Say plainly (but kindly) that you can't assess strengths yet.
-2) Ask for more concrete thinking and give ONE example of what a good answer looks like.
-3) Give ONE next step.
-In that case, do NOT "celebrate their strength" and do NOT quote words as evidence.
-
-1. **Celebrate their strength** - Identify what they did well in their strongest element. Quote their actual words.
-2. **Show how to leverage it** - Explain how to USE this thinking style on the puzzle.
-3. **Give ONE concrete next step** - Based on their strength. Make it specific to THIS puzzle.
-4. **Do NOT give away the solution** - Guide their thinking, don't solve for them.
-
-Keep your response under 200 words. Be warm, specific, and empowering.
-"""
+Rules:
+- Be specific. Reference their actual words and ideas.
+- Identify their strongest element based on depth and engagement of responses.
+- Show how their thinking evolved from early responses to later ones.
+- Be encouraging but honest. If responses were shallow, note that kindly.
+- Output ONLY the JSON object. No markdown fences. No extra text."""

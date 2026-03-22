@@ -483,13 +483,13 @@ function WorkingPhase({
   const [saveErr, setSaveErr] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const [nudgeText, setNudgeText] = useState("");
+  const [nudgesByPrompt, setNudgesByPrompt] = useState(() => ({}));
   const [nudgeLoading, setNudgeLoading] = useState(false);
   const [nudgeErr, setNudgeErr] = useState("");
-  const [nudgeVisible, setNudgeVisible] = useState(false);
 
   const [completeLoading, setCompleteLoading] = useState(false);
   const [completeErr, setCompleteErr] = useState("");
+  const [completionAnalysis, setCompletionAnalysis] = useState(null);
 
   const [nudgeLimit, setNudgeLimit] = useState({ used: 0, limit: 5, unlimited: false });
 
@@ -631,11 +631,12 @@ function WorkingPhase({
       setNudgeErr(`Nudge limit reached (${nudgeLimit.limit} per puzzle).`);
       return;
     }
-    setNudgeLoading(true); setNudgeErr(""); setNudgeText(""); setNudgeVisible(true);
+    setNudgeLoading(true); setNudgeErr("");
+    setNudgesByPrompt((prev) => ({ ...prev, [currentIdx]: "" }));
     try {
       const token = await getToken({ skipCache: true });
       const res = await fetch(
-        `/api/backend-api/session/${sessionId}/analyze?token=${encodeURIComponent(token)}`,
+        `/api/backend-api/session/${sessionId}/analyze?token=${encodeURIComponent(token)}&prompt_index=${currentIdx}`,
         { headers: { "Cache-Control": "no-cache" } }
       );
       if (!res.ok) {
@@ -655,11 +656,10 @@ function WorkingPhase({
           const data = line.slice(6);
           if (data === "[DONE]") {
             setNudgeLoading(false);
-            // Refresh nudge limit
             setNudgeLimit((prev) => prev.unlimited ? prev : { ...prev, used: prev.used + 1 });
             return;
           }
-          setNudgeText((prev) => prev + data);
+          setNudgesByPrompt((prev) => ({ ...prev, [currentIdx]: (prev[currentIdx] || "") + data }));
         }
       }
     } catch (e) {
@@ -679,7 +679,12 @@ function WorkingPhase({
         body: JSON.stringify({ session_id: sessionId }),
       });
       if (!res.ok) throw new Error("Failed to complete session.");
-      onComplete();
+      const data = await res.json();
+      if (data.analysis) {
+        setCompletionAnalysis(data.analysis);
+      } else {
+        onComplete();
+      }
     } catch (e) {
       setCompleteErr(e?.message || "Failed to complete.");
     } finally {
@@ -780,6 +785,10 @@ function WorkingPhase({
         <div className="flex-1 overflow-y-auto">
           {/* Puzzle — full width, no box */}
           <div className="px-8 lp:px-14 pt-10 pb-8 border-b border-mist/50">
+            {/* Puzzle premise */}
+            <div className="text-sm text-ash italic leading-relaxed mb-6 border-l-2 border-mist pl-4">
+              Your goal is to think through this problem using the 5 Elements of Effective Thinking. You are not expected to solve it immediately — the purpose is to apply each element and develop deeper understanding.
+            </div>
             <div className="text-xs uppercase tracking-widest text-smoke mb-5">The Puzzle</div>
             <div className="font-display text-xl lp:text-2xl text-black leading-relaxed mb-4">
               {puzzleScenario}
@@ -804,51 +813,26 @@ function WorkingPhase({
 
           {/* Prompt dots */}
           <div className="px-8 lp:px-14 py-5 flex items-center gap-2">
-            {Array.from({ length: 13 }).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrentIdx(i)}
-                title={`Prompt ${i + 1}`}
-                className={`h-2 rounded-full transition-all ${
-                  i === currentIdx
-                    ? `${colors.dot} w-5`
-                    : savedIndices.has(i)
-                    ? "w-2 bg-earth"
-                    : "w-2 bg-mist hover:bg-smoke"
-                }`}
-              />
-            ))}
+            {Array.from({ length: 13 }).map((_, i) => {
+              const dotElement = elementForPromptIdx(i);
+              const dotColors = ELEMENT_COLORS[dotElement];
+              return (
+                <button
+                  key={i}
+                  onClick={() => setCurrentIdx(i)}
+                  title={`Prompt ${i + 1}`}
+                  className={`h-2 rounded-full transition-all ${
+                    i === currentIdx
+                      ? `${dotColors.dot} w-5`
+                      : savedIndices.has(i)
+                      ? `w-2 ${dotColors.dot} opacity-50`
+                      : "w-2 bg-mist hover:bg-smoke"
+                  }`}
+                />
+              );
+            })}
             <span className="ml-2 text-xs text-smoke font-mono">{currentIdx + 1} / 13</span>
           </div>
-
-          {/* Nudge panel */}
-          {nudgeVisible && (
-            <div className="mx-8 lp:mx-14 mb-8 border border-mist rounded-xl overflow-hidden">
-              <div className="bg-gradient-to-r from-water/10 to-change/5 px-5 py-3 border-b border-mist flex items-center justify-between">
-                <div className="text-sm font-semibold text-black">Your Nudge</div>
-                <button
-                  className="text-xs text-smoke hover:text-black transition-colors"
-                  onClick={() => setNudgeVisible(false)}
-                >
-                  ✕ Close
-                </button>
-              </div>
-              <div className="p-5 bg-white">
-                {nudgeLoading && !nudgeText && (
-                  <div className="text-sm text-smoke animate-pulse">Analyzing your thinking…</div>
-                )}
-                {nudgeErr && <div className="text-sm text-fire">{nudgeErr}</div>}
-                {nudgeText && (
-                  <div className="text-black whitespace-pre-wrap leading-relaxed text-sm">
-                    {nudgeText}
-                    {nudgeLoading && (
-                      <span className="inline-block w-1 h-4 bg-black ml-1 animate-pulse" />
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           <div className="h-4" />
         </div>
@@ -867,7 +851,7 @@ function WorkingPhase({
           </div>
 
           {/* Panel body */}
-          <div className="flex-1 flex flex-col px-6 lp:px-14 pb-3 min-h-0">
+          <div className="flex-1 flex flex-col px-6 lp:px-14 pb-3 min-h-0 overflow-y-auto">
 
             {/* Prompt header row */}
             <div className="flex items-center justify-between py-1 flex-shrink-0">
@@ -897,6 +881,20 @@ function WorkingPhase({
               </div>
             </div>
 
+            {/* Inline element explanation */}
+            {(() => {
+              const el = ELEMENTS.find((e) => e.id === currentElement);
+              if (!el) return null;
+              const subIdx = el.promptIndices.indexOf(currentIdx);
+              const sub = subIdx >= 0 ? el.subElements[subIdx] : el.subElements[0];
+              if (!sub) return null;
+              return (
+                <div className={`text-xs leading-relaxed mb-2 flex-shrink-0 ${colors.text} opacity-80`}>
+                  {sub.description}
+                </div>
+              );
+            })()}
+
             {/* Prompt question */}
             <div className="text-sm text-black font-medium leading-snug mb-2 flex-shrink-0">
               {currentPrompt?.prompt || "Loading prompt…"}
@@ -909,6 +907,35 @@ function WorkingPhase({
               onChange={(e) => setAnswer(currentIdx, e.target.value)}
               placeholder="Think freely… write rough drafts, concrete examples, questions, anything."
             />
+
+            {/* Inline nudge — appears below the textarea for the current element */}
+            {(nudgesByPrompt[currentIdx] || (nudgeLoading && nudgesByPrompt[currentIdx] === "")) && (
+              <div className={`mt-2 flex-shrink-0 border rounded-lg overflow-hidden ${colors.border} border`}>
+                <div className={`${colors.bg} px-3 py-1.5 flex items-center justify-between`}>
+                  <div className={`text-xs font-semibold ${colors.text}`}>Nudge</div>
+                  <button
+                    className="text-xs text-smoke hover:text-black transition-colors"
+                    onClick={() => setNudgesByPrompt((prev) => { const next = { ...prev }; delete next[currentIdx]; return next; })}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="px-3 py-2 bg-white">
+                  {nudgeLoading && !nudgesByPrompt[currentIdx] && (
+                    <div className="text-xs text-smoke animate-pulse">Thinking about your response…</div>
+                  )}
+                  {nudgesByPrompt[currentIdx] && (
+                    <div className="text-black whitespace-pre-wrap leading-relaxed text-xs">
+                      {nudgesByPrompt[currentIdx]}
+                      {nudgeLoading && (
+                        <span className="inline-block w-1 h-3 bg-black ml-0.5 animate-pulse" />
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {nudgeErr && <div className="text-xs text-fire mt-1 flex-shrink-0">{nudgeErr}</div>}
 
             {/* Actions row */}
             <div className="flex items-center justify-between pt-2 flex-shrink-0">
@@ -951,6 +978,38 @@ function WorkingPhase({
           </div>
         </div>
       </div>
+
+      {/* Completion analysis overlay */}
+      {completionAnalysis && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-6">
+          <div className="bg-white rounded-xl max-w-lg w-full p-8 shadow-2xl">
+            <div className="text-center mb-6">
+              <div className="text-4xl mb-3">🎉</div>
+              <h2 className="font-display text-2xl text-black mb-1">Session Complete</h2>
+              <p className="text-sm text-smoke">{completionAnalysis.title || "Great work!"}</p>
+            </div>
+            {completionAnalysis.key_insight && (
+              <div className="mb-4">
+                <div className="text-xs font-semibold text-smoke uppercase tracking-wider mb-1">Key Insight</div>
+                <div className="text-sm text-black leading-relaxed">{completionAnalysis.key_insight}</div>
+              </div>
+            )}
+            {completionAnalysis.output_capability && (
+              <div className="mb-6">
+                <div className="text-xs font-semibold text-smoke uppercase tracking-wider mb-1">New Capability</div>
+                <div className="text-sm text-black leading-relaxed">{completionAnalysis.output_capability}</div>
+              </div>
+            )}
+            <Button
+              radius="none"
+              className="bg-black text-white w-full"
+              onPress={onComplete}
+            >
+              Back to Workspace →
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

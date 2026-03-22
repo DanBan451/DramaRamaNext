@@ -3,7 +3,7 @@ Repository Ports - Abstract interfaces for data access
 """
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from app.domain.entities import User, Session, Response, Hint, Puzzle, TeacherFlow
+from app.domain.entities import User, Session, Response, Hint, Puzzle, Component
 
 class UserRepository(ABC):
     @abstractmethod
@@ -89,16 +89,16 @@ class PuzzleRepository(ABC):
         pass
 
 
-class TeacherFlowRepository(ABC):
+class ComponentRepository(ABC):
     @abstractmethod
-    async def create(self, flow: TeacherFlow) -> TeacherFlow:
+    async def create(self, component: Component) -> Component:
         pass
 
     @abstractmethod
-    async def get_flows_for_puzzle(self, puzzle_id: str) -> List[TeacherFlow]:
+    async def get_by_session_id(self, session_id: str) -> Optional[Component]:
         pass
 
     @abstractmethod
-    async def count_flows_for_puzzle(self, puzzle_id: str) -> int:
+    async def get_by_user_id(self, user_id: str, limit: int = 50) -> List[Component]:
         pass
 

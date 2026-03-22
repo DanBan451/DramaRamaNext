@@ -9,11 +9,11 @@ import uuid
 from app.core.config import settings
 from app.domain.entities import (
     User, Session, Response, Hint, SessionStatus, Element, SubElement,
-    Puzzle, TeacherFlow, TeacherFlowStep,
+    Puzzle, Component,
 )
 from app.ports.repositories import (
     UserRepository, SessionRepository, ResponseRepository, HintRepository,
-    PuzzleRepository, TeacherFlowRepository,
+    PuzzleRepository, ComponentRepository,
 )
 
 def get_supabase_client() -> Client:
@@ -169,7 +169,6 @@ class SupabaseHintRepository(HintRepository):
             element_focus=Element(row["element_focus"]) if row.get("element_focus") else None,
             patterns_detected=row.get("patterns_detected"),
             user_final_response=row.get("user_final_response"),
-            matched_flow_id=row.get("matched_flow_id"),
             created_at=datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")) if row.get("created_at") else None,
         )
     
@@ -179,7 +178,6 @@ class SupabaseHintRepository(HintRepository):
             "hint_text": hint.hint_text,
             "element_focus": hint.element_focus.value if hint.element_focus else None,
             "patterns_detected": hint.patterns_detected,
-            "matched_flow_id": hint.matched_flow_id,
         }
         result = self.client.table("hints").insert(data).execute()
         return self._row_to_hint(result.data[0])
@@ -250,37 +248,43 @@ class SupabasePuzzleRepository(PuzzleRepository):
         return [self._row_to_puzzle(row) for row in result.data]
 
 
-class SupabaseTeacherFlowRepository(TeacherFlowRepository):
+class SupabaseComponentRepository(ComponentRepository):
     def __init__(self):
         self.client = get_supabase_client()
 
-    def _row_to_flow(self, row: dict) -> TeacherFlow:
-        raw_steps = row.get("steps") or []
-        steps = [TeacherFlowStep(**s) for s in raw_steps]
-        return TeacherFlow(
+    def _row_to_component(self, row: dict) -> Component:
+        return Component(
             id=row["id"],
+            session_id=row["session_id"],
             puzzle_id=row["puzzle_id"],
-            flow_index=row["flow_index"],
-            steps=steps,
-            solution_reached=row.get("solution_reached", ""),
+            user_id=row["user_id"],
+            title=row["title"],
+            key_insight=row["key_insight"],
+            input_context=row["input_context"],
+            output_capability=row["output_capability"],
             created_at=datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")) if row.get("created_at") else None,
         )
 
-    async def create(self, flow: TeacherFlow) -> TeacherFlow:
+    async def create(self, component: Component) -> Component:
         data = {
-            "puzzle_id": flow.puzzle_id,
-            "flow_index": flow.flow_index,
-            "steps": [s.model_dump() for s in flow.steps],
-            "solution_reached": flow.solution_reached,
+            "session_id": component.session_id,
+            "puzzle_id": component.puzzle_id,
+            "user_id": component.user_id,
+            "title": component.title,
+            "key_insight": component.key_insight,
+            "input_context": component.input_context,
+            "output_capability": component.output_capability,
         }
-        result = self.client.table("teacher_flows").insert(data).execute()
-        return self._row_to_flow(result.data[0])
+        result = self.client.table("components").insert(data).execute()
+        return self._row_to_component(result.data[0])
 
-    async def get_flows_for_puzzle(self, puzzle_id: str) -> List[TeacherFlow]:
-        result = self.client.table("teacher_flows").select("*").eq("puzzle_id", puzzle_id).order("flow_index").execute()
-        return [self._row_to_flow(row) for row in result.data]
+    async def get_by_session_id(self, session_id: str) -> Optional[Component]:
+        result = self.client.table("components").select("*").eq("session_id", session_id).limit(1).execute()
+        if result.data:
+            return self._row_to_component(result.data[0])
+        return None
 
-    async def count_flows_for_puzzle(self, puzzle_id: str) -> int:
-        result = self.client.table("teacher_flows").select("id", count="exact").eq("puzzle_id", puzzle_id).execute()
-        return result.count or 0
+    async def get_by_user_id(self, user_id: str, limit: int = 50) -> List[Component]:
+        result = self.client.table("components").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(limit).execute()
+        return [self._row_to_component(row) for row in result.data]
 

@@ -60,7 +60,6 @@ class Hint(BaseModel):
     element_focus: Optional[Element] = None
     patterns_detected: Optional[dict] = None
     user_final_response: Optional[str] = None
-    matched_flow_id: Optional[str] = None
     created_at: Optional[datetime] = None
 
 class Puzzle(BaseModel):
@@ -72,19 +71,15 @@ class Puzzle(BaseModel):
     solution: str
     created_at: Optional[datetime] = None
 
-class TeacherFlowStep(BaseModel):
-    element: str
-    sub_element: str
-    prompt_name: str
-    response: str
-    insight: str
-
-class TeacherFlow(BaseModel):
+class Component(BaseModel):
     id: str
+    session_id: str
     puzzle_id: str
-    flow_index: int
-    steps: List[TeacherFlowStep] = []
-    solution_reached: str = ""
+    user_id: str
+    title: str
+    key_insight: str
+    input_context: str
+    output_capability: str
     created_at: Optional[datetime] = None
 
 # The 12 prompts + Change (4 elements × 3 sub-elements + 1)

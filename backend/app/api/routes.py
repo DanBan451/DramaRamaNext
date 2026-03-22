@@ -4,7 +4,6 @@ API Routes - HTTP endpoints
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from typing import List
-import asyncio
 import re
 
 from app.core.security import get_current_user, get_user_from_token
@@ -22,16 +21,16 @@ from app.api.schemas import (
 )
 from app.domain.entities import (
     Response, Hint, Element, SubElement, SessionStatus,
-    PROMPTS, get_prompt, Puzzle, TeacherFlow, TeacherFlowStep,
+    PROMPTS, get_prompt, Puzzle, Component,
 )
-from app.domain.services import analyze_responses, build_hint_prompt, build_puzzle_prompt
+from app.domain.services import analyze_responses, build_nudge_prompt, build_puzzle_prompt, build_session_completion_prompt
 from app.adapters.supabase_adapter import (
     SupabaseUserRepository,
     SupabaseSessionRepository,
     SupabaseResponseRepository,
     SupabaseHintRepository,
     SupabasePuzzleRepository,
-    SupabaseTeacherFlowRepository,
+    SupabaseComponentRepository,
 )
 from app.adapters.claude_adapter import ClaudeStreamingAdapter
 import json
@@ -47,7 +46,7 @@ session_repo = SupabaseSessionRepository()
 response_repo = SupabaseResponseRepository()
 hint_repo = SupabaseHintRepository()
 puzzle_repo = SupabasePuzzleRepository()
-teacher_flow_repo = SupabaseTeacherFlowRepository()
+component_repo = SupabaseComponentRepository()
 llm_client = ClaudeStreamingAdapter()
 
 NUDGE_LIMIT_PER_PUZZLE = 5
@@ -155,11 +154,11 @@ async def analyze_session(
     session_id: str,
     request: Request,
     token: str | None = None,
+    prompt_index: int | None = None,
 ):
     """
-    Analyze session responses and stream a personalized nudge.
+    Stockfish nudge: real-time, responsive nudge for the current element.
     Returns SSE stream.
-    Matches user responses to teacher flows for targeted coaching.
     """
     # Auth: EventSource can't send Authorization headers reliably, so allow ?token=... for SSE.
     if token:
@@ -184,45 +183,44 @@ async def analyze_session(
     if session.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Enforce nudge limits (unless dev email)
-    is_dev = (user.email or "").lower() == (settings.DEV_EMAIL or "").lower() and settings.DEV_EMAIL
-    if not is_dev and session.puzzle_id:
+    # Enforce nudge limits (unless founder email)
+    is_founder = (user.email or "").lower() == (settings.DEV_EMAIL or "").lower() and settings.DEV_EMAIL
+    if not is_founder and session.puzzle_id:
         used = await hint_repo.count_hints_for_puzzle_user(user.id, session.puzzle_id)
         if used >= NUDGE_LIMIT_PER_PUZZLE:
             raise HTTPException(status_code=429, detail=f"Nudge limit reached ({NUDGE_LIMIT_PER_PUZZLE} per puzzle)")
     
-    # Get all responses
+    # Get all responses in this session
     responses = await response_repo.get_session_responses(session_id)
     
     if len(responses) < 1:
-        raise HTTPException(status_code=400, detail="At least one response is required before requesting a nudge.")
+        raise HTTPException(status_code=400, detail="Save at least one response before requesting a nudge.")
     
-    # Analyze responses
-    analysis = analyze_responses(responses)
+    # Determine current element from prompt_index
+    current_prompt_idx = prompt_index if prompt_index is not None else (len(responses) - 1)
+    current_prompt_info = get_prompt(current_prompt_idx)
+    if not current_prompt_info:
+        raise HTTPException(status_code=400, detail="Invalid prompt index")
     
-    # Get puzzle for context
+    current_element = Element(current_prompt_info["element"])
+    
+    # Get puzzle (including solution) for context
     puzzle = await puzzle_repo.get_by_id(session.puzzle_id) if session.puzzle_id else None
-    puzzle_scenario = puzzle.scenario if puzzle else "Unknown puzzle"
-    puzzle_constraints = puzzle.constraints if puzzle else []
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="Puzzle not found")
     
-    # Match teacher flows
-    matched_flow_steps = None
-    matched_flow_id = None
-    if session.puzzle_id:
-        flows = await teacher_flow_repo.get_flows_for_puzzle(session.puzzle_id)
-        if flows:
-            matched_flow = _match_best_flow(responses, flows)
-            if matched_flow:
-                matched_flow_id = matched_flow.id
-                matched_flow_steps = [s.model_dump() for s in matched_flow.steps]
+    # Find current response for this element (if any)
+    current_response_text = ""
+    for r in responses:
+        if r.prompt_index == current_prompt_idx:
+            current_response_text = r.response_text
     
-    # Build prompt for Claude
-    prompt = build_hint_prompt(
-        puzzle_scenario=puzzle_scenario,
-        puzzle_constraints=puzzle_constraints,
-        responses=responses,
-        analysis=analysis,
-        matched_flow_steps=matched_flow_steps,
+    # Build Stockfish nudge prompt
+    prompt = build_nudge_prompt(
+        puzzle=puzzle,
+        current_prompt_index=current_prompt_idx,
+        current_response_text=current_response_text,
+        all_responses=responses,
     )
     
     async def generate():
@@ -239,9 +237,7 @@ async def analyze_session(
                 id="",
                 session_id=session_id,
                 hint_text=hint_text or "(empty nudge)",
-                element_focus=Element(analysis["strongest_element"]) if analysis.get("strongest_element") else None,
-                patterns_detected=analysis,
-                matched_flow_id=matched_flow_id,
+                element_focus=current_element,
             )
             await hint_repo.create(hint)
         except Exception as e:
@@ -258,53 +254,16 @@ async def analyze_session(
         }
     )
 
-
-def _match_best_flow(responses: list, flows: list) -> TeacherFlow | None:
-    """
-    Match user responses to the closest teacher flow using keyword overlap.
-    Returns the best-matching flow or None.
-    """
-    if not flows or not responses:
-        return None
-    
-    import re
-    
-    def tokenize(text: str) -> set:
-        return set(re.findall(r'\w{3,}', (text or '').lower()))
-    
-    # Build user token set from all responses
-    user_tokens = set()
-    for r in responses:
-        user_tokens |= tokenize(r.response_text)
-    
-    best_flow = None
-    best_score = -1
-    
-    for flow in flows:
-        flow_tokens = set()
-        for step in flow.steps:
-            flow_tokens |= tokenize(step.response)
-            flow_tokens |= tokenize(step.insight)
-        
-        if not flow_tokens:
-            continue
-        
-        overlap = len(user_tokens & flow_tokens)
-        # Normalize by flow size to avoid bias toward longer flows
-        score = overlap / len(flow_tokens)
-        
-        if score > best_score:
-            best_score = score
-            best_flow = flow
-    
-    return best_flow
-
 @router.post("/session/complete")
 async def complete_session(
     request: SessionCompleteRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """Complete a session after receiving hint"""
+    """
+    Complete a session. Makes a final Claude call to analyze all responses
+    and stores the result as a component.
+    Returns SSE stream with the analysis.
+    """
     user = current_user["db_user"]
     
     session = await session_repo.get_by_id(request.session_id)
@@ -315,11 +274,56 @@ async def complete_session(
     if session.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Update hint with final response if provided
-    if request.final_response:
-        hint = await hint_repo.get_by_session_id(request.session_id)
-        if hint:
-            await hint_repo.update(hint.id, user_final_response=request.final_response)
+    # Get puzzle and all responses
+    puzzle = await puzzle_repo.get_by_id(session.puzzle_id) if session.puzzle_id else None
+    responses = await response_repo.get_session_responses(request.session_id)
+    
+    # Build session completion prompt
+    completion_prompt = build_session_completion_prompt(
+        puzzle=puzzle,
+        responses=responses,
+    )
+    
+    # Call Claude for session analysis (non-streaming)
+    analysis_text = await llm_client.generate_text(completion_prompt, max_tokens=1000)
+    
+    # Parse JSON analysis from Claude
+    component_data = {}
+    try:
+        cleaned = analysis_text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3]
+            cleaned = cleaned.strip()
+        json_match = re.search(r'\{[\s\S]*\}', cleaned)
+        if json_match:
+            cleaned = json_match.group(0)
+        component_data = json.loads(cleaned, strict=False)
+    except json.JSONDecodeError:
+        logger.warning(f"Failed to parse completion JSON: {analysis_text[:200]}")
+        component_data = {
+            "title": "Session Summary",
+            "key_insight": analysis_text,
+            "input_context": puzzle.scenario if puzzle else "",
+            "output_capability": "",
+        }
+    
+    # Save component
+    try:
+        component = Component(
+            id="",
+            session_id=request.session_id,
+            puzzle_id=session.puzzle_id or "",
+            user_id=user.id,
+            title=component_data.get("title", "Session Summary"),
+            key_insight=component_data.get("key_insight", ""),
+            input_context=component_data.get("input_context", ""),
+            output_capability=component_data.get("output_capability", ""),
+        )
+        await component_repo.create(component)
+    except Exception as e:
+        logger.warning(f"Failed to save component: {e}")
     
     # Mark session complete
     from datetime import datetime
@@ -329,7 +333,10 @@ async def complete_session(
         ended_at=datetime.now()
     )
     
-    return {"success": True}
+    return {
+        "success": True,
+        "analysis": component_data,
+    }
 
 
 @router.post("/session/cancel")
@@ -575,12 +582,11 @@ async def generate_puzzle(
 ):
     """
     Generate an AI-utilization puzzle. Dev-only endpoint (gated by DEV_EMAIL).
-    Also triggers Teacher Agent flow generation in the background.
+    No background task — just generates and saves the puzzle.
     """
     user = current_user["db_user"]
     
     # Gate: dev email only
-    print(f"[DEBUG] user.email={user.email!r}, DEV_EMAIL={settings.DEV_EMAIL!r}")
     if not settings.DEV_EMAIL or (user.email or "").lower() != settings.DEV_EMAIL.lower():
         raise HTTPException(status_code=403, detail="Puzzle generation is restricted to developer accounts")
     
@@ -612,118 +618,11 @@ async def generate_puzzle(
     )
     saved_puzzle = await puzzle_repo.create(puzzle)
     
-    # Trigger Teacher Agent in background
-    asyncio.create_task(_generate_teacher_flows(saved_puzzle))
-    
     return PuzzleGenerateResponse(
         puzzle_id=saved_puzzle.id,
         title=saved_puzzle.title,
-        status="generating_flows",
+        status="created",
     )
-
-
-async def _generate_teacher_flows(puzzle: Puzzle, num_flows: int = 10):
-    """
-    Background task: Generate N teacher flows for a puzzle.
-    Each flow is 13 steps (12 prompts + Change) of elemental thinking.
-    """
-    for flow_idx in range(num_flows):
-        try:
-            flow_prompt = _build_teacher_flow_prompt(puzzle, flow_idx)
-            raw = await llm_client.generate_text(flow_prompt, max_tokens=4000)
-            
-            # Parse JSON - with robust cleaning
-            cleaned = raw.strip()
-            if cleaned.startswith("```"):
-                cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
-                if cleaned.endswith("```"):
-                    cleaned = cleaned[:-3]
-                cleaned = cleaned.strip()
-            
-            # Try to extract JSON object if there's extra text
-            json_match = re.search(r'\{[\s\S]*\}', cleaned)
-            if json_match:
-                cleaned = json_match.group(0)
-            
-            # Use strict=False to tolerate control chars inside strings
-            try:
-                flow_data = json.loads(cleaned, strict=False)
-            except json.JSONDecodeError:
-                # Last resort: escape unescaped newlines inside string values
-                cleaned = re.sub(r'(?<=": ")(.*?)(?="[,\s}])', 
-                    lambda m: m.group(0).replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t'),
-                    cleaned, flags=re.DOTALL)
-                flow_data = json.loads(cleaned, strict=False)
-            
-            steps = []
-            for step_data in flow_data.get("steps", []):
-                steps.append(TeacherFlowStep(
-                    element=step_data.get("element", ""),
-                    sub_element=step_data.get("sub_element", ""),
-                    prompt_name=step_data.get("prompt_name", ""),
-                    response=step_data.get("response", ""),
-                    insight=step_data.get("insight", ""),
-                ))
-            
-            flow = TeacherFlow(
-                id="",
-                puzzle_id=puzzle.id,
-                flow_index=flow_idx,
-                steps=steps,
-                solution_reached=flow_data.get("solution_reached", ""),
-            )
-            await teacher_flow_repo.create(flow)
-            logger.info(f"Teacher flow {flow_idx + 1}/{num_flows} generated for puzzle {puzzle.id}")
-        except Exception as e:
-            logger.error(f"Failed to generate teacher flow {flow_idx} for puzzle {puzzle.id}: {e}")
-            continue
-
-
-def _build_teacher_flow_prompt(puzzle: Puzzle, flow_index: int) -> str:
-    """Build the prompt for generating one teacher flow."""
-    prompts_list = "\n".join(
-        f"{i+1}. [{p['element'].value.upper()} {p['sub_element'].value}] {p['name']}: {p['prompt']}"
-        for i, p in enumerate(PROMPTS)
-    )
-    
-    return f"""You are an expert thinker applying the 5 Elements of Effective Thinking to solve an AI-utilization puzzle.
-
-## The Puzzle
-**Title:** {puzzle.title}
-**Scenario:** {puzzle.scenario}
-**Constraints:** {json.dumps(puzzle.constraints)}
-**Example:** {puzzle.example}
-
-## The Hidden Solution (for your reference)
-{puzzle.solution}
-
-## The 13 Prompts (in order)
-{prompts_list}
-
-## Your Task
-Generate thinking flow #{flow_index + 1}. Walk through all 13 prompts as if you were a thoughtful student working through this puzzle. Each flow should take a DIFFERENT path through the thinking — different initial approaches, different failures, different questions — but all should eventually converge on the solution.
-
-Output a JSON object:
-{{
-  "steps": [
-    {{
-      "element": "earth",
-      "sub_element": "1.0",
-      "prompt_name": "Start with Simple",
-      "response": "A realistic 2-3 sentence response a student might write",
-      "insight": "The key insight this step provides toward the solution"
-    }}
-    // ... 13 steps total (one per prompt, in order)
-  ],
-  "solution_reached": "1-2 sentence summary of how this flow reaches the solution"
-}}
-
-Rules:
-- Each flow must be COHERENT — later steps should build on earlier ones.
-- Flow #{flow_index + 1} should explore a DIFFERENT initial approach than other flows.
-- Responses should sound like real student thinking, not perfect answers.
-- Insights should capture the genuine learning at each step.
-- Output ONLY the JSON object."""
 
 
 @router.get("/session/{session_id}/nudge-limit", response_model=NudgeLimitResponse)
@@ -813,19 +712,26 @@ async def demo_nudge(
             analysis=analysis,
         )
 
-    puzzle_scenario = "Demo puzzle"
-    puzzle_constraints = []
+    puzzle = None
     if request.puzzle_id:
         puzzle = await puzzle_repo.get_by_id(request.puzzle_id)
-        if puzzle:
-            puzzle_scenario = puzzle.scenario
-            puzzle_constraints = puzzle.constraints
 
-    prompt = build_hint_prompt(
-        puzzle_scenario=puzzle_scenario,
-        puzzle_constraints=puzzle_constraints,
-        responses=responses,
-        analysis=analysis,
+    if not puzzle:
+        # Create a minimal puzzle object for the demo
+        puzzle = Puzzle(
+            id="demo",
+            title="Demo Puzzle",
+            scenario="Demo puzzle",
+            constraints=[],
+            example="",
+            solution="",
+        )
+
+    prompt = build_nudge_prompt(
+        puzzle=puzzle,
+        current_prompt_index=0,
+        current_response_text=responses[0].response_text if responses else "",
+        all_responses=responses,
     )
 
     out = ""

@@ -1,0 +1,80 @@
+DramaRama
+Next Steps: The Stockfish Model
+Replacing the pre-computed Teacher Agent with real-time, responsive nudging
+1. What Changed and Why
+After user testing with a coffee shop owner (Rony) in Austin, a critical flaw in the Teacher Agent approach surfaced. Rony approached the puzzle as someone who did not fully understand the problem or AI. His responses were so basic (“I don’t know how to start,” “I don’t know what those words mean”) that no pre-computed flow of ideas would have matched his thinking. The 10 pre-generated flows assumed a baseline of understanding that real users may not have.
+Rony proposed a “Stockfish model” — like a chess engine that computes the best next move based on the current board state rather than pre-computing every possible game. Instead of generating 10 flows of ideas before the user even starts, the LLM reads the user’s actual response in real time and provides a nudge tailored to exactly where they are.
+This model is better for three reasons:
+It meets users where they are. If someone writes “I don’t know how to start,” the nudge can ground them in the basics. If someone writes a sophisticated response, the nudge can push them deeper. Pre-computed flows cannot adapt like this.
+It is cheaper and simpler. The Teacher Agent required 130 Claude calls per puzzle (10 flows × 13 steps). The Stockfish model makes one Claude call each time the user clicks Get Nudge. No background jobs, no flow matching logic, no teacher_flows table.
+It preserves user autonomy. The user chooses which element to work on, works on it as long as they want, and requests a nudge only when they want one. This mirrors Burger’s book: the reader works on the puzzle independently and only goes to Chapter 3 for a hint when they choose to.
+2. How the Stockfish Model Works
+2.1 User Flow
+User selects a puzzle and starts a session.
+User has full autonomy to work on any element in any order. They can start with Earth, jump to Water, go back to Fire — whatever they want.
+User writes their response to the current prompt and saves it.
+At any point, the user can click the Get Nudge button. This is optional and on-demand — not automatic on every submit.
+The LLM reads the user’s current response, all their prior responses in the session, and the element they’re currently on. It then provides a nudge for that specific element based on what the user actually wrote.
+The user can request nudges as many times as they want on the same prompt. Each nudge builds on their latest response.
+When the user completes the session (or decides they’re done), a final Claude call summarizes the session: strongest element, how their thinking evolved, and the knowledge gained.
+2.2 What the LLM Receives on Each Nudge
+When the user clicks Get Nudge, one Claude call is made with the following context:
+The puzzle: scenario, constraints, example, and the stored solution (so Claude knows the answer and can guide toward it without giving it away)
+The current element and prompt: which element the user is on (e.g., Earth 1.0 “Start with Simple”) and the full definition of that element so Claude understands what kind of thinking it should encourage
+The user’s current response: what they just wrote for this prompt
+All prior responses in the session: everything the user has written so far across all elements, so Claude has the full context of their thinking journey
+The element definitions: the full descriptions of all 5 Elements so Claude can reference them and suggest connections
+The nudge is specific to the element the user is currently on. If the user is on Earth 1.0, the nudge guides them to think more deeply about the fundamentals of the problem. If they’re on Fire 1.0, the nudge encourages them to try something even if it’s wrong. The LLM does not tell the user to switch elements — it coaches them within the element they chose.
+2.3 Nudge Limits
+5 nudges per user per session. Unlimited for the founder (configured via .env). The Get Nudge button shows remaining count (e.g., “3/5 nudges remaining”). When the limit is reached, the button is disabled.
+3. Puzzle Changes
+3.1 Puzzles Need an Explicit Premise
+Rony’s feedback: he did not know what he was supposed to do with the puzzle. He did not understand the goal. The puzzle must explicitly state its premise. Every puzzle should include a line like:
+Your goal is to think through this problem using the 5 Elements of Effective Thinking. You are not expected to solve it immediately — the purpose is to apply each element and develop deeper understanding. The solution will come naturally through the process.
+This premise should appear at the top of every puzzle, before the scenario.
+3.2 Elements Need Inline Explanation
+Rony did not know what the elements were or how to use them. When a user encounters a prompt like Earth 3.0 “Add the Adjective,” they should see a brief explanation of what this element is and what kind of thinking it encourages. This is not a separate reference page they have to navigate to — it is inline, right next to the prompt.
+For example, when the user is on Earth 1.0:
+🌳 Earth 1.0 — Start with SimpleEarth is the element of deep understanding. The idea is that by mastering the basics, you naturally begin to understand the complexities. Avoid the hard parts for now — what are the absolute fundamentals of this problem?
+Each of the 13 prompts should include a 1–2 sentence explanation of the element above the prompt question. The user should never have to leave the workspace to understand what they’re being asked to do.
+3.3 Puzzles Should Be Simpler
+The puzzle Rony tested (“setting up a development environment with multiple stages”) was too complicated. In Burger’s book, puzzles are understandable in under 5 minutes and fit on one page. The AI-utilization puzzles should follow the same principle: simple enough that any software engineer (or even a motivated non-engineer) can understand the problem, but rich enough that the 5 Elements reveal deeper structure.
+The puzzle generation prompt should instruct Claude to assume the user knows nothing beyond the basics and to make the scenario as concrete and grounded as possible.
+4. Database Changes
+Remove the teacher_flows table. It is no longer needed. Pre-computed flows are replaced by real-time nudges.
+Remove matched_flow_id from the hints table. There are no flows to match against.
+The puzzles table stays. Same structure: id, title, scenario, constraints, example, solution, created_at.
+The hints table stays. Each nudge is still saved as a hint record. The hint now stores: the element the user was on when they requested the nudge, the user’s response at that point, and Claude’s nudge response.
+Sessions, responses, users tables: No changes.
+5. Backend Changes
+Remove the Teacher Agent background task entirely. Delete the flow generation logic and the BackgroundTask that runs it on puzzle creation.
+Rewrite the nudge endpoint. When the user clicks Get Nudge: check nudge limit, fetch the puzzle (including solution), fetch all responses in the session, build the nudge prompt with the puzzle context + current element + user’s response + all prior responses + element definitions, call Claude, stream the response in real time, save the hint.
+Keep the puzzle generation endpoint. Dev-only button that generates a puzzle via Claude and stores it. No Teacher Agent trigger after generation.
+Update the puzzle generation prompt. Instruct Claude to generate simpler puzzles with explicit premises. No markdown formatting. Assume the user knows the basics but nothing advanced.
+Add session completion endpoint. When the user completes a session, make a final Claude call that analyzes all responses and provides: strongest element, how their thinking evolved across the session, and a summary of the key knowledge gained (this becomes the “component” for the future Sandbox).
+6. Frontend Changes
+User can work on elements in any order. Remove the enforced sequential order. The 13 prompts are still listed as dots, but the user can click any dot to jump to that element. They can go Earth → Water → Fire → back to Earth — whatever they want.
+Inline element explanations. Above each prompt, show a 1–2 sentence explanation of the element. What is this element? What kind of thinking does it encourage? The user should never be confused about what they’re being asked to do.
+Puzzle premise displayed at top. Before the scenario, show the standard premise explaining the goal of the exercise.
+Get Nudge works on the current element. The nudge is specific to whichever prompt the user is currently on. The nudge appears inline below their response. The user can continue writing and request another nudge on the same prompt if they want.
+7. Audience Design
+The system should be designed so that the only thing that is audience-specific is the puzzle content. The Stockfish nudge engine, the 5 Elements framework, the joules tracking, and the future Sandbox all work for any audience.
+For launch, puzzles target software engineers who want to strengthen their AI-utilization thinking. But the architecture should not exclude non-engineers. When the puzzle library expands, puzzles for other audiences (marketers, designers, project managers, anyone who uses AI) can be added without rebuilding the platform.
+The Stockfish model naturally handles this because it meets users where they are. If a non-engineer writes “I don’t know what that means,” the LLM adjusts. If a senior engineer writes a sophisticated response, the LLM pushes them deeper. The same engine works for both.
+8. What This Replaces
+Previous Approach (Teacher Agent)
+New Approach (Stockfish Model)
+Pre-compute 10 flows of ideas per puzzle (130 Claude calls)
+Zero pre-computation. One Claude call per nudge request.
+Background task runs after puzzle generation
+No background task. Puzzle generation is just the puzzle.
+teacher_flows table stores pre-computed flows
+No teacher_flows table. Hints table stores nudge responses.
+Flow matching: compare user responses to stored flows
+No matching. Claude reads the user’s actual response in real time.
+Fixed element order (Earth → Fire → Air → Water)
+User chooses any element in any order.
+Nudge based on closest pre-computed flow
+Nudge based on what the user actually wrote, right now.
+Cannot adapt to users who are far from expected level
+Naturally adapts to any user level.

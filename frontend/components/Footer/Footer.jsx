@@ -7,8 +7,8 @@ import { SignedIn, SignedOut } from "@clerk/nextjs";
 
 export default function Footer() {
   return (
-    <footer className="bg-black text-white py-12 px-6 lp:px-20">
-      <div className="max-w-[1400px] mx-auto">
+    <footer className="bg-black text-white py-12 px-6">
+      <div className="max-w-[1536px] mx-auto">
         <div className="flex flex-col lp:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-3">
             {/* White logo for dark background */}
@@ -16,7 +16,7 @@ export default function Footer() {
               src="/images/icons8-drama-96.png" 
               width={40} 
               height={40} 
-              alt="DramaRama" 
+              alt="DramaRama"
               style={{ filter: 'brightness(0) invert(1)' }}
             />
             <span className="font-display text-2xl">DramaRama</span>

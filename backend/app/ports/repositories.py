@@ -3,7 +3,7 @@ Repository Ports - Abstract interfaces for data access
 """
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from app.domain.entities import User, Session, Response, Hint, Puzzle, Component
+from app.domain.entities import User, Session, Response, Hint, Puzzle, Component, ElementMessage
 
 class UserRepository(ABC):
     @abstractmethod
@@ -100,5 +100,26 @@ class ComponentRepository(ABC):
 
     @abstractmethod
     async def get_by_user_id(self, user_id: str, limit: int = 50) -> List[Component]:
+        pass
+
+
+class ElementMessageRepository(ABC):
+    @abstractmethod
+    async def create(self, message: ElementMessage) -> ElementMessage:
+        pass
+
+    @abstractmethod
+    async def get_by_session_and_prompt(self, session_id: str, prompt_index: int) -> List[ElementMessage]:
+        """Get all messages for a specific element prompt in a session, ordered by created_at."""
+        pass
+
+    @abstractmethod
+    async def get_all_for_session(self, session_id: str) -> List[ElementMessage]:
+        """Get all messages for a session, ordered by prompt_index then created_at."""
+        pass
+
+    @abstractmethod
+    async def get_latest_user_messages_per_prompt(self, session_id: str) -> dict:
+        """Get the most recent user message for each prompt_index. Returns {prompt_index: message_text}."""
         pass
 

@@ -108,7 +108,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <div className="flex-1 pt-24 pb-16">
-      <div className="max-w-[1400px] mx-auto px-6 lp:px-20">
+      <div className="max-w-[1536px] mx-auto px-6">
         {/* Header */}
         <div className="flex flex-col tb:flex-row tb:items-center tb:justify-between gap-6 mb-12">
           <div>

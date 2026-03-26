@@ -165,8 +165,8 @@ export default function Home() {
       <div className="section-divider" />
 
       {/* The Philosophy Section */}
-      <section className="py-24 px-6 lp:px-20 bg-white">
-        <div className="max-w-[1400px] mx-auto">
+      <section className="py-24 px-6 bg-white">
+        <div className="max-w-[1536px] mx-auto">
           <div className="grid lp:grid-cols-2 gap-16 items-center">
             <div>
               <span className="text-sm font-mono text-smoke uppercase tracking-widest mb-4 block">
@@ -258,8 +258,8 @@ export default function Home() {
       </section>
 
       {/* The 5 Elements Section */}
-      <section className="py-24 px-6 lp:px-20 bg-gradient-to-b from-white to-mist/30">
-        <div className="max-w-[1400px] mx-auto">
+      <section className="py-24 px-6 bg-gradient-to-b from-white to-mist/30">
+        <div className="max-w-[1536px] mx-auto">
           <div className="text-center mb-16">
             <span className="text-sm font-mono text-smoke uppercase tracking-widest mb-4 block">
               The Framework
@@ -300,8 +300,8 @@ export default function Home() {
       </section>
 
       {/* How It Works Section */}
-      <section className="py-24 px-6 lp:px-20 bg-black text-white">
-        <div className="max-w-[1400px] mx-auto">
+      <section className="py-24 px-6 bg-black text-white">
+        <div className="max-w-[1536px] mx-auto">
           <div className="text-center mb-16">
             <span className="text-sm font-mono text-smoke uppercase tracking-widest mb-4 block">
               The Process
@@ -367,8 +367,8 @@ export default function Home() {
       </section>
 
       {/* Dashboard Preview Section */}
-      <section className="py-24 px-6 lp:px-20 bg-white">
-        <div className="max-w-[1400px] mx-auto">
+      <section className="py-24 px-6 bg-white">
+        <div className="max-w-[1536px] mx-auto">
           <div className="grid lp:grid-cols-2 gap-16 items-center">
             <div className="order-2 lp:order-1">
               {/* Mock Dashboard */}
@@ -481,7 +481,7 @@ export default function Home() {
 
       {/* CTA Section */}
       <section
-        className="py-32 px-6 lp:px-20 relative"
+        className="py-32 px-6 relative"
         style={{
           backgroundImage: 'url("/images/background-daniel.png")',
           backgroundSize: "cover",
@@ -489,7 +489,7 @@ export default function Home() {
         }}
       >
         <div className="absolute inset-0 bg-black/80" />
-        <div className="relative z-10 max-w-[1400px] mx-auto text-center">
+        <div className="relative z-10 max-w-[1536px] mx-auto text-center">
           <h2 className="font-display text-4xl lp:text-6xl text-white mb-6">
             Ready to transform how you think?
           </h2>

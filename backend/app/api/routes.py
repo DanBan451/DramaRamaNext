@@ -21,7 +21,7 @@ from app.api.schemas import (
 )
 from app.domain.entities import (
     Response, Hint, Element, SubElement, SessionStatus,
-    PROMPTS, get_prompt, Puzzle, Component,
+    PROMPTS, get_prompt, Puzzle, Component, ElementMessage,
 )
 from app.domain.services import analyze_responses, build_nudge_prompt, build_puzzle_prompt, build_session_completion_prompt
 from app.adapters.supabase_adapter import (
@@ -31,10 +31,12 @@ from app.adapters.supabase_adapter import (
     SupabaseHintRepository,
     SupabasePuzzleRepository,
     SupabaseComponentRepository,
+    SupabaseElementMessageRepository,
 )
 from app.adapters.claude_adapter import ClaudeStreamingAdapter
 import json
 import logging
+from urllib.parse import unquote
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +49,7 @@ response_repo = SupabaseResponseRepository()
 hint_repo = SupabaseHintRepository()
 puzzle_repo = SupabasePuzzleRepository()
 component_repo = SupabaseComponentRepository()
+element_message_repo = SupabaseElementMessageRepository()
 llm_client = ClaudeStreamingAdapter()
 
 NUDGE_LIMIT_PER_PUZZLE = 5
@@ -155,9 +158,14 @@ async def analyze_session(
     request: Request,
     token: str | None = None,
     prompt_index: int | None = None,
+    user_message: str | None = None,
 ):
     """
-    Stockfish nudge: real-time, responsive nudge for the current element.
+    Stockfish v2 nudge: real-time nudge with per-element conversation history.
+    1. Saves the user's message as a 'user' element_message
+    2. Builds prompt with full conversation history for this element
+    3. Streams Claude's response
+    4. Saves the streamed response as an 'assistant' element_message
     Returns SSE stream.
     """
     # Auth: EventSource can't send Authorization headers reliably, so allow ?token=... for SSE.
@@ -190,15 +198,10 @@ async def analyze_session(
         if used >= NUDGE_LIMIT_PER_PUZZLE:
             raise HTTPException(status_code=429, detail=f"Nudge limit reached ({NUDGE_LIMIT_PER_PUZZLE} per puzzle)")
     
-    # Get all responses in this session
-    responses = await response_repo.get_session_responses(session_id)
-    
-    if len(responses) < 1:
-        raise HTTPException(status_code=400, detail="Save at least one response before requesting a nudge.")
-    
-    # Determine current element from prompt_index
-    current_prompt_idx = prompt_index if prompt_index is not None else (len(responses) - 1)
-    current_prompt_info = get_prompt(current_prompt_idx)
+    # Validate prompt_index
+    if prompt_index is None:
+        raise HTTPException(status_code=400, detail="prompt_index is required")
+    current_prompt_info = get_prompt(prompt_index)
     if not current_prompt_info:
         raise HTTPException(status_code=400, detail="Invalid prompt index")
     
@@ -209,18 +212,33 @@ async def analyze_session(
     if not puzzle:
         raise HTTPException(status_code=404, detail="Puzzle not found")
     
-    # Find current response for this element (if any)
-    current_response_text = ""
-    for r in responses:
-        if r.prompt_index == current_prompt_idx:
-            current_response_text = r.response_text
+    # Save user's current message as a 'user' element_message
+    if user_message:
+        decoded_message = unquote(user_message)
+        user_msg = ElementMessage(
+            id="",
+            session_id=session_id,
+            prompt_index=prompt_index,
+            role="user",
+            message_text=decoded_message,
+        )
+        try:
+            await element_message_repo.create(user_msg)
+        except Exception as e:
+            logger.warning(f"Failed to save user element_message: {e}")
     
-    # Build Stockfish nudge prompt
+    # Fetch full conversation history for THIS element
+    conversation_history = await element_message_repo.get_by_session_and_prompt(session_id, prompt_index)
+    
+    # Fetch latest user message from each OTHER element
+    other_elements_latest = await element_message_repo.get_latest_user_messages_per_prompt(session_id)
+    
+    # Build Stockfish v2 nudge prompt
     prompt = build_nudge_prompt(
         puzzle=puzzle,
-        current_prompt_index=current_prompt_idx,
-        current_response_text=current_response_text,
-        all_responses=responses,
+        current_prompt_index=prompt_index,
+        conversation_history=conversation_history,
+        other_elements_latest=other_elements_latest,
     )
     
     async def generate():
@@ -231,7 +249,20 @@ async def analyze_session(
             hint_text += chunk
             yield f"data: {chunk}\n\n"
 
-        # Save hint to database (best-effort)
+        # Save assistant response as element_message
+        try:
+            assistant_msg = ElementMessage(
+                id="",
+                session_id=session_id,
+                prompt_index=prompt_index,
+                role="assistant",
+                message_text=hint_text or "(empty nudge)",
+            )
+            await element_message_repo.create(assistant_msg)
+        except Exception as e:
+            logger.warning(f"Failed to save assistant element_message: {e}")
+
+        # Also save to hints table for backward compat / nudge limit counting
         try:
             hint = Hint(
                 id="",
@@ -291,22 +322,36 @@ async def complete_session(
     component_data = {}
     try:
         cleaned = analysis_text.strip()
+        # Strip markdown code fences
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
             if cleaned.endswith("```"):
                 cleaned = cleaned[:-3]
+            elif "```" in cleaned:
+                cleaned = cleaned[:cleaned.rfind("```")]
             cleaned = cleaned.strip()
+        # Remove "json" language tag if present after fence
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:].strip()
+        # Extract JSON object with regex
         json_match = re.search(r'\{[\s\S]*\}', cleaned)
         if json_match:
             cleaned = json_match.group(0)
+        # Remove control characters that break JSON parsing
+        cleaned = re.sub(r'[\x00-\x1f\x7f]', ' ', cleaned)
         component_data = json.loads(cleaned, strict=False)
-    except json.JSONDecodeError:
-        logger.warning(f"Failed to parse completion JSON: {analysis_text[:200]}")
+    except (json.JSONDecodeError, Exception) as parse_err:
+        logger.warning(f"Failed to parse completion JSON ({parse_err}): {analysis_text[:300]}")
+        # Last resort: try to extract fields manually with regex
+        title_m = re.search(r'"title"\s*:\s*"([^"]*)"', analysis_text)
+        insight_m = re.search(r'"key_insight"\s*:\s*"((?:[^"\\]|\\.)*)"', analysis_text)
+        context_m = re.search(r'"input_context"\s*:\s*"((?:[^"\\]|\\.)*)"', analysis_text)
+        cap_m = re.search(r'"output_capability"\s*:\s*"((?:[^"\\]|\\.)*)"', analysis_text)
         component_data = {
-            "title": "Session Summary",
-            "key_insight": analysis_text,
-            "input_context": puzzle.scenario if puzzle else "",
-            "output_capability": "",
+            "title": title_m.group(1) if title_m else "Session Summary",
+            "key_insight": insight_m.group(1) if insight_m else analysis_text[:500],
+            "input_context": context_m.group(1) if context_m else (puzzle.scenario if puzzle else ""),
+            "output_capability": cap_m.group(1) if cap_m else "",
         }
     
     # Save component
@@ -575,6 +620,19 @@ async def get_puzzle(puzzle_id: str):
     )
 
 
+@router.get("/puzzles/{puzzle_id}/solution")
+async def get_puzzle_solution(puzzle_id: str, current_user: dict = Depends(get_current_user)):
+    """Dev-only: return the puzzle solution. Gated by DEV_EMAIL."""
+    user = current_user["db_user"]
+    is_dev = (user.email or "").lower() == (settings.DEV_EMAIL or "").lower() and settings.DEV_EMAIL
+    if not is_dev:
+        raise HTTPException(status_code=403, detail="Dev-only endpoint")
+    puzzle = await puzzle_repo.get_by_id(puzzle_id)
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="Puzzle not found")
+    return {"solution": puzzle.solution}
+
+
 @router.post("/puzzle/generate", response_model=PuzzleGenerateResponse)
 async def generate_puzzle(
     topic: str,
@@ -648,6 +706,37 @@ async def get_nudge_limit(
         used = await hint_repo.count_hints_for_puzzle_user(user.id, session.puzzle_id)
     
     return NudgeLimitResponse(used=used, limit=NUDGE_LIMIT_PER_PUZZLE, unlimited=False)
+
+
+@router.get("/session/{session_id}/element-messages")
+async def get_element_messages(
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Get all element_messages for a session, grouped by prompt_index."""
+    user = current_user["db_user"]
+    session = await session_repo.get_by_id(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    messages = await element_message_repo.get_all_for_session(session_id)
+    
+    # Group by prompt_index
+    by_prompt = {}
+    for msg in messages:
+        pi = msg.prompt_index
+        if pi not in by_prompt:
+            by_prompt[pi] = []
+        by_prompt[pi].append({
+            "id": msg.id,
+            "role": msg.role,
+            "message_text": msg.message_text,
+            "created_at": msg.created_at.isoformat() if msg.created_at else None,
+        })
+    
+    return {"messages": by_prompt}
 
 
 # ============ Demo Endpoints (no persistence) ============
@@ -727,11 +816,22 @@ async def demo_nudge(
             solution="",
         )
 
+    # Build fake ElementMessage conversation history for demo
+    demo_history = []
+    if responses:
+        demo_history = [ElementMessage(
+            id="", session_id="demo", prompt_index=0,
+            role="user", message_text=responses[0].response_text,
+        )]
+    demo_other = {}
+    for r in responses[1:]:
+        demo_other[r.prompt_index] = r.response_text
+
     prompt = build_nudge_prompt(
         puzzle=puzzle,
         current_prompt_index=0,
-        current_response_text=responses[0].response_text if responses else "",
-        all_responses=responses,
+        conversation_history=demo_history,
+        other_elements_latest=demo_other,
     )
 
     out = ""

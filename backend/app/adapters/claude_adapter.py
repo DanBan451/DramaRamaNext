@@ -10,9 +10,9 @@ from app.ports.llm import LLMClient
 class ClaudeStreamingAdapter(LLMClient):
     def __init__(self):
         self.client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-        self.model = "claude-3-haiku-20240307"  # Fast and cheap for MVP
+        self.model = "claude-sonnet-4-20250514"  # Sonnet 4 for better coaching quality
 
-    async def generate_stream(self, prompt: str, max_tokens: int = 500) -> AsyncGenerator[str, None]:
+    async def generate_stream(self, prompt: str, max_tokens: int = 200) -> AsyncGenerator[str, None]:
         """Generate streaming response from Claude"""
         with self.client.messages.stream(
             model=self.model,
@@ -21,9 +21,9 @@ class ClaudeStreamingAdapter(LLMClient):
                 {"role": "user", "content": prompt}
             ],
             system=(
-                "You are a thinking coach who guides users through the 5 Elements of Effective Thinking without giving away solutions. "
-                "Be encouraging, specific, and concise, but stay grounded in what the user actually wrote. "
-                "Do not fabricate strengths or evidence; if responses are low-signal (placeholder/gibberish), say you cannot assess yet and ask for more concrete thinking."
+                "You are a thinking coach helping a user apply the 5 Elements of Effective Thinking to an AI-utilization puzzle. "
+                "Your primary job is to train the user to think effectively about how to use AI. "
+                "You coach the THINKING PROCESS — the quality of how they apply the current element matters more than whether they reach the solution."
             )
         ) as stream:
             for text in stream.text_stream:

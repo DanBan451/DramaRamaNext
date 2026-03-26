@@ -3,7 +3,7 @@ Domain Services - Business logic
 """
 from typing import List, Dict
 import re
-from app.domain.entities import Response, Element, PROMPTS
+from app.domain.entities import Response, Element, SubElement, ElementMessage, PROMPTS
 
 
 def _tokenize(text: str) -> list[str]:
@@ -77,26 +77,115 @@ ELEMENT_DEFINITIONS = {
     Element.EARTH: {
         "name": "Deep Understanding",
         "emoji": "🌳",
-        "core_principle": "Understanding is a spectrum—wherever you are, you can always go deeper. Ground yourself before using AI.",
-        "philosophy": "Before engaging AI, master the basics. Start simple, spotlight specifics, add descriptors to sharpen your understanding.",
+        "core_principle": "The element of grounding. Understanding is a spectrum — wherever you are, you can always go deeper. The goal is to identify what you know, what you don't know, and how you'd use AI to fill those gaps.",
+        "sub_elements": {
+            "1.0": {
+                "name": "Start with Simple",
+                "description": "The idea is that by mastering the basics, you naturally begin to understand the complexities. When facing a challenge, avoid the hard parts and probe a simpler problem where you have solid footing.",
+                "muyaium": "What are the fundamentals of this problem? What do you understand and what don't you? If there are gaps, how would you use AI to fill them?",
+                "coaching_guidance": "The coach should evaluate whether the user has identified the core fundamentals and whether their plan to use AI to learn more is sound.",
+            },
+            "2.0": {
+                "name": "Spotlight Specific",
+                "description": "Create a special case or specific example, probe it, and then recast whatever findings to the larger problem. The example needs to be simpler than the original problem.",
+                "muyaium": "Can the user create a simpler, concrete version of the scenario? If they were to ask AI about just this simplified version, what would they ask?",
+                "coaching_guidance": "The coach should evaluate whether the user's simplified version captures the essence of the problem and whether their AI query would be productive.",
+            },
+            "3.0": {
+                "name": "Add the Adjective",
+                "description": "Add a descriptor to sharpen understanding. If the puzzle is multi-faceted, this approach is ideal — each adjective reveals a different angle.",
+                "muyaium": "Pick a word to describe your approach (iterative, exploratory, defensive, etc.) and consider how that lens changes how you'd work with AI.",
+                "coaching_guidance": "The coach should evaluate whether the chosen adjective reveals something useful about the problem and whether the user connects it to their AI approach.",
+            },
+        },
     },
     Element.FIRE: {
-        "name": "Embrace Failure", 
+        "name": "Embrace Failure",
         "emoji": "🔥",
-        "core_principle": "We may not know how to do something right, but we always know how to do it wrong. Each failure is a precious joule of insight.",
-        "philosophy": "Try an AI approach quickly and lousily. Analyze the failure. Then intentionally push to extremes to learn boundaries.",
+        "core_principle": "The element of failing forward. We may not always know how to do something right, but we always know how to do it wrong. Each failure is a precious joule of insight. The goal is to try AI approaches quickly, fail, learn, and refine.",
+        "sub_elements": {
+            "1.0": {
+                "name": "Fail Fast",
+                "description": "Never stare at a blank screen. Write a rough draft, try something, even if it's wrong. Now you have something to respond to.",
+                "muyaium": "Try an AI approach right now, even if it's bad. What would you ask or tell the AI?",
+                "coaching_guidance": "The coach should evaluate whether the user actually attempted something (not just described what they might do) and whether they can articulate what they tried.",
+            },
+            "2.0": {
+                "name": "Fail Again",
+                "description": "Inspect what went wrong. Where was the lack of understanding? What did the failure reveal?",
+                "muyaium": "What would go wrong with that AI approach? Where would the AI misunderstand you or give you something useless?",
+                "coaching_guidance": "The coach should evaluate whether the user is genuinely analyzing the failure and extracting insights, not just saying 'it wouldn't work.'",
+            },
+            "3.0": {
+                "name": "Fail Intentionally",
+                "description": "Create completely unrealistic scenarios to think outside the box. Then analyze the exact break-point and what may or may not have promise.",
+                "muyaium": "What is the worst possible way to use AI on this problem? What does imagining that failure teach you?",
+                "coaching_guidance": "The coach should evaluate whether the extreme scenario actually reveals something useful about the boundaries of the problem.",
+            },
+        },
     },
     Element.AIR: {
         "name": "Create Questions",
-        "emoji": "💨", 
-        "core_principle": "The art of continuously creating questions, not just asking them. Be innately curious about the problem and the AI tools.",
-        "philosophy": "The right question reframes the problem. Are you even approaching the right problem with AI? What fundamentals are you missing?",
+        "emoji": "💨",
+        "core_principle": "The element of curiosity. The most straightforward approach to probing a puzzle and generating deeper understanding. This is NOT the act of asking a question but rather the art of continuously creating them. It's a state of mind.",
+        "sub_elements": {
+            "1.0": {
+                "name": "Be Your Own Socrates",
+                "description": "Ask the meta-questions. Why? Are we even considering the right question? We may be down the wrong route of reasoning entirely.",
+                "muyaium": "What is the REAL question here? Are you even asking AI the right thing? Is there a bigger or different question?",
+                "coaching_guidance": "The coach should evaluate whether the user is questioning their own assumptions, not just restating the problem.",
+            },
+            "2.0": {
+                "name": "Ask Basic Questions",
+                "description": "If the puzzle requires fundamental knowledge you lack, ask fundamental questions for fundamental breakthroughs.",
+                "muyaium": "What fundamental concept about this problem or these AI tools do you not understand? What basic question would you ask AI that might unlock your understanding?",
+                "coaching_guidance": "The coach should evaluate whether the user has identified genuine knowledge gaps and whether their questions target the right fundamentals.",
+            },
+            "3.0": {
+                "name": "Ask Another Question",
+                "description": "If stuck, ask a related but different question to refresh your thinking.",
+                "muyaium": "What related problem might give you insight? Is there an adjacent question you could explore with AI first?",
+                "coaching_guidance": "The coach should evaluate whether the alternative question is genuinely related and could produce useful insight for the original problem.",
+            },
+        },
     },
     Element.WATER: {
         "name": "Flow of Ideas",
         "emoji": "🌊",
-        "core_principle": "Every idea flows from a prior idea and transcends into the next. Nothing stands alone.",
-        "philosophy": "Map out every AI approach. Embrace doubt and alternative perspectives. Follow the best path to its conclusion and beyond.",
+        "core_principle": "The element of seeing connections. Every idea flows from a prior idea and transcends into the next. Nothing stands alone. The goal is to map out all paths, embrace doubt, and follow ideas to their conclusion.",
+        "sub_elements": {
+            "1.0": {
+                "name": "Run Down All Paths",
+                "description": "Stick with one idea until it's a dead end, then go down another. At each dead end, ask why.",
+                "muyaium": "What are ALL the possible ways you could use AI to tackle this? List every approach — tools, prompts, strategies, workflows.",
+                "coaching_guidance": "The coach should evaluate whether the user has been comprehensive and whether they've considered approaches they might have dismissed too quickly.",
+            },
+            "2.0": {
+                "name": "Embrace Doubt",
+                "description": "Empathy and sympathy are not the same. Consider alternative perspectives. Never be 100% sure about anything.",
+                "muyaium": "What are you uncertain about? Where might you be wrong? What would someone who disagrees say?",
+                "coaching_guidance": "The coach should evaluate whether the user is genuinely questioning their approach or just performing doubt.",
+            },
+            "3.0": {
+                "name": "Never Stop",
+                "description": "A new idea is just the beginning. The real work comes from asking 'what's next?'",
+                "muyaium": "Take your best approach and follow it to the end. What happens next? And after that?",
+                "coaching_guidance": "The coach should evaluate whether the user is pushing their thinking forward or stopping at the first reasonable idea.",
+            },
+        },
+    },
+    Element.CHANGE: {
+        "name": "The Quintessential Element",
+        "emoji": "🔄",
+        "core_principle": "Change is what happens when the 5 Elements become part of you. It is seeing the puzzle in a new light after applying the four lenses. Every puzzle has a structure that the 4 elements help uncover. When we see structure, it is a Eureka moment. The most important piece of change is that we start seeing problems as puzzles. Life is a series of puzzles that we mistakenly try to solve. We should not try to solve them but rather think through them, and as a byproduct have them be solved.",
+        "sub_elements": {
+            "transform": {
+                "name": "Transform",
+                "description": "The culmination of applying all elements.",
+                "muyaium": "How has thinking through this puzzle changed your understanding? What do you see differently now about how to use AI for this kind of problem?",
+                "coaching_guidance": "The coach should evaluate whether the user has genuinely experienced a shift in perspective or is just summarizing what they did.",
+            },
+        },
     },
 }
 
@@ -407,29 +496,29 @@ def analyze_responses(responses: List[Response]) -> Dict:
 def build_puzzle_prompt(topic: str) -> str:
     """
     Build a prompt for Claude to generate a simple AI-utilization puzzle.
-    Assumes the user knows basics but nothing advanced.
-    Returns JSON with scenario, constraints, example, solution, premise, and title.
-    No markdown formatting in output.
+    Puzzles must have concrete bounded solutions, explicit premises, simpler language,
+    no markdown, and no invented specifics.
     """
     return f"""You are an expert educator designing AI-utilization puzzles for people who know the basics of their field but nothing advanced about AI. These puzzles present realistic scenarios where a person must figure out how to effectively use AI tools to solve a problem.
 
 Topic/domain: {topic}
 
 Design principles:
-- The puzzle should be understandable in under 5 minutes and fit on one page.
-- Keep it simple and concrete. Think of a real person in a real situation.
-- Assume the user knows the basics of {topic} but has no advanced AI knowledge.
-- The scenario should be grounded and vivid, not abstract or technical.
-- Do NOT use any markdown formatting in the output (no bold, no headers, no bullet markers).
+- The puzzle MUST have a concrete, bounded solution. Not a vague description of a situation. The solution should be a specific approach, strategy, or answer that the user can arrive at.
+- The puzzle MUST be understandable in under 5 minutes. Assume the user knows the basics of {topic} but nothing advanced. No jargon without explanation.
+- The scenario should be grounded and vivid. Think of a real person in a real situation.
+- Do NOT use any markdown formatting in the output (no bold, no headers, no bullet markers). Plain text only.
+- Do NOT invent specific technologies, services, or brand names unless they are essential and widely known. The puzzle states only what is given — no assumptions about specific tools.
+- Keep it simple and concrete.
 
 Generate an AI-utilization puzzle as a JSON object with these fields:
 
 {{
   "title": "Short, memorable puzzle title (3-6 words)",
-  "scenario": "A realistic 2-3 sentence scenario. Simple, concrete, grounded in a real profession. Understandable by anyone. No jargon.",
+  "scenario": "A realistic 2-3 sentence scenario. Simple, concrete, grounded in a real profession. Understandable by anyone. No jargon. Plain text only.",
   "constraints": ["Constraint 1 that limits naive approaches", "Constraint 2 that adds realism"],
   "example": "A concrete, minimal example with specific details that help understand the problem. Plain text, no formatting.",
-  "solution": "A clear explanation (3-5 sentences) of the best approach using AI tools. Be specific about which tools and workflow. Plain text, no formatting."
+  "solution": "A clear, specific explanation (3-5 sentences) of the best approach using AI tools. This must be a concrete answer the user can arrive at — not a vague process description. Plain text, no formatting."
 }}
 
 Rules:
@@ -442,78 +531,102 @@ Rules:
 def build_nudge_prompt(
     puzzle,
     current_prompt_index: int,
-    current_response_text: str,
-    all_responses: List[Response],
+    conversation_history: List[ElementMessage],
+    other_elements_latest: dict,
 ) -> str:
     """
-    Build the Stockfish nudge prompt for Claude.
-    Provides full puzzle context (including solution), the current element definition,
-    the user's current response, all prior responses, and all 5 Element definitions.
-    The nudge is specific to the element the user is currently on.
+    Build the Stockfish v3 nudge prompt for Claude.
+    Uses per-element conversation history and the exact instructions from document_12 Section 4.
+    
+    Args:
+        puzzle: The puzzle object (with solution)
+        current_prompt_index: Which element prompt (0-12)
+        conversation_history: All ElementMessage objects for this element in this session (chronological)
+        other_elements_latest: {prompt_index: latest_user_message_text} for all OTHER elements
     """
-    # Current prompt info
     current_prompt_info = PROMPTS[current_prompt_index] if current_prompt_index < len(PROMPTS) else {}
     current_element = current_prompt_info.get('element', Element.EARTH)
     current_element_def = ELEMENT_DEFINITIONS.get(current_element, {})
-    current_rubric = RUBRIC.get(current_prompt_index, {})
     
-    # Build all element definitions
-    elements_context = ""
-    for elem, defn in ELEMENT_DEFINITIONS.items():
-        elements_context += f"{defn['emoji']} {elem.value.upper()} - {defn['name']}\n"
-        elements_context += f"Core: {defn['core_principle']}\n"
-        elements_context += f"Philosophy: {defn['philosophy']}\n\n"
+    # Get sub-element key
+    sub_element_key = current_prompt_info.get('sub_element', SubElement.ONE)
+    if hasattr(sub_element_key, 'value'):
+        sub_element_key = sub_element_key.value
+    
+    # Get sub-element definition
+    sub_element_def = current_element_def.get('sub_elements', {}).get(sub_element_key, {})
 
-    # Build prior responses context
-    prior_responses_text = ""
-    for resp in all_responses:
-        p_info = PROMPTS[resp.prompt_index] if resp.prompt_index < len(PROMPTS) else {}
+    # Build full definition of current element and sub-element
+    current_element_full = f"""{current_element_def.get('emoji', '')} {current_element.value.upper()} — {current_element_def.get('name', '')}
+{current_element_def.get('core_principle', '')}
+
+{sub_element_key} — {sub_element_def.get('name', '')}
+{sub_element_def.get('description', '')}
+In MUYAIUM: {sub_element_def.get('muyaium', '')}
+{sub_element_def.get('coaching_guidance', '')}"""
+
+    # Build conversation history for this element
+    history_text = ""
+    if conversation_history:
+        for msg in conversation_history:
+            role_label = "User" if msg.role == "user" else "Coach (you)"
+            history_text += f"{role_label}: {msg.message_text}\n\n"
+    else:
+        history_text = "(No prior conversation on this element yet)\n"
+
+    # Build latest responses from other elements
+    other_elements_text = ""
+    for pi, text in sorted(other_elements_latest.items()):
+        if pi == current_prompt_index:
+            continue
+        p_info = PROMPTS[pi] if pi < len(PROMPTS) else {}
         p_element = p_info.get('element', Element.EARTH)
         p_def = ELEMENT_DEFINITIONS.get(p_element, {})
-        prior_responses_text += f"- {p_def.get('emoji', '')} {p_element.value.upper() if hasattr(p_element, 'value') else ''} {p_info.get('sub_element', '')} ({p_info.get('name', '')}): {resp.response_text}\n"
+        p_sub = p_info.get('sub_element', SubElement.ONE)
+        if hasattr(p_sub, 'value'):
+            p_sub = p_sub.value
+        other_elements_text += f"- {p_def.get('emoji', '')} {p_element.value.upper() if hasattr(p_element, 'value') else ''} {p_sub} ({p_info.get('name', '')}): {text}\n"
+    if not other_elements_text:
+        other_elements_text = "(No other elements worked on yet)\n"
 
     constraints_text = "\n".join(f"- {c}" for c in (puzzle.constraints or []))
 
-    return f"""You are a thinking coach trained in Edward Burger's "5 Elements of Effective Thinking." You are coaching a user through an AI-utilization puzzle in real time.
+    return f"""You are a thinking coach helping a user apply the 5 Elements of Effective Thinking to an AI-utilization puzzle. Your primary job is to train the user to think effectively about how to use AI. You coach the THINKING PROCESS — the quality of how they apply the current element matters more than whether they reach the solution.
 
-## The 5 Elements of Effective Thinking
-{elements_context}
+The user is currently working on {current_element.value.upper() if hasattr(current_element, 'value') else ''} {sub_element_key} — {current_prompt_info.get('name', '')}.
 
-## The Puzzle
+Here is the puzzle, including a reference solution. The solution is ONE valid approach — the user may arrive at a different valid approach that is equally good. Do not reject good thinking just because it differs from the reference solution.
+
+Puzzle:
 Title: {puzzle.title}
 Scenario: {puzzle.scenario}
 Constraints:
 {constraints_text}
 Example: {puzzle.example}
 
-## The Solution (HIDDEN — you know this but NEVER reveal it directly)
+Reference Solution — NEVER reveal this directly:
 {puzzle.solution}
 
-## Current Element: {current_element_def.get('emoji', '')} {current_element.value.upper() if hasattr(current_element, 'value') else ''} {current_prompt_info.get('sub_element', '')} — {current_prompt_info.get('name', '')}
-Definition: {current_element_def.get('core_principle', '')}
-Philosophy: {current_element_def.get('philosophy', '')}
-Prompt: {current_prompt_info.get('prompt', '')}
-What good looks like: {current_rubric.get('what_good_looks_like', 'N/A')}
+Full definition of the current element and sub-element, including coaching guidance:
+{current_element_full}
 
-## The User's Current Response (for this element)
-{current_response_text if current_response_text else "(No response yet for this element)"}
+Conversation history for this element:
+{history_text}
 
-## All Prior Responses in This Session
-{prior_responses_text if prior_responses_text else "(No prior responses yet)"}
-
-## Your Task: Nudge Within This Element
-
-Provide a nudge that helps the user think more deeply WITHIN the element they are currently on ({current_element.value.upper() if hasattr(current_element, 'value') else ''}).
+Latest responses from other elements:
+{other_elements_text}
 
 Rules:
-1. Stay within the current element. Do NOT tell them to switch to a different element.
-2. Read what they actually wrote. Respond to their specific thinking, not generic advice.
-3. If their response is empty or placeholder, ground them in the basics of this element and give a concrete starting point.
-4. If their response shows real thinking, push them deeper within this element.
-5. Guide toward the solution without giving it away. You know the answer — use that knowledge to ask the right questions.
-6. Be warm, specific, and concise.
-7. Keep your response under 150 words.
-8. Do not use markdown formatting."""
+1. ONLY reference information that exists in the puzzle. Do NOT invent technologies, services, details, or specifics not mentioned in the puzzle text.
+2. Assess how well the user is thinking about USING AI to approach the problem — not whether they understand the domain knowledge itself. If the user doesn't understand a concept in the puzzle, don't teach them the concept. Nudge them to think about how they'd use AI tools to fill that gap. You are coaching AI-utilization thinking, not domain expertise.
+3. If the user's response is very short, says "I don't know," or shows they haven't engaged meaningfully, nudge them to think about what questions they'd ask an AI tool to get started. Stay within the current element's lens.
+4. If the user demonstrates solid AI-utilization thinking, push them deeper within this element. Challenge them to think more carefully, consider more angles, or apply the element more rigorously.
+5. Coach within the element they are on. Do not tell them to switch elements.
+6. Guide toward the solution through the element's lens, but recognize other valid approaches. If the user's thinking is sound but different from the reference solution, acknowledge it as valid.
+7. Prioritize the quality of the thinking process over reaching the answer. If someone is applying the element beautifully but hasn't solved the puzzle yet, celebrate the thinking.
+8. Reference the conversation history for this element. Build on what has already been discussed. Do not repeat advice you have already given.
+9. Keep your response to 50-75 words maximum. Two to three sharp sentences. Be direct and specific.
+10. Do not use markdown formatting."""
 
 
 def build_session_completion_prompt(

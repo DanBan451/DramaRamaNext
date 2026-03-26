@@ -20,21 +20,21 @@ const ELEMENTS = [
         name: "Start with the Simple",
         description:
           "Start with a basic or trivial version of the challenge—one where you have a firm intellectual foothold. Probe that simple scenario more deeply to see the detail and structure that always lies beneath the surface.",
-        prompt: "What are the fundamentals of this problem that you'd need to ground yourself in before using AI? What context is essential?",
+        prompt: "What are the fundamentals of this problem? What do you understand and what don't you? If there are gaps in your understanding, how would you use AI to fill them?",
       },
       {
         version: "2.0",
         name: "Spotlight the Specific",
         description:
           "Warm up with a special case or specific example to gain new insight that can then be extended to the general situation. Reframe any structure discovered in that example to expose a general principle hidden in the original issue.",
-        prompt: "Create a simpler, concrete version of this scenario. What would a minimal example look like?",
+        prompt: "Create a simpler, concrete version of this scenario. If you were to ask AI about just this simplified version, what would you ask?",
       },
       {
         version: "3.0",
         name: "Add the Adjective",
         description:
           "To understand anything in greater detail, challenge yourself to add as many descriptors as possible. Do not leave an adjective for another descriptor until some new facet is revealed.",
-        prompt: "Add a descriptor to your approach. Is it iterative? Exploratory? Defensive? How does that lens change how you'd tackle this with AI?",
+        prompt: "Pick a word to describe your approach: iterative, exploratory, defensive, cautious, aggressive. How does that lens change how you'd work with AI on this problem?",
       },
     ],
   },
@@ -50,21 +50,21 @@ const ELEMENTS = [
         name: "Fail Fast",
         description:
           "Free yourself from a focus on perfection and instead focus on process. Try doing it quickly and lousily—now you have something to respond to. Get that first failed effort out of the way as quickly as possible and start learning from it.",
-        prompt: "Try something — even if it's wrong. What's your rough first attempt at solving this with AI?",
+        prompt: "Try something with AI — even if it's wrong. What would you ask or tell the AI right now as a rough first attempt?",
       },
       {
         version: "2.0",
         name: "Fail Again",
         description:
           "Imagine you must fail ten times to succeed. With this mindset, each failure becomes progress. Embrace the need to make ten initial mistakes—be open to being wrong and doubt those aspects of which you are certain.",
-        prompt: "What went wrong with that attempt? Where did the AI approach break down?",
+        prompt: "What would go wrong with that approach? Where would the AI misunderstand you or give you something useless? What did you learn from that failure?",
       },
       {
         version: "3.0",
         name: "Fail Intentionally",
         description:
           "Consider extreme cases and remove all real constraints to create completely impractical thoughts and solutions. Determine the precise breakpoint where things went wrong—study it for what has promise.",
-        prompt: "What's an extreme or impossible AI approach? What does that failure teach you about the right approach?",
+        prompt: "What is the worst possible way to use AI on this problem? What would a completely wrong approach look like? What does imagining that failure teach you about the right approach?",
       },
     ],
   },
@@ -80,21 +80,21 @@ const ELEMENTS = [
         name: "Be Your Own Socrates",
         description:
           "Asking meta-questions throughout any thoughtful process will always shine a light onto the big picture. Ask 'What is the real issue here?'—it opens your mind to the possibility that you are considering the wrong question or problem.",
-        prompt: "What is the REAL question here? Are you even approaching the right problem with AI?",
+        prompt: "Step back. What is the REAL question here? Are you even asking AI the right thing? Is there a bigger or different question you should be exploring?",
       },
       {
         version: "2.0",
         name: "Create Basic Questions",
         description:
           "Ask fundamental questions to make fundamental breakthroughs. Even wondering 'What does the simplest case look like?' is a powerful way of probing into the original, subtler scenario.",
-        prompt: "What fundamental concept about this domain or these AI tools are you missing?",
+        prompt: "What fundamental concept about this problem or these AI tools do you not understand? What basic question would you ask AI that might unlock your understanding?",
       },
       {
         version: "3.0",
         name: "Ask Something Else",
         description:
           "Whether you are stuck or not, considering something else not only resets your thinking, but allows you to refocus on the issue in an entirely original way. Ask 'What's a different but related question?'",
-        prompt: "What related problem might give you insight into this one? Is there an adjacent question worth exploring?",
+        prompt: "What related problem might give you insight into this one? Is there a simpler or adjacent question you could explore with AI first?",
       },
     ],
   },
@@ -110,21 +110,21 @@ const ELEMENTS = [
         name: "Run Down All Paths",
         description:
           "Whenever you are able, consider all possible cases, even the obviously impossible ones. Follow the flow of each scenario to its very end—most will lead to dead ends, but learn from those before traveling down the next.",
-        prompt: "What are ALL the possible approaches to solving this with AI? Map out every path.",
+        prompt: "What are ALL the possible ways you could use AI to tackle this? List every approach you can think of — tools, prompts, strategies, workflows.",
       },
       {
         version: "2.0",
         name: "Embrace Doubt",
         description:
           "Challenge your own narrow thinking and opinions to see where that flow takes you. Embrace doubt as a strength—wonder 'What if I'm wrong?' The opposite of doubt is not certainty, but rather closed-mindedness.",
-        prompt: "What are you uncertain about? Where might your AI approach be wrong?",
+        prompt: "What are you uncertain about in your approach? Where might you be wrong? What would someone who disagrees with your approach say?",
       },
       {
         version: "3.0",
         name: "Never Stop",
         description:
           "Following the flow of an idea requires persistence and tenacity to see where that flow will carry you. Do not let go of an idea until it takes you somewhere new, unexpected, or to an insight into something otherwise unrelated.",
-        prompt: "Follow your best approach to its conclusion. Where does it lead? What's the next step after that?",
+        prompt: "Take your best approach and follow it to the end. What happens next? And after that? Where does this chain of thinking lead?",
       },
     ],
   },
@@ -140,7 +140,7 @@ const ELEMENTS = [
         name: "Transform",
         description:
           "The puzzles themselves change through effective thinking: the way you first saw them will be different from how you see them after challenging yourself to understand more deeply. The ultimate goal is to change how you think.",
-        prompt: "How has thinking through this puzzle changed how you'd approach AI-assisted work?",
+        prompt: "How has thinking through this puzzle changed your understanding? What do you see differently now about how to use AI for this kind of problem?",
       },
     ],
   },
@@ -356,7 +356,10 @@ function SetupPhase({ onStart }) {
 
         <form onSubmit={handleStart} className="flex flex-col gap-4">
           {puzzlesLoading ? (
-            <div className="text-center text-smoke text-sm py-4">Loading puzzles…</div>
+            <div className="text-center py-8">
+              <div className="animate-spin text-3xl mb-2">🎭</div>
+              <div className="text-smoke text-sm">Loading puzzles…</div>
+            </div>
           ) : puzzles.length === 0 ? (
             <div className="text-center text-smoke text-sm py-4">No puzzles available yet. Generate one below.</div>
           ) : (
@@ -483,7 +486,8 @@ function WorkingPhase({
   const [saveErr, setSaveErr] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const [nudgesByPrompt, setNudgesByPrompt] = useState(() => ({}));
+  // Per-element conversation history: { [promptIndex]: [{role, message_text, id?}] }
+  const [elementMessages, setElementMessages] = useState(() => ({}));
   const [nudgeLoading, setNudgeLoading] = useState(false);
   const [nudgeErr, setNudgeErr] = useState("");
 
@@ -493,9 +497,16 @@ function WorkingPhase({
 
   const [nudgeLimit, setNudgeLimit] = useState({ used: 0, limit: 5, unlimited: false });
 
+  // Dev panel
+  const [puzzleSolution, setPuzzleSolution] = useState(null);
+  const [devPanelOpen, setDevPanelOpen] = useState(false);
+
   const [expandedElements, setExpandedElements] = useState(() => new Set(["earth"]));
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [navbarHidden, setNavbarHidden] = useState(false);
+
+  // Refs
+  const conversationEndRef = useRef(null);
 
   // Resizable input panel
   const [inputHeight, setInputHeight] = useState(280);
@@ -515,21 +526,48 @@ function WorkingPhase({
 
   useEffect(() => {
     let cancelled = false;
-    async function loadNudgeLimit() {
+    async function loadSessionData() {
       try {
         const token = await getToken({ skipCache: true });
-        const res = await fetch(`/api/backend-api/session/${sessionId}/nudge-limit`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok && !cancelled) {
-          const data = await res.json();
+        // Load nudge limit, element messages, and puzzle solution (dev) in parallel
+        const [limitRes, msgsRes, solRes] = await Promise.all([
+          fetch(`/api/backend-api/session/${sessionId}/nudge-limit`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`/api/backend-api/session/${sessionId}/element-messages`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          puzzleId
+            ? fetch(`/api/backend-api/puzzles/${puzzleId}/solution`, {
+                headers: { Authorization: `Bearer ${token}` },
+              })
+            : Promise.resolve(null),
+        ]);
+        if (limitRes.ok && !cancelled) {
+          const data = await limitRes.json();
           setNudgeLimit(data);
+        }
+        if (msgsRes.ok && !cancelled) {
+          const data = await msgsRes.json();
+          // data.messages is { "0": [{role, message_text, ...}], "3": [...], ... }
+          setElementMessages(data.messages || {});
+        }
+        if (solRes?.ok && !cancelled) {
+          const data = await solRes.json();
+          setPuzzleSolution(data.solution || null);
         }
       } catch {}
     }
-    loadNudgeLimit();
+    loadSessionData();
     return () => { cancelled = true; };
   }, [sessionId]);
+
+  // Auto-scroll conversation thread when new messages arrive
+  useEffect(() => {
+    if (conversationEndRef.current) {
+      conversationEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [elementMessages, currentIdx]);
 
   // Timer + sidebar auto-expand
   useEffect(() => {
@@ -593,7 +631,7 @@ function WorkingPhase({
 
   async function saveResponse() {
     const text = (answers[currentIdx] || "").trim();
-    if (!text) { setSaveErr("Write something before saving."); return; }
+    if (!text) { setSaveErr("Write something before saving."); return false; }
     setSaveLoading(true); setSaveErr(""); setSaveSuccess(false);
     try {
       const token = await getToken({ skipCache: true });
@@ -615,34 +653,61 @@ function WorkingPhase({
       }
       setSavedIndices((prev) => new Set([...prev, currentIdx]));
       setSaveSuccess(true);
+      return true;
     } catch (e) {
       setSaveErr(e?.message || "Failed to save.");
+      return false;
     } finally {
       setSaveLoading(false);
     }
   }
 
   async function getNudge() {
-    if (savedIndices.size === 0) {
-      setNudgeErr("Save at least one response before requesting a nudge.");
+    const text = (answers[currentIdx] || "").trim();
+    if (!text) {
+      setNudgeErr("Write something before requesting a nudge.");
       return;
+    }
+    // Auto-save the current response if not already saved
+    if (!savedIndices.has(currentIdx)) {
+      const saved = await saveResponse();
+      if (!saved) return;
     }
     if (!nudgeLimit.unlimited && nudgeLimit.used >= nudgeLimit.limit) {
       setNudgeErr(`Nudge limit reached (${nudgeLimit.limit} per puzzle).`);
       return;
     }
     setNudgeLoading(true); setNudgeErr("");
-    setNudgesByPrompt((prev) => ({ ...prev, [currentIdx]: "" }));
+
+    // Append user message to local conversation history immediately
+    const pi = String(currentIdx);
+    setElementMessages((prev) => ({
+      ...prev,
+      [pi]: [...(prev[pi] || []), { role: "user", message_text: text, id: `temp-user-${Date.now()}` }],
+    }));
+
+    // Add a placeholder assistant message that we'll stream into
+    const assistantTempId = `temp-assistant-${Date.now()}`;
+    setElementMessages((prev) => ({
+      ...prev,
+      [pi]: [...(prev[pi] || []), { role: "assistant", message_text: "", id: assistantTempId }],
+    }));
+
     try {
       const token = await getToken({ skipCache: true });
       const res = await fetch(
-        `/api/backend-api/session/${sessionId}/analyze?token=${encodeURIComponent(token)}&prompt_index=${currentIdx}`,
+        `/api/backend-api/session/${sessionId}/analyze?token=${encodeURIComponent(token)}&prompt_index=${currentIdx}&user_message=${encodeURIComponent(text)}`,
         { headers: { "Cache-Control": "no-cache" } }
       );
       if (!res.ok) {
         const txt = await res.text();
         let detail = txt;
         try { detail = JSON.parse(txt).detail; } catch {}
+        // Remove the placeholder assistant message on error
+        setElementMessages((prev) => ({
+          ...prev,
+          [pi]: (prev[pi] || []).filter((m) => m.id !== assistantTempId),
+        }));
         throw new Error(detail || "Failed to get nudge.");
       }
       const reader = res.body.getReader();
@@ -659,7 +724,13 @@ function WorkingPhase({
             setNudgeLimit((prev) => prev.unlimited ? prev : { ...prev, used: prev.used + 1 });
             return;
           }
-          setNudgesByPrompt((prev) => ({ ...prev, [currentIdx]: (prev[currentIdx] || "") + data }));
+          // Append streamed chunk to the placeholder assistant message
+          setElementMessages((prev) => ({
+            ...prev,
+            [pi]: (prev[pi] || []).map((m) =>
+              m.id === assistantTempId ? { ...m, message_text: m.message_text + data } : m
+            ),
+          }));
         }
       }
     } catch (e) {
@@ -681,7 +752,16 @@ function WorkingPhase({
       if (!res.ok) throw new Error("Failed to complete session.");
       const data = await res.json();
       if (data.analysis) {
-        setCompletionAnalysis(data.analysis);
+        let analysis = data.analysis;
+        // Safety net: if key_insight looks like raw JSON, try to parse it
+        const ki = analysis.key_insight || "";
+        if (ki.trim().startsWith("{") && ki.trim().endsWith("}")) {
+          try {
+            const parsed = JSON.parse(ki);
+            analysis = { ...analysis, ...parsed };
+          } catch {}
+        }
+        setCompletionAnalysis(analysis);
       } else {
         onComplete();
       }
@@ -754,25 +834,27 @@ function WorkingPhase({
 
         {/* Header */}
         <div className="flex-shrink-0 bg-white border-b border-mist px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="font-display text-lg text-black">{puzzleTitle}</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${allAnswered ? "bg-earth/15 text-earth" : "bg-mist text-smoke"}`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="font-display text-lg text-black truncate">{puzzleTitle}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-mono flex-shrink-0 ${allAnswered ? "bg-earth/15 text-earth" : "bg-mist text-smoke"}`}>
               {completedCount}/13
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {completeErr && <span className="text-xs text-fire">{completeErr}</span>}
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent("workspace:navbar-toggle"))}
-              className="hidden sm:flex items-center gap-1.5 text-smoke hover:text-black border border-mist hover:border-smoke/50 rounded px-2.5 py-1 text-xs font-mono transition-colors"
-              title={navbarHidden ? "Show navbar" : "Hide navbar"}
-            >
-              {navbarHidden ? "↓ Nav" : "↑ Nav"}
-            </button>
             <Button
               radius="none"
               size="sm"
-              className={`${allAnswered ? "bg-black text-white" : "bg-white border border-mist text-black"}`}
+              variant="bordered"
+              className="border border-mist text-smoke hover:text-black hover:border-smoke transition-colors"
+              onPress={() => window.dispatchEvent(new CustomEvent("workspace:navbar-toggle"))}
+            >
+              {navbarHidden ? "↓ Nav" : "↑ Nav"}
+            </Button>
+            <Button
+              radius="none"
+              size="sm"
+              className={`${allAnswered ? "bg-change/10 text-change border border-change/30" : "bg-white border border-mist text-smoke hover:text-black hover:border-smoke"} transition-colors`}
               isLoading={completeLoading}
               onPress={completeSession}
             >
@@ -790,7 +872,7 @@ function WorkingPhase({
               Your goal is to think through this problem using the 5 Elements of Effective Thinking. You are not expected to solve it immediately — the purpose is to apply each element and develop deeper understanding.
             </div>
             <div className="text-xs uppercase tracking-widest text-smoke mb-5">The Puzzle</div>
-            <div className="font-display text-xl lp:text-2xl text-black leading-relaxed mb-4">
+            <div className="font-display text-2xl lp:text-[1.75rem] text-black leading-[1.618] mb-5">
               {puzzleScenario}
             </div>
             {puzzleConstraints?.length > 0 && (
@@ -810,6 +892,24 @@ function WorkingPhase({
               </div>
             )}
           </div>
+
+          {/* Dev panel — puzzle solution (only shown for dev users) */}
+          {puzzleSolution && (
+            <div className="px-8 lp:px-14 border-b border-dashed border-fire/30">
+              <button
+                onClick={() => setDevPanelOpen((v) => !v)}
+                className="w-full flex items-center justify-between py-2 text-xs text-fire font-mono hover:text-fire/80 transition-colors"
+              >
+                <span>🔧 DEV: Puzzle Solution</span>
+                <span>{devPanelOpen ? "▼ Hide" : "▶ Show"}</span>
+              </button>
+              {devPanelOpen && (
+                <div className="pb-3 text-sm text-ash leading-relaxed whitespace-pre-wrap bg-fire/5 rounded-lg px-4 py-3 mb-2 border border-fire/20">
+                  {puzzleSolution}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Prompt dots */}
           <div className="px-8 lp:px-14 py-5 flex items-center gap-2">
@@ -833,6 +933,39 @@ function WorkingPhase({
             })}
             <span className="ml-2 text-xs text-smoke font-mono">{currentIdx + 1} / 13</span>
           </div>
+
+          {/* Conversation thread for this element */}
+          {(elementMessages[String(currentIdx)] || []).length > 0 && (
+            <div className="px-8 lp:px-14 pb-4 space-y-3">
+              <div className="text-xs uppercase tracking-widest text-smoke mb-2">Conversation</div>
+              {(elementMessages[String(currentIdx)] || []).map((msg, i) => (
+                <div
+                  key={msg.id || i}
+                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap ${
+                      msg.role === "user"
+                        ? "bg-mist/60 text-black"
+                        : `${colors.bg} ${colors.text} border ${colors.border}`
+                    }`}
+                  >
+                    <div className="text-[10px] font-semibold uppercase tracking-wider mb-1 opacity-60">
+                      {msg.role === "user" ? "You" : "Coach"}
+                    </div>
+                    {msg.message_text || (
+                      nudgeLoading && <span className="text-smoke animate-pulse">Thinking…</span>
+                    )}
+                    {msg.role === "assistant" && nudgeLoading && msg.message_text && i === (elementMessages[String(currentIdx)] || []).length - 1 && (
+                      <span className="inline-block w-1 h-3 bg-current ml-0.5 animate-pulse" />
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div ref={conversationEndRef} />
+            </div>
+          )}
+          {nudgeErr && <div className="px-8 lp:px-14 pb-2 text-xs text-fire">{nudgeErr}</div>}
 
           <div className="h-4" />
         </div>
@@ -872,9 +1005,15 @@ function WorkingPhase({
                   ← Prev
                 </button>
                 <button
-                  onClick={() => setCurrentIdx((v) => Math.min(12, v + 1))}
+                  onClick={async () => {
+                    const text = (answers[currentIdx] || "").trim();
+                    if (text && !savedIndices.has(currentIdx)) {
+                      await saveResponse();
+                    }
+                    setCurrentIdx((v) => Math.min(12, v + 1));
+                  }}
                   disabled={currentIdx === 12}
-                  className="text-xs px-2.5 py-1 border border-mist text-black disabled:text-smoke disabled:cursor-not-allowed hover:border-black transition-colors"
+                  className="text-xs px-2.5 py-1 bg-black text-white disabled:bg-mist disabled:text-smoke disabled:cursor-not-allowed hover:bg-ash transition-colors"
                 >
                   Next →
                 </button>
@@ -908,35 +1047,6 @@ function WorkingPhase({
               placeholder="Think freely… write rough drafts, concrete examples, questions, anything."
             />
 
-            {/* Inline nudge — appears below the textarea for the current element */}
-            {(nudgesByPrompt[currentIdx] || (nudgeLoading && nudgesByPrompt[currentIdx] === "")) && (
-              <div className={`mt-2 flex-shrink-0 border rounded-lg overflow-hidden ${colors.border} border`}>
-                <div className={`${colors.bg} px-3 py-1.5 flex items-center justify-between`}>
-                  <div className={`text-xs font-semibold ${colors.text}`}>Nudge</div>
-                  <button
-                    className="text-xs text-smoke hover:text-black transition-colors"
-                    onClick={() => setNudgesByPrompt((prev) => { const next = { ...prev }; delete next[currentIdx]; return next; })}
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="px-3 py-2 bg-white">
-                  {nudgeLoading && !nudgesByPrompt[currentIdx] && (
-                    <div className="text-xs text-smoke animate-pulse">Thinking about your response…</div>
-                  )}
-                  {nudgesByPrompt[currentIdx] && (
-                    <div className="text-black whitespace-pre-wrap leading-relaxed text-xs">
-                      {nudgesByPrompt[currentIdx]}
-                      {nudgeLoading && (
-                        <span className="inline-block w-1 h-3 bg-black ml-0.5 animate-pulse" />
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            {nudgeErr && <div className="text-xs text-fire mt-1 flex-shrink-0">{nudgeErr}</div>}
-
             {/* Actions row */}
             <div className="flex items-center justify-between pt-2 flex-shrink-0">
               <div className="flex items-center gap-3 text-xs text-smoke">
@@ -951,27 +1061,27 @@ function WorkingPhase({
                 <Button
                   radius="none"
                   size="sm"
-                  className="bg-black text-white"
+                  className={savedIndices.has(currentIdx) ? "bg-mist text-smoke" : "bg-black text-white"}
                   isLoading={saveLoading}
                   onPress={saveResponse}
                 >
-                  Save
+                  {savedIndices.has(currentIdx) ? "Saved ✓" : "Save"}
                 </Button>
                 <Button
                   radius="none"
                   size="sm"
-                  className={`border ${
-                    nudgeLoading ? "border-smoke text-smoke"
-                    : (!nudgeLimit.unlimited && nudgeLimit.used >= nudgeLimit.limit) ? "border-mist text-smoke cursor-not-allowed"
-                    : "border-black text-black bg-white"
-                  }`}
+                  className={`${
+                    nudgeLoading ? "bg-change/50 text-white"
+                    : (!nudgeLimit.unlimited && nudgeLimit.used >= nudgeLimit.limit) ? "bg-mist text-smoke cursor-not-allowed"
+                    : "bg-change text-white hover:bg-change/90"
+                  } transition-colors`}
                   isLoading={nudgeLoading}
                   isDisabled={!nudgeLimit.unlimited && nudgeLimit.used >= nudgeLimit.limit}
                   onPress={getNudge}
                 >
                   {nudgeLimit.unlimited
-                    ? "Get Nudge"
-                    : `Nudge (${nudgeLimit.limit - nudgeLimit.used} left)`}
+                    ? "Get Nudge ✨"
+                    : `Nudge (${nudgeLimit.limit - nudgeLimit.used} left) ✨`}
                 </Button>
               </div>
             </div>
@@ -982,27 +1092,35 @@ function WorkingPhase({
       {/* Completion analysis overlay */}
       {completionAnalysis && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-6">
-          <div className="bg-white rounded-xl max-w-lg w-full p-8 shadow-2xl">
-            <div className="text-center mb-6">
+          <div className="bg-white rounded-xl max-w-lg w-full p-8 shadow-2xl max-h-[80vh] flex flex-col">
+            <div className="text-center mb-6 flex-shrink-0">
               <div className="text-4xl mb-3">🎉</div>
               <h2 className="font-display text-2xl text-black mb-1">Session Complete</h2>
               <p className="text-sm text-smoke">{completionAnalysis.title || "Great work!"}</p>
             </div>
-            {completionAnalysis.key_insight && (
-              <div className="mb-4">
-                <div className="text-xs font-semibold text-smoke uppercase tracking-wider mb-1">Key Insight</div>
-                <div className="text-sm text-black leading-relaxed">{completionAnalysis.key_insight}</div>
-              </div>
-            )}
-            {completionAnalysis.output_capability && (
-              <div className="mb-6">
-                <div className="text-xs font-semibold text-smoke uppercase tracking-wider mb-1">New Capability</div>
-                <div className="text-sm text-black leading-relaxed">{completionAnalysis.output_capability}</div>
-              </div>
-            )}
+            <div className="overflow-y-auto flex-1 mb-6">
+              {completionAnalysis.key_insight && (
+                <div className="mb-4">
+                  <div className="text-xs font-semibold text-smoke uppercase tracking-wider mb-1">Key Insight</div>
+                  <div className="text-sm text-black leading-relaxed">{completionAnalysis.key_insight}</div>
+                </div>
+              )}
+              {completionAnalysis.input_context && (
+                <div className="mb-4">
+                  <div className="text-xs font-semibold text-smoke uppercase tracking-wider mb-1">Context</div>
+                  <div className="text-sm text-ash leading-relaxed">{completionAnalysis.input_context}</div>
+                </div>
+              )}
+              {completionAnalysis.output_capability && (
+                <div>
+                  <div className="text-xs font-semibold text-smoke uppercase tracking-wider mb-1">New Capability</div>
+                  <div className="text-sm text-black leading-relaxed">{completionAnalysis.output_capability}</div>
+                </div>
+              )}
+            </div>
             <Button
               radius="none"
-              className="bg-black text-white w-full"
+              className="bg-black text-white w-full flex-shrink-0"
               onPress={onComplete}
             >
               Back to Workspace →

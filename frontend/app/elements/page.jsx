@@ -228,7 +228,7 @@ export default function ElementsPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero */}
-      <section className="pt-32 pb-20 px-6 lp:px-20 bg-gradient-to-b from-mist/30 to-white">
+      <section className="pt-32 pb-20 px-6 bg-gradient-to-b from-mist/30 to-white">
         <div className="max-w-[1000px] mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -267,8 +267,8 @@ export default function ElementsPage() {
       </section>
 
       {/* Elements Detail */}
-      <section className="px-6 lp:px-20 pb-24">
-        <div className="max-w-[1000px] mx-auto">
+      <section className="px-6 pb-24">
+        <div className="max-w-[1536px] mx-auto">
           {elements.map((element, index) => (
             <div
               key={element.id}
@@ -362,7 +362,7 @@ export default function ElementsPage() {
 
       {/* CTA - Matches homepage "Ready to transform" section */}
       <section
-        className="py-32 px-6 lp:px-20 relative"
+        className="py-32 px-6 relative"
         style={{
           backgroundImage: 'url("/images/background-daniel.png")',
           backgroundSize: "cover",
@@ -370,7 +370,7 @@ export default function ElementsPage() {
         }}
       >
         <div className="absolute inset-0 bg-black/80" />
-        <div className="relative z-10 max-w-[1400px] mx-auto text-center">
+        <div className="relative z-10 max-w-[1536px] mx-auto text-center">
           <h2 className="font-display text-4xl lp:text-6xl text-white mb-6">
             Ready to transform how you think?
           </h2>

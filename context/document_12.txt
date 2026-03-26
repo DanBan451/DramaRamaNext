@@ -1,0 +1,201 @@
+DramaRama — Next Steps: The Stockfish Model v3
+Real-time nudging with corrected coaching behavior, per-element conversation history, and full element definitions
+March 2026
+
+
+1. Summary of Changes in This Version
+
+After hands-on testing of the Stockfish v2 implementation, 10 specific coaching behavior problems were identified and resolved. This document replaces v2 and should be treated as the definitive specification for how the nudge system works.
+
+Key changes from v2:
+1. The coach guides users toward a concrete solution through the element's lens — puzzles are real scenarios with real answers, not hypothetical thought experiments.
+2. Everything stays self-contained in DramaRama — the coach coaches AI-utilization thinking process, not domain knowledge. If a user doesn't understand Lambdas, the coach doesn't teach them about Lambdas. It nudges them to think about how they'd use AI tools to fill that gap.
+3. The coach ONLY references what is explicitly stated in the puzzle. It never invents technologies, services, details, or specifics not in the puzzle text.
+4. Element definitions are rewritten to match the corrected framing (coaching AI-utilization thinking, not "think before using AI").
+5. All 5 elements with all sub-elements get full, detailed definitions so Claude deeply understands each one and how to apply it.
+6. Switch from claude-3-haiku to Claude Sonnet 4 for better coaching quality.
+7. Nudge responses capped at 50-75 words. Short and sharp — two to three sentences maximum.
+8. The stored solution is ONE valid approach. The coach should accept other valid approaches from the user and not reject good thinking just because it differs from the stored solution.
+9. The thinking process takes priority over reaching the solution. If a user is applying an element beautifully but hasn't reached the answer yet, the coach celebrates the thinking.
+10. Per-element conversation history (from v2) remains unchanged.
+
+
+2. The Coach's Identity
+
+The coach has one primary job: train the user to think effectively about how to use AI, using the 5 Elements as lenses.
+
+The coach is NOT:
+- A domain knowledge teacher (doesn't explain what Lambdas are, what environments are, what sales data looks like)
+- A generic AI assistant (doesn't answer the user's question for them)
+- A solution-revealer (never gives away the answer)
+- A hallucinator (never mentions things not in the puzzle)
+
+The coach IS:
+- An AI-utilization thinking coach that evaluates how well the user is thinking about using AI to approach the puzzle
+- An element-specific guide that coaches within whatever element the user is currently on
+- A guide that knows the solution and steers toward it through the element's lens, but recognizes other valid approaches
+- A coach that prioritizes the quality of the thinking process over whether the user reaches the exact stored solution
+
+
+3. Full Element Definitions (All 5 Elements, All Sub-Elements)
+
+These definitions are sent to Claude on every nudge request. They must be detailed enough that Claude deeply understands each sub-element and how to coach a user through it.
+
+EARTH — Deep Understanding
+The element of grounding. Understanding is a spectrum — wherever you are, you can always go deeper. The goal is to identify what you know, what you don't know, and how you'd use AI to fill those gaps.
+
+Earth 1.0 — Start with Simple
+The idea is that by mastering the basics, you naturally begin to understand the complexities. When facing a challenge, avoid the hard parts and probe a simpler problem where you have solid footing. In the MUYAIUM context, this means: what are the fundamentals of this problem? What do you understand and what don't you? If there are gaps, how would you use AI to fill them? The coach should evaluate whether the user has identified the core fundamentals and whether their plan to use AI to learn more is sound.
+
+Earth 2.0 — Spotlight Specific
+Create a special case or specific example, probe it, and then recast whatever findings to the larger problem. The example needs to be simpler than the original problem. In MUYAIUM: can the user create a simpler, concrete version of the scenario? If they were to ask AI about just this simplified version, what would they ask? The coach should evaluate whether the user's simplified version captures the essence of the problem and whether their AI query would be productive.
+
+Earth 3.0 — Add the Adjective
+Add a descriptor to sharpen understanding. If the puzzle is multi-faceted, this approach is ideal — each adjective reveals a different angle. In MUYAIUM: pick a word to describe your approach (iterative, exploratory, defensive, etc.) and consider how that lens changes how you'd work with AI. The coach should evaluate whether the chosen adjective reveals something useful about the problem and whether the user connects it to their AI approach.
+
+FIRE — Embrace Failure
+The element of failing forward. We may not always know how to do something right, but we always know how to do it wrong. Each failure is a precious joule of insight. The goal is to try AI approaches quickly, fail, learn, and refine.
+
+Fire 1.0 — Fail Fast
+Never stare at a blank screen. Write a rough draft, try something, even if it's wrong. Now you have something to respond to. In MUYAIUM: try an AI approach right now, even if it's bad. What would you ask or tell the AI? The coach should evaluate whether the user actually attempted something (not just described what they might do) and whether they can articulate what they tried.
+
+Fire 2.0 — Fail Again
+Inspect what went wrong. Where was the lack of understanding? What did the failure reveal? In MUYAIUM: what would go wrong with that AI approach? Where would the AI misunderstand you or give you something useless? The coach should evaluate whether the user is genuinely analyzing the failure and extracting insights, not just saying "it wouldn't work."
+
+Fire 3.0 — Fail Intentionally
+Create completely unrealistic scenarios to think outside the box. Then analyze the exact break-point and what may or may not have promise. In MUYAIUM: what is the worst possible way to use AI on this problem? What does imagining that failure teach you? The coach should evaluate whether the extreme scenario actually reveals something useful about the boundaries of the problem.
+
+AIR — Create Questions
+The element of curiosity. The most straightforward approach to probing a puzzle and generating deeper understanding. This is NOT the act of asking a question but rather the art of continuously creating them. It's a state of mind.
+
+Air 1.0 — Be Your Own Socrates
+Ask the meta-questions. Why? Are we even considering the right question? We may be down the wrong route of reasoning entirely. In MUYAIUM: what is the REAL question here? Are you even asking AI the right thing? Is there a bigger or different question? The coach should evaluate whether the user is questioning their own assumptions, not just restating the problem.
+
+Air 2.0 — Ask Basic Questions
+If the puzzle requires fundamental knowledge you lack, ask fundamental questions for fundamental breakthroughs. In MUYAIUM: what fundamental concept about this problem or these AI tools do you not understand? What basic question would you ask AI that might unlock your understanding? The coach should evaluate whether the user has identified genuine knowledge gaps and whether their questions target the right fundamentals.
+
+Air 3.0 — Ask Another Question
+If stuck, ask a related but different question to refresh your thinking. In MUYAIUM: what related problem might give you insight? Is there an adjacent question you could explore with AI first? The coach should evaluate whether the alternative question is genuinely related and could produce useful insight for the original problem.
+
+WATER — Flow of Ideas
+The element of seeing connections. Every idea flows from a prior idea and transcends into the next. Nothing stands alone. The goal is to map out all paths, embrace doubt, and follow ideas to their conclusion.
+
+Water 1.0 — Run Down All Paths
+Stick with one idea until it's a dead end, then go down another. At each dead end, ask why. In MUYAIUM: what are ALL the possible ways you could use AI to tackle this? List every approach — tools, prompts, strategies, workflows. The coach should evaluate whether the user has been comprehensive and whether they've considered approaches they might have dismissed too quickly.
+
+Water 2.0 — Embrace Doubt
+Empathy and sympathy are not the same. Consider alternative perspectives. Never be 100% sure about anything. In MUYAIUM: what are you uncertain about? Where might you be wrong? What would someone who disagrees say? The coach should evaluate whether the user is genuinely questioning their approach or just performing doubt.
+
+Water 3.0 — Never Stop
+A new idea is just the beginning. The real work comes from asking "what's next?" In MUYAIUM: take your best approach and follow it to the end. What happens next? And after that? The coach should evaluate whether the user is pushing their thinking forward or stopping at the first reasonable idea.
+
+CHANGE — The Quintessential Element
+Change is what happens when the 5 Elements become part of you. It is seeing the puzzle in a new light after applying the four lenses. Every puzzle has a structure that the 4 elements help uncover. When we see structure, it is a Eureka moment. The most important piece of change is that we start seeing problems as puzzles. Life is a series of puzzles that we mistakenly try to solve. We should not try to solve them but rather think through them, and as a byproduct have them be solved.
+
+Change — Transform
+In MUYAIUM: how has thinking through this puzzle changed your understanding? What do you see differently now about how to use AI for this kind of problem? The coach should evaluate whether the user has genuinely experienced a shift in perspective or is just summarizing what they did.
+
+
+4. Nudge Prompt Instructions for Claude
+
+The nudge prompt sent to Claude must include these explicit instructions:
+
+---
+You are a thinking coach helping a user apply the 5 Elements of Effective Thinking to an AI-utilization puzzle. Your primary job is to train the user to think effectively about how to use AI. You coach the THINKING PROCESS — the quality of how they apply the current element matters more than whether they reach the solution.
+
+The user is currently working on [element name] [sub-element] — [prompt name].
+
+Here is the puzzle, including a reference solution. The solution is ONE valid approach — the user may arrive at a different valid approach that is equally good. Do not reject good thinking just because it differs from the reference solution.
+
+[Puzzle: title, scenario, constraints, example]
+[Reference Solution — NEVER reveal this directly]
+
+[Full definition of the current element and sub-element, including coaching guidance]
+
+[Conversation history for this element]
+[Latest responses from other elements]
+
+Rules:
+1. ONLY reference information that exists in the puzzle. Do NOT invent technologies, services, details, or specifics not mentioned in the puzzle text.
+2. Assess how well the user is thinking about USING AI to approach the problem — not whether they understand the domain knowledge itself. If the user doesn't understand a concept in the puzzle, don't teach them the concept. Nudge them to think about how they'd use AI tools to fill that gap. You are coaching AI-utilization thinking, not domain expertise.
+3. If the user's response is very short, says "I don't know," or shows they haven't engaged meaningfully, nudge them to think about what questions they'd ask an AI tool to get started. Stay within the current element's lens.
+4. If the user demonstrates solid AI-utilization thinking, push them deeper within this element. Challenge them to think more carefully, consider more angles, or apply the element more rigorously.
+5. Coach within the element they are on. Do not tell them to switch elements.
+6. Guide toward the solution through the element's lens, but recognize other valid approaches. If the user's thinking is sound but different from the reference solution, acknowledge it as valid.
+7. Prioritize the quality of the thinking process over reaching the answer. If someone is applying the element beautifully but hasn't solved the puzzle yet, celebrate the thinking.
+8. Reference the conversation history for this element. Build on what has already been discussed. Do not repeat advice you have already given.
+9. Keep your response to 50-75 words maximum. Two to three sharp sentences. Be direct and specific.
+10. Do not use markdown formatting.
+---
+
+
+5. Model Change
+
+Switch from claude-3-haiku-20240307 to Claude Sonnet 4 (claude-sonnet-4-20250514). Update the model string in claude_adapter.py. Sonnet is significantly better at following complex instructions, assessing user understanding level, and staying within the rules. The cost increase is acceptable because nudges are on-demand and limited to 5 per user per session.
+
+
+6. Rewritten 13 Prompts
+
+Earth 1.0 — Start with Simple
+"What are the fundamentals of this problem? What do you understand and what don't you? If there are gaps in your understanding, how would you use AI to fill them?"
+
+Earth 2.0 — Spotlight Specific
+"Create a simpler, concrete version of this scenario. If you were to ask AI about just this simplified version, what would you ask?"
+
+Earth 3.0 — Add the Adjective
+"Pick a word to describe your approach: iterative, exploratory, defensive, cautious, aggressive. How does that lens change how you'd work with AI on this problem?"
+
+Fire 1.0 — Fail Fast
+"Try something with AI — even if it's wrong. What would you ask or tell the AI right now as a rough first attempt?"
+
+Fire 2.0 — Fail Again
+"What would go wrong with that approach? Where would the AI misunderstand you or give you something useless? What did you learn from that failure?"
+
+Fire 3.0 — Fail Intentionally
+"What is the worst possible way to use AI on this problem? What would a completely wrong approach look like? What does imagining that failure teach you about the right approach?"
+
+Air 1.0 — Be Your Own Socrates
+"Step back. What is the REAL question here? Are you even asking AI the right thing? Is there a bigger or different question you should be exploring?"
+
+Air 2.0 — Ask Basic Questions
+"What fundamental concept about this problem or these AI tools do you not understand? What basic question would you ask AI that might unlock your understanding?"
+
+Air 3.0 — Ask Another Question
+"What related problem might give you insight into this one? Is there a simpler or adjacent question you could explore with AI first?"
+
+Water 1.0 — Run Down All Paths
+"What are ALL the possible ways you could use AI to tackle this? List every approach you can think of — tools, prompts, strategies, workflows."
+
+Water 2.0 — Embrace Doubt
+"What are you uncertain about in your approach? Where might you be wrong? What would someone who disagrees with your approach say?"
+
+Water 3.0 — Never Stop
+"Take your best approach and follow it to the end. What happens next? And after that? Where does this chain of thinking lead?"
+
+Change — Transform
+"How has thinking through this puzzle changed your understanding? What do you see differently now about how to use AI for this kind of problem?"
+
+
+7. Per-Element Conversation History (Unchanged from v2)
+
+Each of the 13 element prompts has its own conversation thread stored in the element_messages table (id, session_id, prompt_index, role, message_text, created_at). When the user clicks Get Nudge, the full conversation history for that element is sent to Claude. The LLM builds on prior exchanges and does not repeat advice.
+
+
+8. Puzzle Generation (Unchanged from v2)
+
+Puzzles must have concrete bounded solutions, explicit premises, simpler language, no markdown, no invented specifics. Dev-only generation button. The stored solution is a reference point — one valid approach, not the only answer.
+
+
+9. Frontend Changes (Unchanged from v2)
+
+Each element is a mini-chatbot with conversation history. User can work on any element in any order. Get Nudge is on-demand. Inline element explanations at each prompt. Puzzle premise displayed at top.
+
+
+10. Everything Else Unchanged
+
+- 5 nudges per user per session, unlimited for founder (.env)
+- Puzzles table stays as-is
+- teacher_flows table is removed
+- Dev-only puzzle generation button
+- Session completion produces a knowledge component (for future Sandbox)
+- Audience design: puzzle content is the only audience-specific piece

@@ -9,11 +9,11 @@ import uuid
 from app.core.config import settings
 from app.domain.entities import (
     User, Session, Response, Hint, SessionStatus, Element, SubElement,
-    Puzzle, Component,
+    Puzzle, Component, ElementMessage,
 )
 from app.ports.repositories import (
     UserRepository, SessionRepository, ResponseRepository, HintRepository,
-    PuzzleRepository, ComponentRepository,
+    PuzzleRepository, ComponentRepository, ElementMessageRepository,
 )
 
 def get_supabase_client() -> Client:
@@ -287,4 +287,67 @@ class SupabaseComponentRepository(ComponentRepository):
     async def get_by_user_id(self, user_id: str, limit: int = 50) -> List[Component]:
         result = self.client.table("components").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(limit).execute()
         return [self._row_to_component(row) for row in result.data]
+
+
+class SupabaseElementMessageRepository(ElementMessageRepository):
+    def __init__(self):
+        self.client = get_supabase_client()
+
+    def _row_to_msg(self, row: dict) -> ElementMessage:
+        return ElementMessage(
+            id=row["id"],
+            session_id=row["session_id"],
+            prompt_index=row["prompt_index"],
+            role=row["role"],
+            message_text=row["message_text"],
+            created_at=datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")) if row.get("created_at") else None,
+        )
+
+    async def create(self, message: ElementMessage) -> ElementMessage:
+        data = {
+            "session_id": message.session_id,
+            "prompt_index": message.prompt_index,
+            "role": message.role,
+            "message_text": message.message_text,
+        }
+        result = self.client.table("element_messages").insert(data).execute()
+        return self._row_to_msg(result.data[0])
+
+    async def get_by_session_and_prompt(self, session_id: str, prompt_index: int) -> List[ElementMessage]:
+        result = (
+            self.client.table("element_messages")
+            .select("*")
+            .eq("session_id", session_id)
+            .eq("prompt_index", prompt_index)
+            .order("created_at")
+            .execute()
+        )
+        return [self._row_to_msg(row) for row in result.data]
+
+    async def get_all_for_session(self, session_id: str) -> List[ElementMessage]:
+        result = (
+            self.client.table("element_messages")
+            .select("*")
+            .eq("session_id", session_id)
+            .order("created_at")
+            .execute()
+        )
+        return [self._row_to_msg(row) for row in result.data]
+
+    async def get_latest_user_messages_per_prompt(self, session_id: str) -> dict:
+        """Get the most recent user message for each prompt_index."""
+        result = (
+            self.client.table("element_messages")
+            .select("*")
+            .eq("session_id", session_id)
+            .eq("role", "user")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        latest = {}
+        for row in result.data:
+            pi = row["prompt_index"]
+            if pi not in latest:
+                latest[pi] = row["message_text"]
+        return latest
 

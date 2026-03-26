@@ -1,0 +1,163 @@
+DramaRama — Next Steps: The Stockfish Model v2
+Real-time nudging with per-element conversation history and corrected prompt framing
+March 2026
+
+
+1. What Changed and Why
+
+After user testing with Rony (coffee shop owner in Austin), the pre-computed Teacher Agent was replaced with a real-time Stockfish model where the LLM reads the user's actual response and nudges them in the moment. After further testing by the founder, two additional problems surfaced:
+
+1. The nudge has no memory. When a user gets a nudge on Earth 1.0, writes more, and gets another nudge, the LLM does not know what it said before. Each element prompt needs its own conversation history so the LLM can reference prior exchanges within that element.
+
+2. The prompt framing is backwards. The current prompts say things like "ground yourself before using AI." But in real work, AI IS how you ground yourself. If you don't understand environments, you ask ChatGPT what environments are. The prompts should frame each element as a lens for how you USE AI to approach the problem — not as something you do before touching AI.
+
+3. The nudge hallucinates specifics not in the puzzle. The LLM mentioned AWS services (Elastic Beanstalk, S3, RDS) that were never in the puzzle. The nudge must only reference information that exists in the puzzle itself. If the puzzle says "a complex web application," the nudge should not invent specific technologies.
+
+
+2. Per-Element Conversation History
+
+2.1 The Concept
+
+Each of the 13 element prompts in a session has its own conversation thread. When the user types a response and clicks Get Nudge, both the user's message and the LLM's nudge are saved as part of that element's conversation history. The next time the user writes on that same element and asks for a nudge, the LLM sees the full back-and-forth history for that element.
+
+Think of it like 13 separate mini-chatbots, one per element prompt. Each has its own thread. The user can go back and forth as many times as they want on a single element.
+
+2.2 How It Works
+
+1. User navigates to Earth 1.0 and writes: "The problem has dev, staging, and prod environments."
+2. User clicks Get Nudge. The LLM responds: "Good start. What do you think the key differences between those environments are? Try using AI to ask about the typical differences between dev, staging, and prod setups."
+3. Both messages are saved to the conversation history for Earth 1.0 in this session.
+4. User writes again: "The differences are probably database type, environment variables, and maybe different API endpoints."
+5. User clicks Get Nudge again. The LLM now sees the full thread: their first message, the first nudge, and their second message. It can build on the conversation: "That's solid. You've identified three real differences. Now think about which one would be the hardest to get right with AI assistance and why."
+6. User moves to Fire 1.0. That element has a fresh, empty conversation history. But when the LLM generates a nudge for Fire 1.0, it also receives a summary of all other elements' conversations as context (so it knows where the user's overall thinking is).
+
+2.3 What the LLM Receives on Each Nudge
+
+When the user clicks Get Nudge on a specific element:
+
+- The puzzle: scenario, constraints, example, and stored solution
+- The current element definition: what this element is, what kind of thinking it encourages
+- The full conversation history for this element: all user messages and all LLM nudge responses in order, for this specific element in this session
+- The latest responses from all other elements: the most recent user message from each other element the user has worked on (so the LLM knows the user's overall thinking across the session)
+- All 5 Element definitions: so the LLM can reference other elements if relevant
+
+2.4 Database Change
+
+Add a new table to store the per-element conversation history:
+
+Table: element_messages
+- id: UUID (PK) — Primary key
+- session_id: UUID (FK) — References sessions.id
+- prompt_index: INTEGER — Which element prompt (0–12)
+- role: VARCHAR(20) — Either "user" or "assistant"
+- message_text: TEXT — The message content
+- created_at: TIMESTAMPTZ — Timestamp for ordering
+
+The existing responses table can stay for backward compatibility or be replaced by this table. The element_messages table is the source of truth for what the user has written and what the LLM has responded per element.
+
+
+3. Corrected Prompt Framing
+
+The current prompts are framed as "think about the problem, then use AI." The correct framing is "think about how you are using AI to approach the problem." AI is the tool the user is learning to think with — not something they use after they've already figured it out.
+
+3.1 Rewritten 13 Prompts
+
+Earth 1.0 — Start with Simple
+"What are the fundamentals of this problem? What do you understand and what don't you? If there are gaps in your understanding, how would you use AI to fill them?"
+
+Earth 2.0 — Spotlight Specific
+"Create a simpler, concrete version of this scenario. If you were to ask AI about just this simplified version, what would you ask?"
+
+Earth 3.0 — Add the Adjective
+"Pick a word to describe your approach: iterative, exploratory, defensive, cautious, aggressive. How does that lens change how you'd work with AI on this problem?"
+
+Fire 1.0 — Fail Fast
+"Try something with AI — even if it's wrong. What would you ask or tell the AI right now as a rough first attempt?"
+
+Fire 2.0 — Fail Again
+"What would go wrong with that approach? Where would the AI misunderstand you or give you something useless? What did you learn from that failure?"
+
+Fire 3.0 — Fail Intentionally
+"What is the worst possible way to use AI on this problem? What would a completely wrong approach look like? What does imagining that failure teach you about the right approach?"
+
+Air 1.0 — Be Your Own Socrates
+"Step back. What is the REAL question here? Are you even asking AI the right thing? Is there a bigger or different question you should be exploring?"
+
+Air 2.0 — Ask Basic Questions
+"What fundamental concept about this problem or these AI tools do you not understand? What basic question would you ask AI that might unlock your understanding?"
+
+Air 3.0 — Ask Another Question
+"What related problem might give you insight into this one? Is there a simpler or adjacent question you could explore with AI first?"
+
+Water 1.0 — Run Down All Paths
+"What are ALL the possible ways you could use AI to tackle this? List every approach you can think of — tools, prompts, strategies, workflows."
+
+Water 2.0 — Embrace Doubt
+"What are you uncertain about in your approach? Where might you be wrong? What would someone who disagrees with your approach say?"
+
+Water 3.0 — Never Stop
+"Take your best approach and follow it to the end. What happens next? And after that? Where does this chain of thinking lead?"
+
+Change — Transform
+"How has thinking through this puzzle changed your understanding? What do you see differently now about how to use AI for this kind of problem?"
+
+
+4. Nudge Prompt Instructions for Claude
+
+The nudge prompt sent to Claude must include these explicit instructions:
+
+---
+You are a thinking coach helping a user apply the 5 Elements of Effective Thinking to an AI-utilization puzzle. The user is currently working on [element name]. Here is the puzzle, including its solution (which you must NOT reveal).
+
+Rules:
+1. ONLY reference information that exists in the puzzle. Do NOT invent technologies, services, or details that are not mentioned in the puzzle.
+2. First, assess the user's level of understanding from their response. If they show they lack fundamental understanding of the concepts in the puzzle (they say "I don't know," their response is very short, or they reveal a basic misconception), do NOT push them deeper. Instead, suggest they use AI tools to learn the basics first. For example: "Try asking ChatGPT: what are dev/staging/prod environments and why do they exist?"
+3. If the user demonstrates solid understanding, nudge them deeper within this element. Push them to think more carefully, consider more angles, or apply the element's thinking lens more rigorously.
+4. Coach within the element they are on. If they are on Earth, help them ground their thinking. If they are on Fire, encourage them to try and fail. Do not tell them to switch elements.
+5. Never give away the solution. Guide them toward it through the element's lens.
+6. Reference the conversation history for this element. Build on what has already been discussed. Do not repeat advice you have already given.
+---
+
+
+5. Puzzle Generation Fix
+
+The puzzle generation prompt must be updated:
+
+- Puzzles must have a concrete, bounded solution. Not a vague description of a situation. The solution should be a specific approach, strategy, or answer that the user can arrive at. Store this in the solution field.
+- Puzzles must include an explicit premise. At the top of every puzzle: "Your goal is to think through this problem using the 5 Elements of Effective Thinking. You are not expected to solve it immediately — the purpose is to apply each element and develop deeper understanding. The solution will come naturally through the process."
+- Puzzles must be simpler. Assume the user knows the basics but nothing advanced. The scenario should be understandable in under 5 minutes. No jargon without explanation.
+- No markdown formatting. No invented specifics. Plain text only. The puzzle states only what is given — no assumptions about specific technologies unless explicitly part of the scenario.
+
+
+6. Frontend Changes
+
+- Each element is a chatbot. When the user navigates to an element, they see the conversation history for that element: their messages and the LLM's nudge responses in a chat-like format. They type at the bottom and can click Get Nudge to add to the thread.
+- The user does not need to see the full history in the UI. The conversation history is tracked in the backend. On the frontend, the user sees their latest response and the latest nudge. But the backend sends the full history to Claude on each nudge request.
+- Save happens on user submit. When the user types and clicks Save or Get Nudge, the message is saved as a "user" role entry in element_messages. When the nudge streams back, it is saved as an "assistant" role entry.
+- Inline element explanations. Each prompt still shows the 1–2 sentence explanation of what this element is and what kind of thinking it encourages, above the prompt question.
+
+
+7. Summary of All Changes from Previous Document
+
+Previous (Stockfish v1) → Updated (Stockfish v2)
+
+- Nudge has no memory of prior exchanges on same element → Full conversation history per element per session. LLM sees all prior back-and-forth.
+- Prompts framed as "think before using AI" → Prompts framed as "how are you using AI to approach this?" AI is the tool, not an afterthought.
+- Nudge can hallucinate specifics not in the puzzle → Nudge prompt explicitly instructs Claude to ONLY reference information in the puzzle.
+- One response saved per element (responses table) → New element_messages table: multiple messages per element, both user and assistant roles.
+- Nudge is a single assessment of one response → Nudge builds on the full conversation thread for that element. Coaching improves with each exchange.
+- Puzzle generation creates vague scenarios without clear answers → Puzzle generation creates concrete scenarios with bounded solutions, explicit premises, and simpler language.
+
+
+8. Unchanged from Previous Document
+
+- User has full autonomy to work on any element in any order
+- Get Nudge is on-demand (not automatic on every submit)
+- 5 nudges per user per session, unlimited for founder (.env)
+- Puzzles table stays as-is (id, title, scenario, constraints, example, solution, created_at)
+- teacher_flows table is removed
+- Dev-only puzzle generation button
+- Session completion produces a knowledge component (for future Sandbox)
+- Puzzle premise displayed at top of every puzzle
+- Inline element explanations at each prompt
+- Audience design: puzzle content is the only audience-specific piece

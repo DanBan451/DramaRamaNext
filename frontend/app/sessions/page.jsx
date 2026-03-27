@@ -99,7 +99,7 @@ export default function SessionsPage() {
             className="bg-mist text-black hover:bg-smoke hover:text-white transition-colors"
             radius="none"
           >
-            ← Back to Dashboard
+            ← Back to Profile
           </Button>
         </div>
 
@@ -167,8 +167,8 @@ export default function SessionsPage() {
                   {/* Session Info */}
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
-                    <h3 className="font-display text-xl text-black">
-                        {session.puzzle_title || "Puzzle"}
+                    <h3 className="font-display text-xl text-black line-clamp-1">
+                        {session.problem_description || "Session"}
                     </h3>
                       <span className={`text-xs px-3 py-1 rounded-full font-medium ${
                         session.status === "completed" ? "bg-earth/10 text-earth" :
@@ -274,7 +274,7 @@ export default function SessionsPage() {
           </>
         ) : (
           <div className="text-center py-16 bg-mist/30 rounded-xl">
-            <div className="text-4xl mb-4">🧩</div>
+            <div className="text-4xl mb-4">⚔️</div>
             <h3 className="font-display text-xl text-black mb-2">
               No {filter === "all" ? "" : filter.replace("_", " ")} sessions
             </h3>

@@ -9,11 +9,12 @@ import uuid
 from app.core.config import settings
 from app.domain.entities import (
     User, Session, Response, Hint, SessionStatus, Element, SubElement,
-    Puzzle, Component, ElementMessage,
+    Puzzle, Component, ElementMessage, DeepUnderstanding,
 )
 from app.ports.repositories import (
     UserRepository, SessionRepository, ResponseRepository, HintRepository,
     PuzzleRepository, ComponentRepository, ElementMessageRepository,
+    DeepUnderstandingRepository,
 )
 
 def get_supabase_client() -> Client:
@@ -57,6 +58,7 @@ class SupabaseSessionRepository(SessionRepository):
             id=row["id"],
             user_id=row["user_id"],
             puzzle_id=row.get("puzzle_id"),
+            problem_description=row.get("problem_description"),
             started_at=datetime.fromisoformat(row["started_at"].replace("Z", "+00:00")),
             ended_at=datetime.fromisoformat(row["ended_at"].replace("Z", "+00:00")) if row.get("ended_at") else None,
             status=SessionStatus(row["status"]),
@@ -64,13 +66,15 @@ class SupabaseSessionRepository(SessionRepository):
             created_at=datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")) if row.get("created_at") else None,
         )
 
-    async def create(self, user_id: str, puzzle_id: str) -> Session:
+    async def create(self, user_id: str, problem_description: str, puzzle_id: str = None) -> Session:
         data = {
             "user_id": user_id,
-            "puzzle_id": puzzle_id,
+            "problem_description": problem_description,
             "status": SessionStatus.IN_PROGRESS.value,
             "prompts_completed": 0,
         }
+        if puzzle_id:
+            data["puzzle_id"] = puzzle_id
         result = self.client.table("sessions").insert(data).execute()
         return self._row_to_session(result.data[0])
     
@@ -350,4 +354,39 @@ class SupabaseElementMessageRepository(ElementMessageRepository):
             if pi not in latest:
                 latest[pi] = row["message_text"]
         return latest
+
+
+class SupabaseDeepUnderstandingRepository(DeepUnderstandingRepository):
+    def __init__(self):
+        self.client = get_supabase_client()
+
+    def _row_to_entry(self, row: dict) -> DeepUnderstanding:
+        return DeepUnderstanding(
+            id=row["id"],
+            session_id=row["session_id"],
+            prompt_index=row["prompt_index"],
+            element=row["element"],
+            insight_text=row["insight_text"],
+            created_at=datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")) if row.get("created_at") else None,
+        )
+
+    async def create(self, entry: DeepUnderstanding) -> DeepUnderstanding:
+        data = {
+            "session_id": entry.session_id,
+            "prompt_index": entry.prompt_index,
+            "element": entry.element,
+            "insight_text": entry.insight_text,
+        }
+        result = self.client.table("deep_understanding").insert(data).execute()
+        return self._row_to_entry(result.data[0])
+
+    async def get_by_session_id(self, session_id: str) -> list[DeepUnderstanding]:
+        result = (
+            self.client.table("deep_understanding")
+            .select("*")
+            .eq("session_id", session_id)
+            .order("created_at")
+            .execute()
+        )
+        return [self._row_to_entry(row) for row in result.data]
 

@@ -175,8 +175,8 @@ const elements = [
         version: "∞",
         name: "Transform",
         description:
-          "As you mindfully engage with the puzzles ahead, be conscious of how, through effective thinking practices, the puzzles themselves change: The way you first saw them in your mind will be different from how you will see them after you have challenged yourself to understand them more deeply. The ultimate goal is to change how you think about puzzles, not only those from this book, but those arising throughout your life.",
-        prompt: "How has thinking through this puzzle changed how you'd approach AI-assisted work?",
+          "As you mindfully engage with the challenges ahead, be conscious of how, through effective thinking practices, the challenges themselves change: The way you first saw them in your mind will be different from how you will see them after you have challenged yourself to understand them more deeply. The ultimate goal is to change how you think about problems, not only those from this application, but those arising throughout your life.",
+        prompt: "How has thinking through this problem changed how you'd approach AI-assisted work?",
         example:
           "I now see that the real skill isn't prompting—it's designing the right pipeline. This insight applies to every AI project.",
       },
@@ -244,7 +244,7 @@ export default function ElementsPage() {
               <span className="italic">Effective Thinking</span>
             </h1>
             <p className="text-xl text-ash max-w-[600px] mx-auto mb-12">
-              Each element provides a different lens to see the structure of any puzzle.
+              Each element provides a different lens to understand any problem.
               Together, they create change.
             </p>
 

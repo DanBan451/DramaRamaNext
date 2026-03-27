@@ -2,7 +2,7 @@ import { AuthGate } from "./AuthGate";
 
 export const metadata = {
   title: "Sessions | DramaRama",
-  description: "Your AI-utilization puzzle sessions",
+  description: "Your thinking sessions",
 };
 
 export default function SessionsLayout({ children }) {

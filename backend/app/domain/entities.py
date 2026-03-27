@@ -36,6 +36,7 @@ class Session(BaseModel):
     id: str
     user_id: str
     puzzle_id: Optional[str] = None
+    problem_description: Optional[str] = None
     started_at: datetime
     ended_at: Optional[datetime] = None
     status: SessionStatus = SessionStatus.IN_PROGRESS
@@ -88,6 +89,14 @@ class ElementMessage(BaseModel):
     prompt_index: int
     role: str  # "user" or "assistant"
     message_text: str
+    created_at: Optional[datetime] = None
+
+class DeepUnderstanding(BaseModel):
+    id: str
+    session_id: str
+    prompt_index: int
+    element: str
+    insight_text: str
     created_at: Optional[datetime] = None
 
 # The 12 prompts + Change (4 elements × 3 sub-elements + 1)

@@ -41,12 +41,12 @@ class ApiClient {
   }
 
   // Session endpoints
-  async startSession(token, puzzleId) {
+  async startSession(token, problemDescription) {
     return this.request('/api/session/start', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        puzzle_id: puzzleId,
+        problem_description: problemDescription,
       }),
     });
   }
@@ -94,17 +94,26 @@ class ApiClient {
     });
   }
 
-  // Puzzle endpoints
-  async getPuzzles() {
-    return this.request('/api/puzzles');
-  }
-
-  async getPuzzle(puzzleId) {
-    return this.request(`/api/puzzles/${puzzleId}`);
-  }
-
   async getNudgeLimit(token, sessionId) {
     return this.request(`/api/session/${sessionId}/nudge-limit`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
+  // Deep Understanding endpoints
+  async extractUnderstanding(token, sessionId, promptIndex, element) {
+    return this.request(`/api/session/${sessionId}/extract-understanding`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        prompt_index: promptIndex,
+        element: element,
+      }),
+    });
+  }
+
+  async getDeepUnderstanding(token, sessionId) {
+    return this.request(`/api/session/${sessionId}/deep-understanding`, {
       headers: { Authorization: `Bearer ${token}` },
     });
   }

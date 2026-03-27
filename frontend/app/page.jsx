@@ -59,9 +59,9 @@ const elements = [
 
 // Mock session data for preview
 const recentSessions = [
-  { id: 1, title: "Legal Research Assistant", element: "earth", progress: 100, date: "Today" },
-  { id: 2, title: "Data Pipeline Builder", element: "fire", progress: 75, date: "Yesterday" },
-  { id: 3, title: "Customer Support Bot", element: "air", progress: 50, date: "2 days ago" },
+  { id: 1, title: "Legacy API migration blocking 3 teams", element: "earth", progress: 100, date: "Today" },
+  { id: 2, title: "ML model accuracy plateaued at 82%", element: "fire", progress: 75, date: "Yesterday" },
+  { id: 3, title: "CI pipeline takes 45 min per deploy", element: "air", progress: 50, date: "2 days ago" },
 ];
 
 export default function Home() {
@@ -112,8 +112,8 @@ export default function Home() {
                 <span className="italic">Master AI.</span>
               </h1>
               <p className="text-lg tb:text-xl lp:text-2xl text-black/80 lp:max-w-[800px] mb-6 lp:mb-8">
-                DramaRama is your mental gym for AI-utilization. Apply the 5 Elements of
-                Effective Thinking to transform how you leverage AI tools.
+                DramaRama is your mental gym for AI-utilization thinking. Describe a real problem,
+                apply the 5 Elements, and build deep understanding.
               </p>
               <div className="flex flex-col tb:flex-row gap-4">
                 <SignedIn>
@@ -183,9 +183,9 @@ export default function Home() {
                 creative reasoning, reflecting honestly, and building mental muscles.
               </p>
               <p className="text-lg text-ash mb-8">
-                DramaRama tracks how you <em>think</em>, not just what you produce. We guide
-                you through 13 prompts across the 5 Elements, training your mind to see
-                AI challenges as puzzles to be loved, not tasks to rush through.
+                DramaRama tracks how you <em>think</em>, not just what you produce. Describe a real
+                problem you're facing, then work through 13 prompts across the 5 Elements—training
+                your mind to see challenges as opportunities for deeper understanding.
               </p>
               <div className="flex items-center gap-4">
                 <div className="text-center">
@@ -268,7 +268,7 @@ export default function Home() {
               5 Elements of Effective Thinking
             </h2>
             <p className="text-lg text-ash max-w-[600px] mx-auto">
-              Each element provides a different lens to see the structure of any puzzle.
+              Each element provides a different lens to understand any problem.
               Together, they create change.
             </p>
           </div>
@@ -314,12 +314,12 @@ export default function Home() {
           <div className="grid lp:grid-cols-3 gap-12">
             <div className="text-center">
               <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-6">
-                <span className="text-3xl">🧩</span>
+                <span className="text-3xl">📝</span>
               </div>
-              <h3 className="font-display text-2xl mb-4">1. Choose a Puzzle</h3>
+              <h3 className="font-display text-2xl mb-4">1. Describe Your Problem</h3>
               <p className="text-smoke">
-                Pick an AI-utilization puzzle from our library. Each one presents a
-                real-world scenario that requires creative AI thinking.
+                Bring a real challenge you're facing at work. Something you're stuck on,
+                uncertain about, or want to think through more deeply.
               </p>
             </div>
 
@@ -327,10 +327,10 @@ export default function Home() {
               <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-6">
                 <span className="text-3xl">🎯</span>
               </div>
-              <h3 className="font-display text-2xl mb-4">2. Answer 13 Prompts</h3>
+              <h3 className="font-display text-2xl mb-4">2. Apply the 5 Elements</h3>
               <p className="text-smoke">
-                Apply each of the 5 Elements to the puzzle. Think
-                deeply. Write honestly. Explore every angle.
+                Work through 13 prompts across Earth, Fire, Air, Water, and Change.
+                Think deeply. Write honestly. Explore every angle.
               </p>
             </div>
 
@@ -338,10 +338,10 @@ export default function Home() {
               <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-6">
                 <span className="text-3xl">✨</span>
               </div>
-              <h3 className="font-display text-2xl mb-4">3. Receive Your Nudge</h3>
+              <h3 className="font-display text-2xl mb-4">3. Watch Understanding Build</h3>
               <p className="text-smoke">
-                Request a nudge whenever you're ready. Our AI analyzes your thinking and
-                guides you toward your next breakthrough—without spoiling the answer.
+                As you interact with your AI coach, a Deep Understanding Document
+                builds in real time—capturing the insights you develop about your problem.
               </p>
             </div>
           </div>
@@ -377,7 +377,7 @@ export default function Home() {
                   <div className="w-3 h-3 rounded-full bg-fire/60" />
                   <div className="w-3 h-3 rounded-full bg-earth/60" />
                   <div className="w-3 h-3 rounded-full bg-air/60" />
-                  <span className="ml-2 font-mono text-xs text-smoke">dashboard</span>
+                  <span className="ml-2 font-mono text-xs text-smoke">profile</span>
                 </div>
 
                 {/* Stats Row */}
@@ -398,9 +398,9 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Recent Sessions */}
+                {/* Recent Battles */}
                 <div className="bg-white rounded-lg p-4">
-                  <div className="text-sm font-semibold mb-3">Recent Sessions</div>
+                  <div className="text-sm font-semibold mb-3">Recent Battles</div>
                   <div className="space-y-2">
                     {recentSessions.map((session) => (
                       <div
@@ -433,7 +433,7 @@ export default function Home() {
 
             <div className="order-1 lp:order-2">
               <span className="text-sm font-mono text-smoke uppercase tracking-widest mb-4 block">
-                Your Headquarters
+                Your Profile
               </span>
               <h2 className="font-display text-4xl lp:text-5xl text-black mb-6">
                 Track Your
@@ -441,8 +441,8 @@ export default function Home() {
                 <span className="italic">Transformation</span>
               </h2>
               <p className="text-lg text-ash mb-6">
-                Your dashboard is your mental gym log. See which elements you're
-                mastering, where you need more practice, and how you've grown over time.
+                Your profile is your character sheet. See your battles fought, element strengths,
+                and how your thinking has evolved over time.
               </p>
               <ul className="space-y-4 mb-8">
                 <li className="flex items-start gap-3">
@@ -450,7 +450,7 @@ export default function Home() {
                     ✓
                   </span>
                   <span className="text-ash">
-                    <strong className="text-black">Session History</strong> — Every puzzle you've
+                    <strong className="text-black">Battle History</strong> — Every problem you've
                     thought through, preserved
                   </span>
                 </li>
@@ -459,7 +459,7 @@ export default function Home() {
                     ✓
                   </span>
                   <span className="text-ash">
-                    <strong className="text-black">Element Breakdown</strong> — See which lenses you
+                    <strong className="text-black">Element Strengths</strong> — See which lenses you
                     favor and which need work
                   </span>
                 </li>

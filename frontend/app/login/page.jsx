@@ -94,7 +94,7 @@ export default function LoginPage() {
               <span className="italic text-white/80">Mental Gym</span>
             </h1>
             <p className="text-white/60 text-lg max-w-md mb-12">
-              Where AI challenges become puzzles to love, not tasks to rush through.
+              Where real problems become opportunities for deep understanding.
             </p>
 
             {/* Elements showcase */}
@@ -112,7 +112,7 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-auto text-white/40 text-sm">
-            "The puzzles themselves begin to change when you apply the 5 Elements."
+            "The challenges themselves begin to change when you apply the 5 Elements."
             <br />
             <span className="text-white/60">— Edward Burger</span>
           </div>

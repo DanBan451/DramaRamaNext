@@ -139,8 +139,8 @@ const ELEMENTS = [
         version: "∞",
         name: "Transform",
         description:
-          "The puzzles themselves change through effective thinking: the way you first saw them will be different from how you see them after challenging yourself to understand more deeply. The ultimate goal is to change how you think.",
-        prompt: "How has thinking through this puzzle changed your understanding? What do you see differently now about how to use AI for this kind of problem?",
+          "The challenges themselves change through effective thinking: the way you first saw them will be different from how you see them after challenging yourself to understand more deeply. The ultimate goal is to change how you think.",
+        prompt: "How has thinking through this problem changed your understanding? What do you see differently now about how to use AI for this kind of challenge?",
       },
     ],
   },
@@ -240,38 +240,14 @@ function ElementsSidebar({ currentPromptIdx, expandedElements, onToggle }) {
 // ─── Setup Phase ─────────────────────────────────────────────────────────────
 
 function SetupPhase({ onStart }) {
-  const [puzzles, setPuzzles] = useState([]);
-  const [selectedPuzzleId, setSelectedPuzzleId] = useState("");
+  const [problemDescription, setProblemDescription] = useState("");
   const [loading, setLoading] = useState(false);
-  const [puzzlesLoading, setPuzzlesLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [genTopic, setGenTopic] = useState("");
-  const [genLoading, setGenLoading] = useState(false);
-  const [genErr, setGenErr] = useState("");
-  const [showGenerate, setShowGenerate] = useState(false);
   const { getToken } = useAuth();
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadPuzzles() {
-      try {
-        const res = await fetch("/api/backend-api/puzzles", { cache: "no-store" });
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        if (!cancelled) setPuzzles(data.puzzles || []);
-      } catch {
-        // puzzles may not exist yet
-      } finally {
-        if (!cancelled) setPuzzlesLoading(false);
-      }
-    }
-    loadPuzzles();
-    return () => { cancelled = true; };
-  }, []);
 
   async function handleStart(e) {
     e.preventDefault();
-    if (!selectedPuzzleId) return;
+    if (!problemDescription.trim()) return;
     setLoading(true);
     setErr("");
     try {
@@ -281,22 +257,16 @@ function SetupPhase({ onStart }) {
       const sessionRes = await fetch("/api/backend-api/session/start", {
         method: "POST",
         headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ puzzle_id: selectedPuzzleId }),
+        body: JSON.stringify({ problem_description: problemDescription.trim() }),
       });
       if (!sessionRes.ok) {
         const j = await sessionRes.json().catch(() => ({}));
         throw new Error(j.detail || "Failed to start session.");
       }
-      const { session_id, puzzle_id } = await sessionRes.json();
-
-      const selectedPuzzle = puzzles.find((p) => p.id === selectedPuzzleId);
+      const { session_id, problem_description } = await sessionRes.json();
 
       onStart({
-        puzzleId: puzzle_id,
-        puzzleTitle: selectedPuzzle?.title || "Puzzle",
-        puzzleScenario: selectedPuzzle?.scenario || "",
-        puzzleConstraints: selectedPuzzle?.constraints || [],
-        puzzleExample: selectedPuzzle?.example || "",
+        problemDescription: problem_description,
         sessionId: session_id,
         initialSavedIndices: new Set(),
         initialAnswers: {},
@@ -309,40 +279,6 @@ function SetupPhase({ onStart }) {
     }
   }
 
-  async function handleGenerate(e) {
-    e.preventDefault();
-    if (!genTopic.trim()) return;
-    setGenLoading(true);
-    setGenErr("");
-    try {
-      const token = await getToken({ skipCache: true });
-      const res = await fetch(`/api/backend-api/puzzle/generate?topic=${encodeURIComponent(genTopic.trim())}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.detail || "Failed to generate puzzle.");
-      }
-      const data = await res.json();
-      // Refresh puzzle list
-      const listRes = await fetch("/api/backend-api/puzzles", { cache: "no-store" });
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        setPuzzles(listData.puzzles || []);
-      }
-      setSelectedPuzzleId(data.puzzle_id);
-      setGenTopic("");
-      setShowGenerate(false);
-    } catch (e) {
-      setGenErr(e?.message || "Failed to generate.");
-    } finally {
-      setGenLoading(false);
-    }
-  }
-
-  const selectedPuzzle = puzzles.find((p) => p.id === selectedPuzzleId);
-
   return (
     <div className="flex-1 flex items-center justify-center px-6 pt-24 pb-16">
       <div className="max-w-lg w-full">
@@ -350,47 +286,19 @@ function SetupPhase({ onStart }) {
           <div className="text-5xl mb-4">🎭</div>
           <h1 className="font-display text-4xl text-black mb-3">Workspace</h1>
           <p className="text-smoke">
-            Choose an AI-utilization puzzle and think through it using the 5 Elements of Effective Thinking.
+            Describe a real problem you're currently facing at work. You'll think through it using the 5 Elements of Effective Thinking.
           </p>
         </div>
 
         <form onSubmit={handleStart} className="flex flex-col gap-4">
-          {puzzlesLoading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin text-3xl mb-2">🎭</div>
-              <div className="text-smoke text-sm">Loading puzzles…</div>
-            </div>
-          ) : puzzles.length === 0 ? (
-            <div className="text-center text-smoke text-sm py-4">No puzzles available yet. Generate one below.</div>
-          ) : (
-            <>
-              <select
-                value={selectedPuzzleId}
-                onChange={(e) => setSelectedPuzzleId(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-mist focus:border-black outline-none text-black font-mono text-sm transition-colors bg-white appearance-none cursor-pointer"
-                disabled={loading}
-              >
-                <option value="">Select a puzzle…</option>
-                {puzzles.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title}
-                  </option>
-                ))}
-              </select>
-
-              {selectedPuzzle && (
-                <div className="border border-mist rounded-lg p-4 bg-mist/20">
-                  <div className="text-sm text-black leading-relaxed mb-2">{selectedPuzzle.scenario}</div>
-                  {selectedPuzzle.constraints?.length > 0 && (
-                    <div className="text-xs text-smoke">
-                      <span className="font-semibold">Constraints:</span>{" "}
-                      {selectedPuzzle.constraints.join(" · ")}
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          )}
+          <textarea
+            value={problemDescription}
+            onChange={(e) => setProblemDescription(e.target.value)}
+            placeholder="Describe your problem in detail. What are you trying to accomplish? What's making it difficult? What have you tried so far?"
+            className="w-full px-4 py-3 border-2 border-mist focus:border-black outline-none text-black font-mono text-sm transition-colors bg-white resize-none"
+            rows={6}
+            disabled={loading}
+          />
 
           {err && <div className="text-fire text-sm">{err}</div>}
           <Button
@@ -398,51 +306,18 @@ function SetupPhase({ onStart }) {
             className="bg-black text-white w-full"
             radius="none"
             isLoading={loading}
-            isDisabled={!selectedPuzzleId || loading}
+            isDisabled={!problemDescription.trim() || loading}
           >
             {loading ? "Starting session…" : "Start Session →"}
           </Button>
         </form>
-
-        {/* Dev-only generate button */}
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => setShowGenerate((v) => !v)}
-            className="text-xs text-smoke hover:text-black transition-colors underline"
-          >
-            {showGenerate ? "Hide generator" : "Generate new puzzle (dev)"}
-          </button>
-          {showGenerate && (
-            <form onSubmit={handleGenerate} className="mt-3 flex gap-2">
-              <input
-                type="text"
-                value={genTopic}
-                onChange={(e) => setGenTopic(e.target.value)}
-                placeholder="Topic, e.g. legal research, data analysis…"
-                className="flex-1 px-3 py-2 border border-mist focus:border-black outline-none text-black placeholder:text-smoke font-mono text-xs transition-colors"
-                disabled={genLoading}
-              />
-              <Button
-                type="submit"
-                size="sm"
-                radius="none"
-                className="bg-black text-white text-xs"
-                isLoading={genLoading}
-                isDisabled={!genTopic.trim() || genLoading}
-              >
-                Generate
-              </Button>
-            </form>
-          )}
-          {genErr && <div className="text-fire text-xs mt-2">{genErr}</div>}
-        </div>
 
         <div className="mt-8 flex items-center justify-center gap-4 text-sm text-smoke">
           <span>13 prompts</span>
           <span>•</span>
           <span>5 Elements</span>
           <span>•</span>
-          <span>AI-utilization puzzles</span>
+          <span>Real problems</span>
         </div>
       </div>
     </div>
@@ -452,11 +327,7 @@ function SetupPhase({ onStart }) {
 // ─── Working Phase ────────────────────────────────────────────────────────────
 
 function WorkingPhase({
-  puzzleId,
-  puzzleTitle,
-  puzzleScenario,
-  puzzleConstraints,
-  puzzleExample,
+  problemDescription,
   sessionId,
   initialSavedIndices,
   initialAnswers,
@@ -497,9 +368,8 @@ function WorkingPhase({
 
   const [nudgeLimit, setNudgeLimit] = useState({ used: 0, limit: 5, unlimited: false });
 
-  // Dev panel
-  const [puzzleSolution, setPuzzleSolution] = useState(null);
-  const [devPanelOpen, setDevPanelOpen] = useState(false);
+  // Deep understanding
+  const [deepInsights, setDeepInsights] = useState([]);
 
   const [expandedElements, setExpandedElements] = useState(() => new Set(["earth"]));
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -529,19 +399,17 @@ function WorkingPhase({
     async function loadSessionData() {
       try {
         const token = await getToken({ skipCache: true });
-        // Load nudge limit, element messages, and puzzle solution (dev) in parallel
-        const [limitRes, msgsRes, solRes] = await Promise.all([
+        // Load nudge limit, element messages, and deep understanding in parallel
+        const [limitRes, msgsRes, duRes] = await Promise.all([
           fetch(`/api/backend-api/session/${sessionId}/nudge-limit`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
           fetch(`/api/backend-api/session/${sessionId}/element-messages`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          puzzleId
-            ? fetch(`/api/backend-api/puzzles/${puzzleId}/solution`, {
-                headers: { Authorization: `Bearer ${token}` },
-              })
-            : Promise.resolve(null),
+          fetch(`/api/backend-api/session/${sessionId}/deep-understanding`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
         ]);
         if (limitRes.ok && !cancelled) {
           const data = await limitRes.json();
@@ -552,9 +420,9 @@ function WorkingPhase({
           // data.messages is { "0": [{role, message_text, ...}], "3": [...], ... }
           setElementMessages(data.messages || {});
         }
-        if (solRes?.ok && !cancelled) {
-          const data = await solRes.json();
-          setPuzzleSolution(data.solution || null);
+        if (duRes.ok && !cancelled) {
+          const data = await duRes.json();
+          setDeepInsights(data.insights || []);
         }
       } catch {}
     }
@@ -674,7 +542,7 @@ function WorkingPhase({
       if (!saved) return;
     }
     if (!nudgeLimit.unlimited && nudgeLimit.used >= nudgeLimit.limit) {
-      setNudgeErr(`Nudge limit reached (${nudgeLimit.limit} per puzzle).`);
+      setNudgeErr(`Nudge limit reached (${nudgeLimit.limit} per session).`);
       return;
     }
     setNudgeLoading(true); setNudgeErr("");
@@ -722,6 +590,21 @@ function WorkingPhase({
           if (data === "[DONE]") {
             setNudgeLoading(false);
             setNudgeLimit((prev) => prev.unlimited ? prev : { ...prev, used: prev.used + 1 });
+            // Extract understanding from this exchange
+            try {
+              const extractToken = await getToken({ skipCache: true });
+              const extractRes = await fetch(`/api/backend-api/session/${sessionId}/extract-understanding`, {
+                method: "POST",
+                headers: { "content-type": "application/json", Authorization: `Bearer ${extractToken}` },
+                body: JSON.stringify({ prompt_index: currentIdx, element: currentElement }),
+              });
+              if (extractRes.ok) {
+                const extractData = await extractRes.json();
+                if (extractData.insight_text && !extractData.insight_text.toLowerCase().startsWith("no new understanding")) {
+                  setDeepInsights((prev) => [...prev, extractData]);
+                }
+              }
+            } catch {}
             return;
           }
           // Append streamed chunk to the placeholder assistant message
@@ -835,7 +718,7 @@ function WorkingPhase({
         {/* Header */}
         <div className="flex-shrink-0 bg-white border-b border-mist px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <span className="font-display text-lg text-black truncate">{puzzleTitle}</span>
+            <span className="font-display text-lg text-black truncate">{problemDescription ? (problemDescription.length > 60 ? problemDescription.slice(0, 60) + "…" : problemDescription) : "Session"}</span>
             <span className={`text-xs px-2 py-0.5 rounded-full font-mono flex-shrink-0 ${allAnswered ? "bg-earth/15 text-earth" : "bg-mist text-smoke"}`}>
               {completedCount}/13
             </span>
@@ -863,53 +746,49 @@ function WorkingPhase({
           </div>
         </div>
 
-        {/* Scrollable area: puzzle + nudge */}
+        {/* Scrollable area: problem + deep understanding + nudge */}
         <div className="flex-1 overflow-y-auto">
-          {/* Puzzle — full width, no box */}
+          {/* Problem description — full width */}
           <div className="px-8 lp:px-14 pt-10 pb-8 border-b border-mist/50">
-            {/* Puzzle premise */}
             <div className="text-sm text-ash italic leading-relaxed mb-6 border-l-2 border-mist pl-4">
-              Your goal is to think through this problem using the 5 Elements of Effective Thinking. You are not expected to solve it immediately — the purpose is to apply each element and develop deeper understanding.
+              Your goal is to develop deep understanding of this problem using the 5 Elements of Effective Thinking. You are not expected to solve it — the purpose is to apply each element and see your problem from new angles.
             </div>
-            <div className="text-xs uppercase tracking-widest text-smoke mb-5">The Puzzle</div>
-            <div className="font-display text-2xl lp:text-[1.75rem] text-black leading-[1.618] mb-5">
-              {puzzleScenario}
-            </div>
-            {puzzleConstraints?.length > 0 && (
-              <div className="mb-3">
-                <div className="text-xs font-semibold text-smoke uppercase tracking-wider mb-2">Constraints</div>
-                <ul className="list-disc list-inside text-sm text-ash space-y-1">
-                  {puzzleConstraints.map((c, i) => <li key={i}>{c}</li>)}
-                </ul>
+            <div className="text-xs uppercase tracking-widest text-smoke mb-5">Your Challenge</div>
+            <div className="border-l-4 border-change/40 pl-5">
+              <div className="font-display text-2xl lp:text-[1.75rem] text-black leading-[1.618]">
+                {problemDescription}
               </div>
-            )}
-            {puzzleExample && (
-              <div>
-                <div className="text-xs font-semibold text-smoke uppercase tracking-wider mb-2">Example</div>
-                <div className="text-sm text-ash leading-relaxed whitespace-pre-wrap bg-mist/30 px-4 py-3 rounded-lg font-mono">
-                  {puzzleExample}
-                </div>
+            </div>
+          </div>
+
+          {/* Deep Understanding Document */}
+          <div className="px-8 lp:px-14 py-6 border-b border-mist/50">
+            <div className="text-xs uppercase tracking-widest text-smoke mb-4">Deep Understanding</div>
+            {deepInsights.length === 0 ? (
+              <div className="text-sm text-smoke italic">
+                Insights will appear here as you interact with the coach on each element.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {deepInsights.map((insight, i) => {
+                  const elId = insight.element || "earth";
+                  const ic = ELEMENT_COLORS[elId] || ELEMENT_COLORS.earth;
+                  const elData = ELEMENTS.find((e) => e.id === elId);
+                  return (
+                    <div
+                      key={insight.id || i}
+                      className={`text-sm leading-relaxed px-4 py-3 rounded-lg border ${ic.border} ${ic.bg}`}
+                    >
+                      <span className={`text-xs font-semibold uppercase tracking-wider ${ic.text} mr-2`}>
+                        {elData?.emoji || "�"} {elId.toUpperCase()}
+                      </span>
+                      <span className="text-black">{insight.insight_text}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
-
-          {/* Dev panel — puzzle solution (only shown for dev users) */}
-          {puzzleSolution && (
-            <div className="px-8 lp:px-14 border-b border-dashed border-fire/30">
-              <button
-                onClick={() => setDevPanelOpen((v) => !v)}
-                className="w-full flex items-center justify-between py-2 text-xs text-fire font-mono hover:text-fire/80 transition-colors"
-              >
-                <span>🔧 DEV: Puzzle Solution</span>
-                <span>{devPanelOpen ? "▼ Hide" : "▶ Show"}</span>
-              </button>
-              {devPanelOpen && (
-                <div className="pb-3 text-sm text-ash leading-relaxed whitespace-pre-wrap bg-fire/5 rounded-lg px-4 py-3 mb-2 border border-fire/20">
-                  {puzzleSolution}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Prompt dots */}
           <div className="px-8 lp:px-14 py-5 flex items-center gap-2">
@@ -1157,20 +1036,14 @@ export default function WorkspacePage() {
         const active = (data.sessions || []).find((s) => s.status === "in_progress");
 
         if (active) {
-          // Fetch session detail and puzzle data in parallel
-          const [detailRes, puzzleRes] = await Promise.all([
-            fetch(`/api/backend-api/user/sessions/${active.id}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            }),
-            active.puzzle_id
-              ? fetch(`/api/backend-api/puzzles/${active.puzzle_id}`, { cache: "no-store" })
-              : Promise.resolve(null),
-          ]);
+          // Fetch session detail for responses
+          const detailRes = await fetch(`/api/backend-api/user/sessions/${active.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
 
           if (cancelled) return;
 
           const detail = detailRes.ok ? await detailRes.json() : null;
-          const puzzleData = puzzleRes?.ok ? await puzzleRes.json() : null;
 
           if (cancelled) return;
 
@@ -1185,11 +1058,7 @@ export default function WorkspacePage() {
           ) ?? 0;
 
           setSessionData({
-            puzzleId: active.puzzle_id,
-            puzzleTitle: puzzleData?.title || active.puzzle_title || "Puzzle",
-            puzzleScenario: puzzleData?.scenario || detail?.session?.puzzle_scenario || "",
-            puzzleConstraints: puzzleData?.constraints || [],
-            puzzleExample: puzzleData?.example || "",
+            problemDescription: active.problem_description || detail?.session?.problem_description || "",
             sessionId: active.id,
             initialSavedIndices: savedIdx,
             initialAnswers,

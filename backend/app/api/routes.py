@@ -15,15 +15,15 @@ from app.api.schemas import (
     SessionCancelRequest,
     UserSessionsResponse, SessionDetailResponse,
     DashboardStatsResponse, PromptResponse,
-    DemoNudgeRequest, DemoNudgeResponse,
-    PuzzleGenerateResponse, PuzzleListResponse, PuzzleOut,
     NudgeLimitResponse,
+    ExtractUnderstandingRequest, ExtractUnderstandingResponse,
+    DeepUnderstandingResponse, DeepUnderstandingEntry,
 )
 from app.domain.entities import (
     Response, Hint, Element, SubElement, SessionStatus,
-    PROMPTS, get_prompt, Puzzle, Component, ElementMessage,
+    PROMPTS, get_prompt, Puzzle, Component, ElementMessage, DeepUnderstanding,
 )
-from app.domain.services import analyze_responses, build_nudge_prompt, build_puzzle_prompt, build_session_completion_prompt
+from app.domain.services import analyze_responses, build_nudge_prompt, build_session_completion_prompt, build_extract_understanding_prompt
 from app.adapters.supabase_adapter import (
     SupabaseUserRepository,
     SupabaseSessionRepository,
@@ -32,6 +32,7 @@ from app.adapters.supabase_adapter import (
     SupabasePuzzleRepository,
     SupabaseComponentRepository,
     SupabaseElementMessageRepository,
+    SupabaseDeepUnderstandingRepository,
 )
 from app.adapters.claude_adapter import ClaudeStreamingAdapter
 import json
@@ -50,9 +51,10 @@ hint_repo = SupabaseHintRepository()
 puzzle_repo = SupabasePuzzleRepository()
 component_repo = SupabaseComponentRepository()
 element_message_repo = SupabaseElementMessageRepository()
+deep_understanding_repo = SupabaseDeepUnderstandingRepository()
 llm_client = ClaudeStreamingAdapter()
 
-NUDGE_LIMIT_PER_PUZZLE = 5
+NUDGE_LIMIT_PER_SESSION = 5
 
 # ============ Session Endpoints ============
 
@@ -61,41 +63,21 @@ async def start_session(
     request: SessionStartRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """Start a new session for a puzzle"""
+    """Start a new session from a problem description"""
     user = current_user["db_user"]
     
-    # Verify puzzle exists
-    puzzle = await puzzle_repo.get_by_id(request.puzzle_id)
-    if not puzzle:
-        raise HTTPException(status_code=404, detail="Puzzle not found")
+    if not request.problem_description or not request.problem_description.strip():
+        raise HTTPException(status_code=400, detail="Problem description is required")
     
-    # Check if there's already an active session for this puzzle
-    existing_session = await session_repo.get_active_session_for_puzzle(
-        user_id=user.id,
-        puzzle_id=request.puzzle_id,
-    )
-    if existing_session:
-        current_prompt = get_prompt(existing_session.prompts_completed)
-        return SessionStartResponse(
-            session_id=existing_session.id,
-            puzzle_id=existing_session.puzzle_id,
-            current_prompt_index=existing_session.prompts_completed,
-            current_prompt=current_prompt,
-        )
-    
-    # Create new session
+    # Create new session with problem description
     session = await session_repo.create(
         user_id=user.id,
-        puzzle_id=request.puzzle_id,
+        problem_description=request.problem_description.strip(),
     )
-    
-    first_prompt = get_prompt(0)
     
     return SessionStartResponse(
         session_id=session.id,
-        puzzle_id=session.puzzle_id,
-        current_prompt_index=0,
-        current_prompt=first_prompt,
+        problem_description=session.problem_description,
     )
 
 @router.post("/session/respond", response_model=ResponseSubmitResponse)
@@ -193,10 +175,11 @@ async def analyze_session(
     
     # Enforce nudge limits (unless founder email)
     is_founder = (user.email or "").lower() == (settings.DEV_EMAIL or "").lower() and settings.DEV_EMAIL
-    if not is_founder and session.puzzle_id:
-        used = await hint_repo.count_hints_for_puzzle_user(user.id, session.puzzle_id)
-        if used >= NUDGE_LIMIT_PER_PUZZLE:
-            raise HTTPException(status_code=429, detail=f"Nudge limit reached ({NUDGE_LIMIT_PER_PUZZLE} per puzzle)")
+    if not is_founder:
+        hints = await hint_repo.get_hints_for_session(session.id)
+        used = len(hints)
+        if used >= NUDGE_LIMIT_PER_SESSION:
+            raise HTTPException(status_code=429, detail=f"Nudge limit reached ({NUDGE_LIMIT_PER_SESSION} per session)")
     
     # Validate prompt_index
     if prompt_index is None:
@@ -207,10 +190,8 @@ async def analyze_session(
     
     current_element = Element(current_prompt_info["element"])
     
-    # Get puzzle (including solution) for context
-    puzzle = await puzzle_repo.get_by_id(session.puzzle_id) if session.puzzle_id else None
-    if not puzzle:
-        raise HTTPException(status_code=404, detail="Puzzle not found")
+    # Get problem description from session
+    problem_description = session.problem_description or ""
     
     # Save user's current message as a 'user' element_message
     if user_message:
@@ -233,9 +214,9 @@ async def analyze_session(
     # Fetch latest user message from each OTHER element
     other_elements_latest = await element_message_repo.get_latest_user_messages_per_prompt(session_id)
     
-    # Build Stockfish v2 nudge prompt
+    # Build Stockfish v3 nudge prompt
     prompt = build_nudge_prompt(
-        puzzle=puzzle,
+        problem_description=problem_description,
         current_prompt_index=prompt_index,
         conversation_history=conversation_history,
         other_elements_latest=other_elements_latest,
@@ -305,14 +286,15 @@ async def complete_session(
     if session.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Get puzzle and all responses
-    puzzle = await puzzle_repo.get_by_id(session.puzzle_id) if session.puzzle_id else None
+    # Get responses and deep understanding entries
     responses = await response_repo.get_session_responses(request.session_id)
+    deep_insights = await deep_understanding_repo.get_by_session_id(request.session_id)
     
     # Build session completion prompt
     completion_prompt = build_session_completion_prompt(
-        puzzle=puzzle,
+        problem_description=session.problem_description or "",
         responses=responses,
+        deep_insights=deep_insights,
     )
     
     # Call Claude for session analysis (non-streaming)
@@ -350,7 +332,7 @@ async def complete_session(
         component_data = {
             "title": title_m.group(1) if title_m else "Session Summary",
             "key_insight": insight_m.group(1) if insight_m else analysis_text[:500],
-            "input_context": context_m.group(1) if context_m else (puzzle.scenario if puzzle else ""),
+            "input_context": context_m.group(1) if context_m else (session.problem_description or ""),
             "output_capability": cap_m.group(1) if cap_m else "",
         }
     
@@ -421,16 +403,10 @@ async def get_user_sessions(
     
     sessions_data = []
     for s in sessions:
-        # Fetch puzzle title for display
-        puzzle_title = "Unknown Puzzle"
-        if s.puzzle_id:
-            puzzle = await puzzle_repo.get_by_id(s.puzzle_id)
-            if puzzle:
-                puzzle_title = puzzle.title
         sessions_data.append({
             "id": s.id,
             "puzzle_id": s.puzzle_id,
-            "puzzle_title": puzzle_title,
+            "problem_description": s.problem_description or "",
             "started_at": s.started_at.isoformat() if s.started_at else None,
             "ended_at": s.ended_at.isoformat() if s.ended_at else None,
             "status": s.status.value,
@@ -464,15 +440,11 @@ async def get_session_detail(
     # Get hint
     hint = await hint_repo.get_by_session_id(session_id)
     
-    # Get puzzle info
-    puzzle = await puzzle_repo.get_by_id(session.puzzle_id) if session.puzzle_id else None
-    
     return SessionDetailResponse(
         session={
             "id": session.id,
             "puzzle_id": session.puzzle_id,
-            "puzzle_title": puzzle.title if puzzle else "Unknown Puzzle",
-            "puzzle_scenario": puzzle.scenario if puzzle else "",
+            "problem_description": session.problem_description or "",
             "started_at": session.started_at.isoformat() if session.started_at else None,
             "ended_at": session.ended_at.isoformat() if session.ended_at else None,
             "status": session.status.value,
@@ -583,104 +555,24 @@ async def get_all_prompts():
     ]
 
 
-# ============ Puzzle Endpoints ============
+# ============ Deprecated Puzzle Endpoints (410 Gone) ============
 
-@router.get("/puzzles", response_model=PuzzleListResponse)
+@router.get("/puzzles")
 async def list_puzzles():
-    """List all available puzzles (solution field excluded)."""
-    puzzles = await puzzle_repo.get_all()
-    return PuzzleListResponse(
-        puzzles=[
-            PuzzleOut(
-                id=p.id,
-                title=p.title,
-                scenario=p.scenario,
-                constraints=p.constraints,
-                example=p.example,
-                created_at=p.created_at.isoformat() if p.created_at else None,
-            )
-            for p in puzzles
-        ]
-    )
-
+    """Deprecated: puzzles replaced by real problem descriptions."""
+    raise HTTPException(status_code=410, detail="Puzzle endpoints removed. Use problem_description with /session/start.")
 
 @router.get("/puzzles/{puzzle_id}")
 async def get_puzzle(puzzle_id: str):
-    """Get a single puzzle by ID (solution excluded)."""
-    puzzle = await puzzle_repo.get_by_id(puzzle_id)
-    if not puzzle:
-        raise HTTPException(status_code=404, detail="Puzzle not found")
-    return PuzzleOut(
-        id=puzzle.id,
-        title=puzzle.title,
-        scenario=puzzle.scenario,
-        constraints=puzzle.constraints,
-        example=puzzle.example,
-        created_at=puzzle.created_at.isoformat() if puzzle.created_at else None,
-    )
-
+    raise HTTPException(status_code=410, detail="Puzzle endpoints removed.")
 
 @router.get("/puzzles/{puzzle_id}/solution")
-async def get_puzzle_solution(puzzle_id: str, current_user: dict = Depends(get_current_user)):
-    """Dev-only: return the puzzle solution. Gated by DEV_EMAIL."""
-    user = current_user["db_user"]
-    is_dev = (user.email or "").lower() == (settings.DEV_EMAIL or "").lower() and settings.DEV_EMAIL
-    if not is_dev:
-        raise HTTPException(status_code=403, detail="Dev-only endpoint")
-    puzzle = await puzzle_repo.get_by_id(puzzle_id)
-    if not puzzle:
-        raise HTTPException(status_code=404, detail="Puzzle not found")
-    return {"solution": puzzle.solution}
+async def get_puzzle_solution(puzzle_id: str):
+    raise HTTPException(status_code=410, detail="Puzzle endpoints removed.")
 
-
-@router.post("/puzzle/generate", response_model=PuzzleGenerateResponse)
-async def generate_puzzle(
-    topic: str,
-    current_user: dict = Depends(get_current_user),
-):
-    """
-    Generate an AI-utilization puzzle. Dev-only endpoint (gated by DEV_EMAIL).
-    No background task — just generates and saves the puzzle.
-    """
-    user = current_user["db_user"]
-    
-    # Gate: dev email only
-    if not settings.DEV_EMAIL or (user.email or "").lower() != settings.DEV_EMAIL.lower():
-        raise HTTPException(status_code=403, detail="Puzzle generation is restricted to developer accounts")
-    
-    # Generate puzzle via LLM
-    prompt = build_puzzle_prompt(topic)
-    raw = await llm_client.generate_text(prompt, max_tokens=1500)
-    
-    # Parse JSON response
-    try:
-        # Strip markdown fences if present
-        cleaned = raw.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
-            if cleaned.endswith("```"):
-                cleaned = cleaned[:-3]
-            cleaned = cleaned.strip()
-        puzzle_data = json.loads(cleaned)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail=f"Failed to parse puzzle JSON from LLM: {raw[:200]}")
-    
-    # Save puzzle
-    puzzle = Puzzle(
-        id="",
-        title=puzzle_data.get("title", topic),
-        scenario=puzzle_data.get("scenario", ""),
-        constraints=puzzle_data.get("constraints", []),
-        example=puzzle_data.get("example", ""),
-        solution=puzzle_data.get("solution", ""),
-    )
-    saved_puzzle = await puzzle_repo.create(puzzle)
-    
-    return PuzzleGenerateResponse(
-        puzzle_id=saved_puzzle.id,
-        title=saved_puzzle.title,
-        status="created",
-    )
+@router.post("/puzzle/generate")
+async def generate_puzzle():
+    raise HTTPException(status_code=410, detail="Puzzle generation removed.")
 
 
 @router.get("/session/{session_id}/nudge-limit", response_model=NudgeLimitResponse)
@@ -701,11 +593,10 @@ async def get_nudge_limit(
     if is_dev:
         return NudgeLimitResponse(used=0, limit=0, unlimited=True)
     
-    used = 0
-    if session.puzzle_id:
-        used = await hint_repo.count_hints_for_puzzle_user(user.id, session.puzzle_id)
+    hints = await hint_repo.get_hints_for_session(session.id)
+    used = len(hints)
     
-    return NudgeLimitResponse(used=used, limit=NUDGE_LIMIT_PER_PUZZLE, unlimited=False)
+    return NudgeLimitResponse(used=used, limit=NUDGE_LIMIT_PER_SESSION, unlimited=False)
 
 
 @router.get("/session/{session_id}/element-messages")
@@ -739,103 +630,97 @@ async def get_element_messages(
     return {"messages": by_prompt}
 
 
-# ============ Demo Endpoints (no persistence) ============
+# ============ Deprecated Demo Endpoint ============
 
-@router.post("/demo/nudge", response_model=DemoNudgeResponse)
-async def demo_nudge(
-    request: DemoNudgeRequest,
-    http_request: Request,
+@router.post("/demo/nudge")
+async def demo_nudge():
+    raise HTTPException(status_code=410, detail="Demo endpoint removed.")
+
+
+# ============ Deep Understanding Endpoints ============
+
+@router.post("/session/{session_id}/extract-understanding", response_model=ExtractUnderstandingResponse)
+async def extract_understanding(
+    session_id: str,
+    request: ExtractUnderstandingRequest,
+    current_user: dict = Depends(get_current_user),
 ):
-    """
-    Generate a nudge for demo without creating sessions/responses/hints in the DB.
-    Auth is required (Bearer token), but we do NOT store anything in Supabase.
-    """
-    auth_header = http_request.headers.get("authorization") or http_request.headers.get("Authorization")
-    if not auth_header or not auth_header.lower().startswith("bearer "):
-        raise HTTPException(status_code=401, detail="Missing auth token")
-
-    token = auth_header.split(" ", 1)[1].strip()
-    await get_user_from_token(token)
-
-    MIN_WORDS = 20
-
-    if not request.responses or len(request.responses) < 12:
-        raise HTTPException(status_code=400, detail="Demo requires 12 responses.")
-
-    responses: list[Response] = []
-    for r in request.responses[:12]:
-        prompt_info = get_prompt(r.prompt_index)
-        if not prompt_info:
-            raise HTTPException(status_code=400, detail=f"Invalid prompt_index: {r.prompt_index}")
-        response_text = (r.response_text or "").strip()
-        wc = len(response_text.split())
-        if wc < MIN_WORDS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Response for prompt_index={r.prompt_index} is too short ({wc} words). Minimum is {MIN_WORDS} words.",
-            )
-        responses.append(
-            Response(
-                id="",
-                session_id="demo",
-                prompt_index=r.prompt_index,
-                element=Element(prompt_info["element"]),
-                sub_element=SubElement(prompt_info["sub_element"]),
-                response_text=response_text,
-                word_count=wc,
-                time_spent_seconds=int(r.time_spent_seconds or 0),
-            )
+    """Extract key understanding from a nudge exchange and save to deep_understanding table."""
+    user = current_user["db_user"]
+    
+    session = await session_repo.get_by_id(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Fetch conversation history for this element
+    conversation_history = await element_message_repo.get_by_session_and_prompt(session_id, request.prompt_index)
+    if not conversation_history:
+        raise HTTPException(status_code=400, detail="No conversation history for this element")
+    
+    # Build extraction prompt
+    prompt = build_extract_understanding_prompt(
+        problem_description=session.problem_description or "",
+        element=request.element,
+        prompt_index=request.prompt_index,
+        conversation_history=conversation_history,
+    )
+    
+    # Call Claude (non-streaming)
+    insight_text = await llm_client.generate_text(prompt, max_tokens=300)
+    insight_text = (insight_text or "").strip()
+    
+    # Skip saving if no meaningful insight
+    if not insight_text or insight_text.lower().startswith("no new understanding"):
+        return ExtractUnderstandingResponse(
+            insight_text=insight_text or "No new understanding extracted from this exchange.",
+            element=request.element,
+            prompt_index=request.prompt_index,
         )
-
-    analysis = analyze_responses(responses)
-
-    quality_gate = analysis.get("quality_gate") or {}
-    if not bool(quality_gate.get("ok_to_praise", True)):
-        return DemoNudgeResponse(
-            nudge_text=(
-                "I can't accurately assess your strengths from these responses yet — they look like placeholders.\n\n"
-                "Try answering with one concrete AI approach. For example:\n"
-                "\"I'd start by feeding the raw data into a summarization model, then use the output as context for a second pass...\"\n\n"
-                "Next step: go back to prompt 1 and write real, specific thinking."
-            ),
-            analysis=analysis,
-        )
-
-    puzzle = None
-    if request.puzzle_id:
-        puzzle = await puzzle_repo.get_by_id(request.puzzle_id)
-
-    if not puzzle:
-        # Create a minimal puzzle object for the demo
-        puzzle = Puzzle(
-            id="demo",
-            title="Demo Puzzle",
-            scenario="Demo puzzle",
-            constraints=[],
-            example="",
-            solution="",
-        )
-
-    # Build fake ElementMessage conversation history for demo
-    demo_history = []
-    if responses:
-        demo_history = [ElementMessage(
-            id="", session_id="demo", prompt_index=0,
-            role="user", message_text=responses[0].response_text,
-        )]
-    demo_other = {}
-    for r in responses[1:]:
-        demo_other[r.prompt_index] = r.response_text
-
-    prompt = build_nudge_prompt(
-        puzzle=puzzle,
-        current_prompt_index=0,
-        conversation_history=demo_history,
-        other_elements_latest=demo_other,
+    
+    # Save to deep_understanding table
+    entry = DeepUnderstanding(
+        id="",
+        session_id=session_id,
+        prompt_index=request.prompt_index,
+        element=request.element,
+        insight_text=insight_text,
+    )
+    saved = await deep_understanding_repo.create(entry)
+    
+    return ExtractUnderstandingResponse(
+        insight_text=saved.insight_text,
+        element=saved.element,
+        prompt_index=saved.prompt_index,
     )
 
-    out = ""
-    async for chunk in llm_client.generate_stream(prompt, max_tokens=500):
-        out += chunk
 
-    return DemoNudgeResponse(nudge_text=out.strip() or "(empty nudge)", analysis=analysis)
+@router.get("/session/{session_id}/deep-understanding", response_model=DeepUnderstandingResponse)
+async def get_deep_understanding(
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Get all deep understanding entries for a session."""
+    user = current_user["db_user"]
+    
+    session = await session_repo.get_by_id(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    entries = await deep_understanding_repo.get_by_session_id(session_id)
+    
+    return DeepUnderstandingResponse(
+        insights=[
+            DeepUnderstandingEntry(
+                id=e.id,
+                prompt_index=e.prompt_index,
+                element=e.element,
+                insight_text=e.insight_text,
+                created_at=e.created_at.isoformat() if e.created_at else None,
+            )
+            for e in entries
+        ]
+    )

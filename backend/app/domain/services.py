@@ -529,17 +529,18 @@ Rules:
 
 
 def build_nudge_prompt(
-    puzzle,
+    problem_description: str,
     current_prompt_index: int,
     conversation_history: List[ElementMessage],
     other_elements_latest: dict,
 ) -> str:
     """
     Build the Stockfish v3 nudge prompt for Claude.
-    Uses per-element conversation history and the exact instructions from document_12 Section 4.
+    Uses per-element conversation history. Coaches the user through their real problem
+    using the current element's lens.
     
     Args:
-        puzzle: The puzzle object (with solution)
+        problem_description: The user's description of their real problem
         current_prompt_index: Which element prompt (0-12)
         conversation_history: All ElementMessage objects for this element in this session (chronological)
         other_elements_latest: {prompt_index: latest_user_message_text} for all OTHER elements
@@ -589,23 +590,12 @@ In MUYAIUM: {sub_element_def.get('muyaium', '')}
     if not other_elements_text:
         other_elements_text = "(No other elements worked on yet)\n"
 
-    constraints_text = "\n".join(f"- {c}" for c in (puzzle.constraints or []))
-
-    return f"""You are a thinking coach helping a user apply the 5 Elements of Effective Thinking to an AI-utilization puzzle. Your primary job is to train the user to think effectively about how to use AI. You coach the THINKING PROCESS — the quality of how they apply the current element matters more than whether they reach the solution.
+    return f"""You are a thinking coach helping a user apply the 5 Elements of Effective Thinking to a real software engineering problem they are currently facing. Your primary job is to help them develop deeper understanding of their problem by coaching how they apply the current element.
 
 The user is currently working on {current_element.value.upper() if hasattr(current_element, 'value') else ''} {sub_element_key} — {current_prompt_info.get('name', '')}.
 
-Here is the puzzle, including a reference solution. The solution is ONE valid approach — the user may arrive at a different valid approach that is equally good. Do not reject good thinking just because it differs from the reference solution.
-
-Puzzle:
-Title: {puzzle.title}
-Scenario: {puzzle.scenario}
-Constraints:
-{constraints_text}
-Example: {puzzle.example}
-
-Reference Solution — NEVER reveal this directly:
-{puzzle.solution}
+The user's problem:
+{problem_description}
 
 Full definition of the current element and sub-element, including coaching guidance:
 {current_element_full}
@@ -617,25 +607,27 @@ Latest responses from other elements:
 {other_elements_text}
 
 Rules:
-1. ONLY reference information that exists in the puzzle. Do NOT invent technologies, services, details, or specifics not mentioned in the puzzle text.
-2. Assess how well the user is thinking about USING AI to approach the problem — not whether they understand the domain knowledge itself. If the user doesn't understand a concept in the puzzle, don't teach them the concept. Nudge them to think about how they'd use AI tools to fill that gap. You are coaching AI-utilization thinking, not domain expertise.
-3. If the user's response is very short, says "I don't know," or shows they haven't engaged meaningfully, nudge them to think about what questions they'd ask an AI tool to get started. Stay within the current element's lens.
-4. If the user demonstrates solid AI-utilization thinking, push them deeper within this element. Challenge them to think more carefully, consider more angles, or apply the element more rigorously.
+1. ONLY reference information the user has provided about their problem. Do NOT invent details, technologies, or specifics they haven't mentioned.
+2. Evaluate how well the user is thinking about USING AI to approach their problem. If they don't understand something, nudge them to think about how they'd use AI tools to fill that gap. You are coaching AI-utilization thinking, not teaching domain knowledge.
+3. If the user's response is very short or shows they haven't engaged, nudge them to think about what questions they'd ask an AI tool to get started. Stay within the current element's lens.
+4. If the user demonstrates solid thinking, push them deeper within this element.
 5. Coach within the element they are on. Do not tell them to switch elements.
-6. Guide toward the solution through the element's lens, but recognize other valid approaches. If the user's thinking is sound but different from the reference solution, acknowledge it as valid.
-7. Prioritize the quality of the thinking process over reaching the answer. If someone is applying the element beautifully but hasn't solved the puzzle yet, celebrate the thinking.
-8. Reference the conversation history for this element. Build on what has already been discussed. Do not repeat advice you have already given.
-9. Keep your response to 50-75 words maximum. Two to three sharp sentences. Be direct and specific.
+6. There is no single "right answer" to this problem. Guide toward deeper understanding, not toward a specific solution. Multiple approaches may be valid.
+7. Prioritize the quality of the thinking process. If they are applying the element well, acknowledge that.
+8. Reference the conversation history for this element. Build on what has been discussed. Do not repeat advice.
+9. Keep your response to 50-75 words maximum. Two to three sharp sentences.
 10. Do not use markdown formatting."""
 
 
 def build_session_completion_prompt(
-    puzzle,
+    problem_description: str,
     responses: List[Response],
+    deep_insights: list = None,
 ) -> str:
     """
     Build the prompt for Claude to analyze a completed session.
-    Returns structured analysis: strongest element, thinking evolution, key knowledge gained.
+    Returns structured analysis: what the user now understands about their problem,
+    which elements contributed most, and what remains unclear.
     """
     # Build responses summary
     responses_text = ""
@@ -645,33 +637,72 @@ def build_session_completion_prompt(
         p_def = ELEMENT_DEFINITIONS.get(p_element, {})
         responses_text += f"{p_def.get('emoji', '')} {p_element.value.upper() if hasattr(p_element, 'value') else ''} {p_info.get('sub_element', '')} ({p_info.get('name', '')}): {resp.response_text}\n\n"
 
-    puzzle_context = ""
-    if puzzle:
-        puzzle_context = f"""Title: {puzzle.title}
-Scenario: {puzzle.scenario}
-Solution: {puzzle.solution}"""
+    # Build deep understanding summary
+    insights_text = ""
+    if deep_insights:
+        for ins in deep_insights:
+            element_def = ELEMENT_DEFINITIONS.get(Element(ins.element), {}) if ins.element else {}
+            emoji = element_def.get('emoji', '')
+            insights_text += f"{emoji} {ins.element.upper()}: {ins.insight_text}\n"
+    if not insights_text:
+        insights_text = "(No deep understanding entries recorded)\n"
 
-    return f"""You are analyzing a completed thinking session where a user worked through an AI-utilization puzzle using the 5 Elements of Effective Thinking.
+    return f"""You are analyzing a completed thinking session where a user worked through a real software engineering problem using the 5 Elements of Effective Thinking.
 
-## The Puzzle
-{puzzle_context}
+## The User's Problem
+{problem_description}
 
 ## The User's Responses (in order)
 {responses_text}
+
+## Deep Understanding Accumulated During Session
+{insights_text}
 
 ## Your Task
 Analyze this session and return a JSON object with these fields:
 
 {{
   "title": "A short title summarizing the key insight from this session (under 10 words)",
-  "key_insight": "What was the most important thing the user learned or discovered? What was their strongest element and why? How did their thinking evolve across the session? (3-5 sentences, plain text)",
-  "input_context": "What was the problem context they were working with? (1-2 sentences summarizing the puzzle scenario)",
-  "output_capability": "What new thinking capability did they develop? What can they now do that they couldn't before? (2-3 sentences, plain text)"
+  "key_insight": "What does the user now understand about their problem that they didn't before? Which elements contributed most to their understanding? How did their thinking evolve across the session? (3-5 sentences, plain text)",
+  "input_context": "What was the problem they were facing? (1-2 sentences summarizing from their description)",
+  "output_capability": "What aspects of the problem remain unclear or need further exploration? What should they tackle next? (2-3 sentences, plain text)"
 }}
 
 Rules:
 - Be specific. Reference their actual words and ideas.
 - Identify their strongest element based on depth and engagement of responses.
-- Show how their thinking evolved from early responses to later ones.
+- Summarize what they now understand about their real problem.
+- Note what aspects remain unclear or need more thinking.
 - Be encouraging but honest. If responses were shallow, note that kindly.
 - Output ONLY the JSON object. No markdown fences. No extra text."""
+
+
+def build_extract_understanding_prompt(
+    problem_description: str,
+    element: str,
+    prompt_index: int,
+    conversation_history: List[ElementMessage],
+) -> str:
+    """
+    Build the prompt for Claude to extract key understanding from a nudge exchange.
+    """
+    element_enum = Element(element) if element in [e.value for e in Element] else Element.EARTH
+    element_def = ELEMENT_DEFINITIONS.get(element_enum, {})
+    element_name = f"{element_def.get('emoji', '')} {element_def.get('name', '')} ({element.upper()})"
+
+    # Build conversation text
+    conversation_text = ""
+    for msg in conversation_history:
+        role_label = "User" if msg.role == "user" else "Coach"
+        conversation_text += f"{role_label}: {msg.message_text}\n\n"
+
+    return f"""The user is working through a real software problem using the 5 Elements of Effective Thinking. They just had an exchange on {element_name}. Read their conversation below and extract the KEY UNDERSTANDING they developed about their problem during this exchange.
+
+The user's problem: {problem_description}
+Element: {element_name} — {element_def.get('core_principle', '')}
+Conversation:
+{conversation_text}
+
+Write 1-2 sentences capturing the specific insight or understanding the user gained. Focus on what they now understand about their problem that they didn't before. If the exchange didn't produce meaningful new understanding, write "No new understanding extracted from this exchange."
+
+Do not use markdown. Plain text only. Be specific to their actual problem."""

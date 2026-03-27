@@ -7,13 +7,11 @@ from datetime import datetime
 
 # Session schemas
 class SessionStartRequest(BaseModel):
-    puzzle_id: str
+    problem_description: str
 
 class SessionStartResponse(BaseModel):
     session_id: str
-    puzzle_id: str
-    current_prompt_index: int
-    current_prompt: dict
+    problem_description: str
 
 class ResponseSubmitRequest(BaseModel):
     session_id: str
@@ -85,19 +83,23 @@ class NudgeLimitResponse(BaseModel):
     unlimited: bool
 
 
-# Demo schemas (no persistence)
-class DemoPromptResponseInput(BaseModel):
+# Deep Understanding schemas
+class ExtractUnderstandingRequest(BaseModel):
     prompt_index: int
-    response_text: str
-    time_spent_seconds: Optional[int] = None
+    element: str
 
+class ExtractUnderstandingResponse(BaseModel):
+    insight_text: str
+    element: str
+    prompt_index: int
 
-class DemoNudgeRequest(BaseModel):
-    puzzle_id: Optional[str] = None
-    responses: List[DemoPromptResponseInput]
+class DeepUnderstandingEntry(BaseModel):
+    id: str
+    prompt_index: int
+    element: str
+    insight_text: str
+    created_at: Optional[str] = None
 
-
-class DemoNudgeResponse(BaseModel):
-    nudge_text: str
-    analysis: dict
+class DeepUnderstandingResponse(BaseModel):
+    insights: List[DeepUnderstandingEntry]
 

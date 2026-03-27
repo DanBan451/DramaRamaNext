@@ -1,0 +1,312 @@
+DramaRama — Technical Overview: The Real Problem Pivot
+March 2026
+
+
+1. Overview
+
+This document describes every technical change required to pivot DramaRama from pre-generated hypothetical puzzles to a system where the user brings their real problem and develops deep understanding through the 5 Elements. The existing stack (Supabase, FastAPI, Next.js, Clerk, Claude Sonnet 4) remains unchanged. Changes are concentrated in the workspace flow, the nudge system prompt, a new Deep Understanding Document feature, and replacing the dashboard with a profile page.
+
+
+2. Database Changes
+
+2.1 Sessions Table — Add problem_description Column
+
+Add a new column:
+- problem_description: TEXT — the user's description of their real problem
+
+The puzzle_id column becomes nullable. For this pivot, sessions are created from a problem description, not a puzzle selection. puzzle_id can remain for backward compatibility with old sessions but new sessions will use problem_description instead.
+
+2.2 New Table: deep_understanding
+
+This table stores the accumulated Deep Understanding Document entries that build in real time during a session.
+
+Column              Type            Description
+id                  UUID (PK)       Primary key
+session_id          UUID (FK)       References sessions.id
+prompt_index        INTEGER         Which element prompt generated this insight (0-12)
+element             VARCHAR(50)     earth/fire/air/water/change
+insight_text        TEXT            The extracted understanding from this element interaction
+created_at          TIMESTAMPTZ     Timestamp for ordering
+
+Each row is one piece of understanding extracted from the user's interaction with a specific element. The full Deep Understanding Document for a session is all rows ordered by created_at.
+
+2.3 Tables That Stay Unchanged
+- users — no changes
+- responses — no changes (still tracks user responses per prompt)
+- element_messages — no changes (still tracks per-element conversation history)
+- hints — no changes (still stores nudge responses)
+- components — no changes (session completion still generates a component)
+
+2.4 Tables No Longer Used for New Sessions
+- puzzles — no longer used for new sessions. Keep the table for backward compatibility with existing sessions. Remove the puzzle generation endpoint. Remove the puzzle selector from the frontend.
+
+2.5 SQL Migration
+
+ALTER TABLE sessions ADD COLUMN problem_description TEXT;
+ALTER TABLE sessions ALTER COLUMN puzzle_id DROP NOT NULL;
+
+CREATE TABLE deep_understanding (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+  prompt_index INTEGER NOT NULL,
+  element VARCHAR(50) NOT NULL,
+  insight_text TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_deep_understanding_session_id ON deep_understanding(session_id);
+
+
+3. Backend Changes
+
+3.1 Session Start Endpoint — Rewrite
+
+Current: POST /session/start accepts {puzzle_id}
+New: POST /session/start accepts {problem_description}
+
+The endpoint creates a new session with the problem_description stored directly on the session record. No puzzle lookup. No puzzle_id required.
+
+Request: { "problem_description": "I'm trying to refactor an auth module and AI keeps giving me garbage output..." }
+Response: { "session_id": "...", "problem_description": "..." }
+
+3.2 Nudge Endpoint — Update Prompt
+
+The nudge endpoint (GET /session/{id}/analyze) stays structurally the same (SSE streaming, per-element conversation history, Stockfish model). What changes is the prompt sent to Claude.
+
+Key changes to build_nudge_prompt:
+- Instead of passing a puzzle (scenario, constraints, example, solution), pass the user's problem_description from the session
+- There is no stored solution anymore. The coach guides toward deeper understanding, not toward a specific answer
+- The coach only references information the user has provided about their problem
+- The coach evaluates AI-utilization thinking quality
+
+New nudge prompt structure:
+
+---
+You are a thinking coach helping a user apply the 5 Elements of Effective Thinking to a real software engineering problem they are currently facing. Your primary job is to help them develop deeper understanding of their problem by coaching how they apply the current element.
+
+The user is currently working on [element name] [sub-element] — [prompt name].
+
+The user's problem:
+[problem_description from session]
+
+[Full definition of the current element and sub-element, including coaching guidance]
+
+[Conversation history for this element]
+[Latest responses from other elements]
+
+Rules:
+1. ONLY reference information the user has provided about their problem. Do NOT invent details, technologies, or specifics they haven't mentioned.
+2. Evaluate how well the user is thinking about USING AI to approach their problem. If they don't understand something, nudge them to think about how they'd use AI tools to fill that gap. You are coaching AI-utilization thinking, not teaching domain knowledge.
+3. If the user's response is very short or shows they haven't engaged, nudge them to think about what questions they'd ask an AI tool to get started. Stay within the current element's lens.
+4. If the user demonstrates solid thinking, push them deeper within this element.
+5. Coach within the element they are on. Do not tell them to switch elements.
+6. There is no single "right answer" to this problem. Guide toward deeper understanding, not toward a specific solution. Multiple approaches may be valid.
+7. Prioritize the quality of the thinking process. If they are applying the element well, acknowledge that.
+8. Reference the conversation history for this element. Build on what has been discussed. Do not repeat advice.
+9. Keep your response to 50-75 words maximum. Two to three sharp sentences.
+10. Do not use markdown formatting.
+---
+
+3.3 New Endpoint: Extract Understanding
+
+After each nudge exchange, a second LLM call extracts the key understanding gained and adds it to the Deep Understanding Document.
+
+New endpoint: POST /session/{id}/extract-understanding
+Request: { "prompt_index": 0, "element": "earth" }
+
+This endpoint:
+1. Fetches the full conversation history for this element from element_messages
+2. Fetches the problem_description from the session
+3. Calls Claude with a prompt:
+
+---
+The user is working through a real software problem using the 5 Elements of Effective Thinking. They just had an exchange on [element name]. Read their conversation below and extract the KEY UNDERSTANDING they developed about their problem during this exchange.
+
+The user's problem: [problem_description]
+Element: [element name and definition]
+Conversation: [full element conversation history]
+
+Write 1-2 sentences capturing the specific insight or understanding the user gained. Focus on what they now understand about their problem that they didn't before. If the exchange didn't produce meaningful new understanding, write "No new understanding extracted from this exchange."
+
+Do not use markdown. Plain text only. Be specific to their actual problem.
+---
+
+4. Saves the extracted text as a row in the deep_understanding table
+5. Returns { "insight_text": "...", "element": "earth", "prompt_index": 0 }
+
+This call happens automatically after each nudge response is complete (not visible to the user as a separate action).
+
+3.4 New Endpoint: Get Deep Understanding Document
+
+GET /session/{id}/deep-understanding
+Returns: { "insights": [{ "id": "...", "prompt_index": 0, "element": "earth", "insight_text": "...", "created_at": "..." }, ...] }
+
+Returns all deep_understanding rows for the session, ordered by created_at. The frontend uses this to display the accumulated document.
+
+3.5 Session Completion — Update
+
+POST /session/complete stays the same structurally but the prompt changes:
+- Instead of referencing a puzzle, reference the problem_description
+- Instead of generating a component based on puzzle learning, generate it based on the Deep Understanding Document
+- The completion analysis summarizes: what the user now understands about their problem, which elements contributed most to their understanding, and what aspects of the problem remain unclear
+
+3.6 Remove Puzzle Endpoints
+
+Remove or deprecate:
+- POST /puzzle/generate (dev-only puzzle generation)
+- GET /puzzles (puzzle list)
+- GET /puzzles/{id} (puzzle detail)
+- GET /puzzles/{id}/solution (puzzle solution)
+
+Keep the routes but return 410 Gone or simply remove them. Existing sessions with puzzle_id can still reference the puzzles table for backward compatibility on session detail pages.
+
+3.7 Update Prompts in entities.py
+
+The 13 prompts stay the same as defined in the Stockfish v3 document. They already work for real problems — they ask about fundamentals, failure, questions, and flow of ideas. No changes needed to prompt text.
+
+The element definitions (ELEMENT_DEFINITIONS in services.py) also stay as defined in v3 — all 5 elements with all sub-elements and full coaching guidance.
+
+
+4. Frontend Changes
+
+4.1 SetupPhase — Complete Rewrite
+
+Current: Puzzle selector dropdown + Start Session button + dev-only puzzle generator
+New: Problem description input + Start Session button
+
+The user sees:
+- A heading like "What problem are you facing?" or "Describe your challenge"
+- A large textarea where they describe their real problem from work
+- A "Start Battle →" button (or "Start Session →" — wording TBD)
+- No puzzle dropdown. No puzzle selector. No dev-only generator.
+
+On submit: POST /session/start with { problem_description }
+
+4.2 WorkingPhase — Puzzle Display Replaced with Problem + Deep Understanding
+
+Current puzzle display area (lines 867-912) is replaced with two sections:
+
+Section 1: The Problem (top of center column)
+- The premise text (italic, left border): "You are applying the 5 Elements of Effective Thinking to develop deeper understanding of your problem. Each element reveals a different aspect of the challenge."
+- "YOUR CHALLENGE" label (replaces "THE PUZZLE")
+- The user's problem_description displayed in the same font-display text-2xl styling
+- Optionally: a cube visualization next to or above the problem text (see Section 4.6)
+
+Section 2: Deep Understanding Document (below the problem, above the conversation thread)
+- "DEEP UNDERSTANDING" label
+- A growing list of insight entries, each tagged with the element emoji and name
+- Organized by element or by chronological order (chronological is simpler for MVP)
+- Each entry is 1-2 sentences
+- New entries appear with a subtle animation (Framer Motion fade-in)
+- If no entries yet, show a placeholder like "Your understanding will build here as you apply the elements..."
+
+The conversation thread (element chat) and input area stay the same below these sections.
+
+4.3 Deep Understanding Document — Frontend Flow
+
+After each nudge exchange:
+1. The nudge streams in and completes (existing flow)
+2. Frontend calls POST /session/{id}/extract-understanding with the current prompt_index and element
+3. The response contains the extracted insight
+4. The insight is appended to the Deep Understanding Document on screen with an animation
+5. The user sees their understanding grow
+
+On initial page load (resuming a session), fetch GET /session/{id}/deep-understanding to load all existing entries.
+
+4.4 Dashboard → Profile Page
+
+Replace /dashboard with /profile (or keep the route as /dashboard but redesign completely).
+
+Current dashboard: stats cards (streak, joules, sessions, completion %) + element mastery bars + recent sessions list + thinking tip.
+
+New Profile page:
+- Top section: user identity area. For MVP, show the user's name/email from Clerk, their total battles count, total joules, and streak. Keep it visually prominent but simple.
+- Battles section: a grid of the user's past sessions, each represented as a card showing the problem description (truncated), the date, which elements were used, and joules earned. These are the "cubes" — each battle is a challenge they faced.
+- Element strengths section: which elements the user has used most across all sessions. Displayed as a visual breakdown (progress bars or a simple chart). This tells the user "you tend to approach problems with Earth and Air — you might want to try more Fire."
+- The page should feel like a character profile, not a spreadsheet of stats.
+
+4.5 Navbar Updates
+
+Change "Dashboard" link to "Profile" (or keep the text but update the route if changed).
+Remove any references to "puzzles" in navigation.
+
+4.6 Cube Visualization (MVP Version)
+
+For MVP, the cube does not need to be 3D. A simple visual treatment of the problem display is sufficient:
+- A colored border or background treatment that makes the problem feel like an isolated challenge
+- An icon or geometric shape (cube, hexagon, etc.) next to the problem title
+- Element-colored accents that change based on which element the user is currently working on
+
+The full 3D cube with animations and element emojis smashing against it is a future enhancement. For now, make the problem display feel visually distinct from the rest of the workspace — like a challenge card, not just text.
+
+4.7 Landing Page Updates
+
+The landing page copy needs to change from "Train Your Mind. Master AI." and puzzle-oriented language to something reflecting the new approach:
+- Hero: something about facing real problems with powerful thinking
+- "How It Works" section: Describe Your Problem → Apply the 5 Elements → Watch Understanding Build
+- Remove references to puzzles, choosing puzzles, etc.
+- The mock progress card can show a Deep Understanding Document preview instead of element progress bars
+
+4.8 Elements Page
+
+No structural changes needed. The elements reference page still describes what each element is and how to apply it. Update any copy that references "puzzles" to reference "problems" or "challenges."
+
+
+5. What Gets Removed
+
+- Puzzle selector dropdown in SetupPhase
+- Dev-only puzzle generator button and topic input
+- Puzzle display area (scenario, constraints, example format)
+- Puzzle generation endpoint (POST /puzzle/generate)
+- Puzzle list endpoint (GET /puzzles)
+- Puzzle detail endpoints
+- References to "puzzles" throughout the frontend copy
+- The "How It Works" section that says "Choose Puzzle → Answer 13 Prompts → Receive Your Nudge"
+
+
+6. What Stays Unchanged
+
+- The 5 Elements framework and all 13 prompts (from Stockfish v3)
+- The Stockfish coach with per-element conversation history
+- The element_messages table and conversation threading
+- Claude Sonnet 4 model
+- 50-75 word nudge responses
+- 5 nudges per user per session, unlimited for founder
+- Inline element explanations at each prompt
+- Element sidebar with accordion navigation
+- Session completion generating a component
+- Responses table tracking user responses
+- Hints table tracking nudge responses
+- Joules tracking
+- Clerk authentication
+- The overall workspace layout (3-column: sidebar, center content, bottom input)
+
+
+7. API Endpoint Summary After Pivot
+
+Stays (unchanged):
+- POST /session/respond
+- GET /session/{id}/analyze (nudge — prompt content changes, endpoint stays)
+- POST /session/complete (prompt content changes, endpoint stays)
+- POST /session/cancel
+- GET /session/{id}/nudge-limit
+- GET /session/{id}/element-messages
+- GET /user/sessions
+- GET /user/sessions/{id}
+- DELETE /user/sessions/{id}
+- GET /user/stats
+- GET /prompts
+
+Changes:
+- POST /session/start — accepts {problem_description} instead of {puzzle_id}
+
+New:
+- POST /session/{id}/extract-understanding — extracts insight after nudge exchange
+- GET /session/{id}/deep-understanding — returns accumulated insights
+
+Removed:
+- POST /puzzle/generate
+- GET /puzzles
+- GET /puzzles/{id}
+- GET /puzzles/{id}/solution
+- POST /demo/nudge

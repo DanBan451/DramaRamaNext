@@ -120,7 +120,7 @@ export default function SessionDetailPage() {
           <div className="flex flex-col tb:flex-row tb:items-start tb:justify-between gap-4">
             <div>
               <h1 className="font-display text-3xl lp:text-4xl text-black mb-2">
-                {session?.puzzle_title || "Puzzle"}
+                {session?.problem_description ? (session.problem_description.length > 80 ? session.problem_description.slice(0, 80) + "…" : session.problem_description) : "Session"}
                 </h1>
               <div className="flex items-center gap-4 text-sm text-smoke">
                 <span>
@@ -142,9 +142,9 @@ export default function SessionDetailPage() {
             </div>
           </div>
 
-            {session?.puzzle_scenario && (
+            {session?.problem_description && (
               <div className="max-w-md text-sm text-smoke leading-relaxed">
-                {session.puzzle_scenario.slice(0, 120)}{session.puzzle_scenario.length > 120 ? "…" : ""}
+                {session.problem_description}
               </div>
             )}
           </div>

@@ -3,7 +3,7 @@ Repository Ports - Abstract interfaces for data access
 """
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from app.domain.entities import User, Session, Response, Hint, Puzzle, Component, ElementMessage
+from app.domain.entities import User, Session, Response, Hint, Puzzle, Component, ElementMessage, DeepUnderstanding
 
 class UserRepository(ABC):
     @abstractmethod
@@ -20,7 +20,7 @@ class UserRepository(ABC):
 
 class SessionRepository(ABC):
     @abstractmethod
-    async def create(self, user_id: str, puzzle_id: str) -> Session:
+    async def create(self, user_id: str, problem_description: str, puzzle_id: str = None) -> Session:
         pass
     
     @abstractmethod
@@ -121,5 +121,16 @@ class ElementMessageRepository(ABC):
     @abstractmethod
     async def get_latest_user_messages_per_prompt(self, session_id: str) -> dict:
         """Get the most recent user message for each prompt_index. Returns {prompt_index: message_text}."""
+        pass
+
+
+class DeepUnderstandingRepository(ABC):
+    @abstractmethod
+    async def create(self, entry: DeepUnderstanding) -> DeepUnderstanding:
+        pass
+
+    @abstractmethod
+    async def get_by_session_id(self, session_id: str) -> List[DeepUnderstanding]:
+        """Get all deep understanding entries for a session, ordered by created_at."""
         pass
 

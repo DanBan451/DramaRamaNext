@@ -1,0 +1,129 @@
+DramaRama — Initiative Plan: The Real Problem Pivot
+From hypothetical puzzles to real engineering problems with live Deep Understanding
+March 2026
+
+
+1. What DramaRama Is Now
+
+DramaRama is a thinking weapon system for software engineers. An engineer is stuck on a real problem at work. They open DramaRama. They describe the problem. DramaRama turns it into a challenge — a cube to conquer. They attack it with the 5 Elements of Effective Thinking. As they do, a Deep Understanding Document builds in front of them in real time — their structured thinking about their actual problem, growing with every element they apply. They walk away with clarity they didn't have 30 minutes ago and go back to work and act on it.
+
+This is a painkiller, not a vitamin. The user is stuck RIGHT NOW. DramaRama helps them think through it RIGHT NOW. They get unstuck. That is the concrete result in one session.
+
+
+2. What Changed and Why
+
+After showing DramaRama to 10 people (Nick, Rony, Drew, Preston, Jay, Andrew, Michael, Kristian, an Apple Engineer, and K), one pattern was clear: nobody wanted to think through hypothetical puzzles. Every person either wanted concrete solutions to real problems or didn't see why they'd invest effort in a scenario that wasn't theirs.
+
+The core insight: the user doesn't come to DramaRama to face MORE problems. They come because they already HAVE a problem at work and they're stuck. DramaRama becomes the lens they put on — the 5 Elements applied to the real software puzzle they're already facing.
+
+What dies:
+- Pre-generated hypothetical puzzles
+- Puzzle generation (dev-only or otherwise)
+- The puzzle selector dropdown in SetupPhase
+- The puzzles table (repurposed — see technical doc)
+- The Teacher Agent (already removed)
+- The concept of DramaRama as a "mental gym" with training exercises
+
+What lives:
+- The 5 Elements framework and all 13 prompts
+- The Stockfish coach (real-time nudging per element)
+- Per-element conversation history (element_messages)
+- The Joules tracking system
+- Session completion analysis
+- The elements sidebar
+
+What is new:
+- User describes their REAL problem from work
+- The problem is visualized as a cube/challenge
+- A Deep Understanding Document accumulates in real time as the user applies elements
+- Profile page replaces the dashboard
+- Sessions are reframed as "battles" or "challenges"
+
+
+3. The New User Journey
+
+1. Engineer is stuck on a real problem at work. They open DramaRama.
+
+2. They describe their problem in a text input. Example: "I'm trying to refactor an authentication module and AI keeps giving me garbage output that doesn't account for our custom middleware."
+
+3. DramaRama presents it as a challenge — a visual cube representing the problem. The problem description is displayed clearly.
+
+4. The 5 Elements appear as lenses/weapons. The user picks whichever element they want to start with.
+
+5. They write their thinking for that element. Example on Earth 1.0: "The fundamentals are that we have a custom auth middleware that wraps JWT verification with role-based access control. I think the AI is missing context about how our middleware chain works."
+
+6. They can click Get Nudge at any time. The Stockfish coach reads their response, knows which element they're on, and nudges them to think deeper within that element about their REAL problem. The coach evaluates how well they're thinking about using AI to approach their actual problem.
+
+7. As they work through elements, a Deep Understanding Document builds in real time on screen. Every element interaction adds to this document. The user watches their understanding of their own problem grow in front of their eyes. This is the core value — structured, accumulated understanding of the problem they came in with.
+
+8. When they feel done, they complete the session. The final analysis summarizes their deepest understanding and which elements contributed most.
+
+9. The session appears on their Profile as a battle they've faced — a cube they've conquered. Their element usage stats update. Over time, they see patterns in how they think.
+
+
+4. The Deep Understanding Document
+
+This is the core innovation. As the user applies each element, the LLM extracts the key understanding from their interaction and adds it to a living document that's visible on screen.
+
+How it works:
+- After each nudge exchange (user writes + coach responds), the system makes an additional LLM call that reads the full conversation for that element and extracts the key understanding gained
+- This extracted understanding is appended to the Deep Understanding Document for the session
+- The document is organized by element — Earth insights, Fire insights, Air insights, Water insights
+- The user sees it growing in real time on the workspace page
+- By the end of the session, the user has a structured breakdown of their problem that they can take back to work
+
+What makes this different from just chatting with ChatGPT:
+- The 5 Elements force the user to approach the problem from multiple angles they wouldn't naturally consider
+- The structure ensures comprehensive thinking — not just the first approach that comes to mind
+- The accumulated document is organized by thinking type, not just a linear chat log
+- The coach evaluates AI-utilization thinking quality, not just answering questions
+
+
+5. The Profile (Replaces Dashboard)
+
+The current dashboard shows stats cards (streak, joules, sessions, completion %) and recent sessions. This is replaced by a Profile page that is more character-oriented and visually exciting.
+
+The Profile shows:
+- The user's battles — visual representations of the problems they've faced (cubes), each linking to the session detail
+- Element usage — which elements the user relies on most, displayed as strengths
+- Metrics — total sessions, joules, streak — but secondary to the visual identity
+- Over time, this becomes the user's "thinker identity" — how they approach problems
+
+The Profile should look cool. Not a boring dashboard with charts. Something the user is proud of. Something that makes them feel like a thinker.
+
+
+6. What the Coach Does Now
+
+The Stockfish coach behavior is the same as defined in the v3 document with one critical change: the coach is helping the user think through their REAL problem, not a hypothetical puzzle.
+
+The coach:
+- Evaluates how well the user is thinking about using AI to approach their actual problem
+- Only references information the user has provided about their problem — never invents details
+- Guides toward deeper understanding through the element's lens
+- Prioritizes the thinking process over reaching a specific solution (there may not be one "right" answer to a real work problem)
+- Keeps responses to 50-75 words
+- Builds on conversation history within each element
+- Uses Claude Sonnet 4
+
+Key difference: there is no stored "solution" anymore since the user's problem is real and the solution is unknown. The coach's job is purely to help the user develop deeper understanding by applying the elements effectively.
+
+
+7. Puzzle Premise and Element Explanations
+
+Even though the user is now bringing their own problem, the workspace still needs:
+- A premise displayed at the top: "You are applying the 5 Elements of Effective Thinking to develop deeper understanding of your problem. Each element reveals a different aspect of the challenge. The goal is not to solve it immediately — the goal is to see it from every angle."
+- Inline element explanations at each prompt — the user should always know what this element is and what kind of thinking it encourages
+
+
+8. Target Audience
+
+Software engineers who want to get better at thinking with AI in their daily work. Engineers who face real problems, get stuck, and need a structured way to think through them. Engineers who want to see their understanding grow and their thinking improve over time.
+
+The architecture is designed so that expanding to non-engineers later only requires changing the framing and copy — the elements, the coach, the Deep Understanding Document, and the profile all work for any audience.
+
+
+9. What Makes Someone Come Back Tomorrow
+
+They come back because tomorrow they'll have another problem at work. And they'll remember: "Last time I used DramaRama, the Earth lens helped me see the fundamentals I was missing, and I got unstuck in 30 minutes." It becomes a habit. Not because of gamification tricks, but because it actually helps them do their job better every day.
+
+The Deep Understanding Document is the proof. The user walks away with something tangible — a structured breakdown of their problem that they take back to work and act on. That's the concrete result. That's the painkiller.

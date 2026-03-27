@@ -34,7 +34,7 @@ export const Navbar = () => {
   // Auth-only nav items
   const authNavItems = [
     { name: "Workspace", path: "/workspace" },
-    { name: "Dashboard", path: "/dashboard" },
+    { name: "Profile", path: "/dashboard" },
   ];
 
   // Mobile menu items for signed out users
@@ -48,7 +48,7 @@ export const Navbar = () => {
     { name: "Home", path: "/" },
     { name: "Elements", path: "/elements" },
     { name: "Workspace", path: "/workspace" },
-    { name: "Dashboard", path: "/dashboard" },
+    { name: "Profile", path: "/dashboard" },
     { name: "Sessions", path: "/sessions" },
   ];
 

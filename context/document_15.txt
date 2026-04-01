@@ -1,0 +1,544 @@
+DramaRama — Complete Application Restructuring
+From visible 5 Elements workspace to invisible scaffolding chatbot with Deep Understanding
+March 2026
+
+
+========================================
+PART 1: WHAT DRAMARAMA BECOMES
+========================================
+
+DramaRama is a platform that helps anyone develop deeper understanding of the problems they face. The user describes a real problem. A smart chatbot — powered invisibly by the 5 Elements of Effective Thinking — asks questions that drive the user to think deeper. A Deep Understanding Document builds in real time on the left side of the screen as the conversation progresses. The user walks away understanding their problem better than when they arrived.
+
+The 5 Elements are the engine. The user never sees them. They experience the result: deeper understanding.
+
+The website communicates nothing about software engineering specifically. It is domain-agnostic. Anyone can use it. Marketing (outside the website) will target software engineers first, but the product itself serves anyone.
+
+
+========================================
+PART 2: DESIGN LANGUAGE
+========================================
+
+2.1 Overall Aesthetic
+
+The design language is: MATTE PROFESSIONAL FUTURISM.
+
+- Matte, not shiny. Professional, not gaming. If matte were something you could touch and smell, that is the feeling.
+- Dark backgrounds (near-black, deep charcoal) with matte surface textures.
+- Accent colors are muted and purposeful — not neon, not gradient-heavy.
+- Typography is clean, modern, with generous spacing. No playful fonts.
+- Everything hints at depth and intelligence without being flashy.
+- The feeling when you land on the site: "This is serious. This is sophisticated. This is something real."
+
+2.2 Color System
+
+Primary background: #0D0D0D (near black) to #1A1A1A (dark charcoal)
+Secondary background: #242424 (panels, cards)
+Text primary: #F5F5F5 (off-white)
+Text secondary: #888888 (muted gray)
+Text accent: #C0C0C0 (silver)
+
+Element colors (used subtly in the Deep Understanding Document and Framework page — NOT as dominant UI colors):
+- Earth: #8B6F47 (warm brown, matte)
+- Fire: #B84233 (deep muted red)
+- Air: #7A8B99 (steel blue-gray)
+- Water: #3D6B7E (deep teal)
+- Change: #9B8EC4 (muted purple)
+
+Accent highlight: #E8E0D4 (warm off-white, for important text and borders)
+
+No bright colors. No neon. No gradients. Matte and purposeful.
+
+2.3 Typography
+
+Headings: A clean sans-serif (Inter, or similar). Weight 600-700. Generous letter-spacing.
+Body text: Same family, weight 400. Line height 1.7 for readability.
+Monospace (for document content): JetBrains Mono or similar.
+No decorative fonts. No serif. Clean and modern.
+
+2.4 Components
+
+Cards/panels: Subtle border (1px #333333), no shadow or very subtle shadow. Slightly lighter background than the page (#242424 on #0D0D0D).
+Buttons: Matte, solid fill, no gradient. Primary button: off-white text on dark background with border. Hover: subtle brightness increase.
+Inputs/textareas: Dark background (#1A1A1A), light text, thin border. No rounded corners or very subtle (2-4px).
+Spacing: Generous. Let the content breathe. Nothing cramped.
+
+
+========================================
+PART 3: THE THREE PIECES
+========================================
+
+3.1 PIECE 1 — THE WORKSPACE (Main Experience)
+
+This is the core of the app. The user comes here to develop deeper understanding.
+
+Layout: Two-column on desktop. Full width on mobile.
+
+LEFT COLUMN (40% width): Deep Understanding Document
+- Header: "YOUR UNDERSTANDING" in small caps, tracking-widest, muted text
+- Below: modular blocks that accumulate as the conversation progresses
+- Each block is a rectangular element with:
+  - A thin left border in the element color (but NO element name visible to the user)
+  - The insight text in clean monospace font
+  - Blocks stack vertically and connect visually (a thin vertical line connecting them, like a timeline or neural pathway)
+- When a new insight is extracted, it fades in (Framer Motion) and the connecting line extends
+- When empty: "Your understanding will build here as you explore your problem..."
+- This column scrolls independently
+
+RIGHT COLUMN (60% width): The Chatbot
+- Top: The user's problem description displayed in a compact card with the label "YOUR PROBLEM" in small caps
+- Below: A conversation thread — user messages and chatbot messages in a clean chat layout
+  - User messages: right-aligned, dark card with light text
+  - Chatbot messages: left-aligned, slightly lighter card, with a subtle accent border
+  - No emojis, no "COACH" label, no element names visible
+- Bottom (sticky): A text input area with a "Send" button
+  - Placeholder: "What are you thinking about this problem?"
+  - The button text is just "Send" or a send icon — NOT "Get Nudge" or "Build Understanding"
+- The chatbot should feel like a conversation with a very smart colleague, not a coaching interface
+
+How the chatbot works (invisible to user):
+- When the user sends a message, the backend determines which element would best serve the user's current thinking based on what they wrote
+- The LLM uses the 5 Elements invisibly to craft a response that drives deeper understanding
+- After the chatbot responds, a background call extracts the key understanding and adds it to the left column
+- The user never sees element names, prompt names, or anything about the framework
+- The conversation is a single thread — NOT 13 separate element chatbots
+
+This is a MAJOR change from the current architecture: instead of 13 separate prompts with separate conversation histories, there is ONE conversation thread. The backend invisibly decides which element to apply based on the user's message.
+
+Session flow:
+1. User arrives at workspace
+2. If no active session: show a centered input asking "What problem are you facing?" with a large textarea and a "Start" button
+3. User describes their problem and hits Start
+4. Two-column layout appears: empty understanding document on left, chatbot on right
+5. The chatbot sends the first message — a question that begins the exploration (driven by Earth 1.0 invisibly)
+6. User responds. Chatbot responds. Understanding document grows.
+7. This continues as long as the user wants.
+8. User can click "Complete Session" when done. Final analysis is generated and saved.
+
+3.2 PIECE 2 — THE FRAMEWORK PAGE (Replaces Elements Page)
+
+This page is NOT the main experience. It is "under the hood" — for users who are curious about how the chatbot works.
+
+Route: /framework (replaces /elements)
+
+Content:
+- Heading: "How It Works" or "The Framework" — NOT "5 Elements of Effective Thinking" as the title
+- A brief introduction: "DramaRama uses a proven thinking framework to guide your exploration. Here's what's happening under the hood when you use the workspace."
+- Then show the 5 Elements, each as a card with:
+  - A custom icon or geometric symbol (NOT emoji) in the element's matte color
+  - The element name and title
+  - A description of what this thinking lens does
+  - The sub-elements listed
+- At the bottom: "This framework is based on The 5 Elements of Effective Thinking by Edward B. Burger, mathematician and university president." — This is where credibility lives. Not pushed, but discoverable.
+- Design: same dark matte aesthetic as the rest of the site
+
+Element visual representations (replacing emojis):
+- Earth: a geometric hexagon or layered horizontal lines (representing foundation/layers)
+- Fire: an angular upward-pointing shape (representing iteration/spark)
+- Air: a circle or spiral (representing inquiry/openness)
+- Water: flowing parallel lines or a wave form (representing connection/flow)
+- Change: a morphing shape or two overlapping forms (representing transformation)
+
+These geometric icons should be created as SVG components. They are used on the Framework page and subtly as the left-border color indicators on the Deep Understanding Document blocks. The user does NOT see them labeled in the workspace.
+
+3.3 PIECE 3 — THE PROFILE PAGE (Replaces Dashboard)
+
+Route: /profile (replaces /dashboard)
+
+Layout: dark background, centered content.
+
+Top section: User identity
+- User's name (from Clerk) displayed large and centered
+- Below: a one-line "thinker description" generated by the LLM after the user's first completed session. This is NOT a gaming archetype — it is a professional, insightful observation. Example: "You lead with fundamentals and rarely move forward without solid footing." or "You think by trying — your instinct is to test ideas before analyzing them."
+- Below: key stats in a single row, small and secondary — Total Sessions, Total Insights Generated, Current Streak
+
+Middle section: Understanding Map
+- A visual representation of all the modular blocks the user has accumulated across all sessions
+- Each session's blocks are grouped together, labeled with the problem description (truncated)
+- The blocks use the same visual language as the workspace — connected, geometric, matte-colored borders
+- The user can click on a session group to expand and see the full Deep Understanding Document from that session
+- This section should feel like looking at a map of everything you've thought through
+
+Bottom section: Element Distribution (subtle)
+- A simple horizontal bar showing the distribution of which elements the chatbot applied across all sessions
+- NOT labeled as "Earth 47%, Fire 23%" — instead, show the geometric icons with proportional widths
+- This is background information, not the focal point
+- If the user hovers or clicks, they can see more detail and a link to /framework to learn what the elements mean
+
+
+========================================
+PART 4: LANDING PAGE
+========================================
+
+The landing page communicates one message: "Understand your problems deeper."
+
+Hero section:
+- Dark background
+- Large heading: "Understand Deeply." or "See Your Problems Clearly." — something short and powerful
+- Subtitle: "Describe any problem you're facing. Our AI guides you to deeper understanding through proven thinking frameworks."
+- CTA button: "Start Exploring" → links to /workspace
+- Below or beside: a subtle visual showing the before/after — a blurry/unclear shape on the left transforming into a clear, structured, connected geometric form on the right. This represents the lens metaphor: unclear problem → deep understanding.
+
+How It Works section:
+- Three steps, clean and simple:
+  1. "Describe your problem" — icon of a text input
+  2. "Explore through conversation" — icon of chat bubbles
+  3. "Walk away with understanding" — icon of the connected modular blocks
+- No mention of 5 Elements, no mention of software engineering, no mention of AI-utilization
+
+Social proof / credibility section:
+- "Built on a thinking framework developed by Edward B. Burger, mathematician and university president."
+- This is a single line, not a whole section. Understated.
+
+CTA section:
+- "Ready to think deeper?" + button
+
+Footer:
+- Links: Framework, Profile, About
+- Clean, minimal
+
+
+========================================
+PART 5: NAVBAR
+========================================
+
+Links (signed out): Home (/), Framework (/framework)
+Links (signed in): Home (/), Workspace (/workspace), Profile (/profile), Framework (/framework)
+
+Styling: Dark background matching the site. No bright colors. Clean sans-serif. Active page indicator is a subtle underline or opacity change.
+
+Remove: "Elements" link, "Dashboard" link, "Sessions" link (sessions are accessed through the Profile page)
+
+
+========================================
+PART 6: DATABASE CHANGES
+========================================
+
+6.1 Sessions table changes:
+- Add: problem_description (TEXT) — the user's description of their real problem
+- Add: thinker_description (TEXT, nullable) — generated on first session completion
+- Make puzzle_id nullable (for backward compatibility)
+
+6.2 New table: deep_understanding
+- id: UUID (PK)
+- session_id: UUID (FK → sessions, cascade delete)
+- element: VARCHAR(50) — which element was invisibly applied (earth/fire/air/water/change)
+- insight_text: TEXT — the extracted understanding
+- created_at: TIMESTAMPTZ
+
+6.3 Modify element_messages table:
+- This table currently stores per-element conversations (prompt_index 0-12). 
+- The new model has ONE conversation thread, not 13 separate ones.
+- Change: prompt_index is no longer needed for the conversation itself, but we still want to track which element was invisibly applied.
+- Rename prompt_index to element_applied (VARCHAR(50), nullable) — records which element the backend chose for this exchange
+- OR: simply stop using prompt_index and add element_applied as a new column. Keep prompt_index for backward compatibility.
+
+6.4 Remove or deprecate:
+- responses table — no longer used (user responses are in element_messages as part of the conversation thread)
+- puzzles table — keep for backward compatibility but no longer create new records
+- components table — keep, session completion still generates a component
+- hints table — no longer used (chatbot responses are in element_messages)
+
+6.5 SQL Migration:
+
+ALTER TABLE sessions ADD COLUMN problem_description TEXT;
+ALTER TABLE sessions ADD COLUMN thinker_description TEXT;
+ALTER TABLE sessions ALTER COLUMN puzzle_id DROP NOT NULL;
+
+ALTER TABLE element_messages ADD COLUMN element_applied VARCHAR(50);
+
+CREATE TABLE IF NOT EXISTS deep_understanding (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+  element VARCHAR(50) NOT NULL,
+  insight_text TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_deep_understanding_session_id ON deep_understanding(session_id);
+
+
+========================================
+PART 7: BACKEND CHANGES
+========================================
+
+7.1 NEW: Element Selection Logic
+
+This is the core new piece. When the user sends a message, the backend must decide which element to invisibly apply. 
+
+Create a new function: select_element(problem_description, conversation_history, user_message) -> str
+
+This function makes a Claude call:
+
+---
+You are an expert in the 5 Elements of Effective Thinking. Given a user's problem and their conversation so far, determine which element would best serve the user's thinking RIGHT NOW.
+
+The elements are:
+- earth: The user needs to ground their understanding. They're missing fundamentals, haven't simplified the problem, or need to add specificity.
+- fire: The user needs to try something and fail. They're stuck, overthinking, or afraid to attempt an approach.
+- air: The user needs to question their assumptions. They may be solving the wrong problem or missing a fundamental question.
+- water: The user needs to see connections and flow. They should map out all approaches, embrace doubt, or follow their best idea further.
+- change: The user has gone through significant thinking and needs to reflect on how their understanding has shifted.
+
+The user's problem: {problem_description}
+Conversation so far: {conversation_history}
+User's latest message: {user_message}
+
+Respond with ONLY the element name in lowercase (earth, fire, air, water, or change). Nothing else.
+---
+
+This call is fast (short response) and determines the lens for the chatbot's response.
+
+7.2 REWRITE: Chatbot Response Endpoint
+
+Replace the current GET /session/{id}/analyze endpoint with a new POST /session/{id}/chat endpoint.
+
+Flow:
+1. Receive user_message from frontend
+2. Save user_message as element_messages row with role="user"
+3. Call select_element() to determine which element to apply
+4. Build the chatbot prompt using the selected element's definition and coaching guidance
+5. Stream the response via SSE
+6. Save the completed response as element_messages row with role="assistant" and element_applied={selected element}
+7. After response completes, call extract_understanding() in background
+8. Save extracted insight to deep_understanding table
+9. Return the insight to the frontend so it can update the left column
+
+Chatbot prompt:
+
+---
+You are a thinking guide helping someone develop deeper understanding of a problem they're facing. You ask smart, probing questions and make observations that help them see their problem from new angles. You never give them the answer — you help them discover it.
+
+You are invisibly applying the element of {ELEMENT}: {element definition and coaching guidance}
+
+But you NEVER mention this element by name. You never say "let's think about the fundamentals" if that sounds like you're following a script. Instead, naturally ask questions or make observations that embody this element's thinking lens.
+
+The user's problem: {problem_description}
+Conversation so far: {full conversation history}
+User's latest message: {user_message}
+
+Rules:
+1. NEVER mention the 5 Elements, element names, or any framework terminology. The user should not know you're using a framework.
+2. Ask ONE focused question or make ONE sharp observation. Not both. Not multiple.
+3. Only reference information the user has provided. Never invent details.
+4. Keep your response to 40-60 words. Two sentences maximum. Be direct.
+5. Sound like a smart colleague thinking alongside them, not a coach or teacher.
+6. Do not use markdown formatting.
+---
+
+7.3 REWRITE: Session Start
+
+POST /session/start accepts { problem_description }
+Creates session with problem_description.
+Returns { session_id, problem_description }
+
+After session is created, the backend also generates the FIRST chatbot message — the opening question. This uses Earth 1.0 invisibly: "What do you understand about this problem so far, and where are you stuck?" (but phrased naturally by the LLM, not hardcoded).
+
+7.4 KEEP: Session Complete
+
+POST /session/complete stays. 
+On first completed session, also generate thinker_description via a Claude call:
+
+---
+Based on this user's conversation about their problem, write a one-sentence professional observation about how they think. Not a gaming archetype. A genuine insight. Examples: "You lead with fundamentals and rarely move forward without solid footing." or "You think by trying — your instinct is to test ideas before analyzing them." Keep it under 15 words.
+---
+
+Save to sessions.thinker_description and return it.
+
+7.5 KEEP: Extract Understanding
+
+POST /session/{id}/extract-understanding stays but simplified:
+- No longer needs prompt_index
+- Takes element (the invisibly selected element) and extracts understanding from the latest exchange
+
+7.6 KEEP: Get Deep Understanding
+
+GET /session/{id}/deep-understanding stays as-is.
+
+7.7 REMOVE: These endpoints
+
+- GET /session/{id}/analyze (replaced by POST /session/{id}/chat)
+- POST /session/respond (no longer needed — responses go through /chat)
+- GET /prompts (no more visible prompts)
+- POST /puzzle/generate
+- GET /puzzles
+- GET /puzzles/{id}
+- GET /puzzles/{id}/solution
+- POST /demo/nudge
+- GET /session/{id}/nudge-limit (no more nudge limits — it's a conversation now)
+
+7.8 UPDATE: Model
+
+Keep Claude Sonnet 4 (claude-sonnet-4-20250514).
+Reduce max_tokens for chatbot responses to 150 (targeting 40-60 words).
+Element selection call: max_tokens 10.
+Understanding extraction: max_tokens 200.
+
+7.9 UPDATE: Element Definitions
+
+Keep the full element definitions from Stockfish v3 document (Section 3) with all sub-elements and coaching guidance. These are used by the select_element function and the chatbot prompt. The user never sees them.
+
+
+========================================
+PART 8: FRONTEND CHANGES — DETAILED
+========================================
+
+8.1 REWRITE: Workspace Page (frontend/app/workspace/page.jsx)
+
+This is a complete rewrite. The current 1258-line page with SetupPhase, WorkingPhase, ElementsSidebar, 13 prompt dots, nudge button, etc. is replaced entirely.
+
+New structure:
+
+Phase 1 — Setup:
+- Centered on page, dark background
+- Heading: "What problem are you facing?"
+- Large textarea (8 rows, dark bg, light text, thin border)
+- Placeholder: "Describe the problem you want to understand more deeply..."
+- "Start" button below
+- On submit: POST /session/start → transition to Phase 2
+
+Phase 2 — Working:
+- Two-column layout, full viewport height
+- Left column (40%): Deep Understanding Document
+  - "YOUR UNDERSTANDING" header
+  - Vertically stacked insight blocks connected by a thin line
+  - Each block: thin left border in element color (no label), insight text
+  - New blocks fade in with Framer Motion
+  - Scrolls independently
+- Right column (60%): Chatbot
+  - Top: problem description in a compact dark card
+  - Middle: scrollable conversation thread
+  - Bottom (sticky): textarea + send button
+  - When user sends: POST /session/{id}/chat
+  - Response streams in via SSE
+  - After stream completes, insight appears on left
+- Top right: "Complete Session" button (small, secondary)
+
+8.2 REMOVE: ElementsSidebar component
+
+Delete entirely. No more element sidebar.
+
+8.3 REMOVE: Prompt dots, Prev/Next navigation, nudge button, nudge limit display
+
+All gone. The workspace is a chatbot, not a 13-step form.
+
+8.4 REWRITE: Landing Page (frontend/app/page.jsx)
+
+Complete rewrite with new design language.
+
+Dark background throughout. Matte. Professional.
+
+Hero:
+- Large heading: "Understand Deeply." (or similar — short, powerful)
+- Subtitle: one sentence about describing problems and gaining understanding
+- CTA: "Start Exploring →"
+- Visual: abstract geometric transformation (blurry → clear/connected)
+
+How It Works:
+- Three steps, clean icons, minimal text
+- No mention of elements, AI-utilization, or software engineering
+
+Credibility line:
+- "Built on a proven thinking framework by Edward B. Burger, mathematician and university president."
+
+Final CTA:
+- "Ready to think deeper?"
+
+Footer: Framework, Profile, About
+
+8.5 REWRITE: Elements → Framework Page (frontend/app/elements/ → frontend/app/framework/)
+
+New route: /framework
+Delete old /elements route or redirect to /framework.
+
+Content:
+- "How It Works" heading
+- Brief intro paragraph
+- 5 element cards with geometric SVG icons (not emojis), element colors, descriptions
+- Credibility section at bottom
+- Dark matte design
+
+8.6 REWRITE: Dashboard → Profile Page (frontend/app/dashboard/ → frontend/app/profile/)
+
+New route: /profile
+Delete old /dashboard route or redirect to /profile.
+
+Content:
+- User name (large, centered)
+- Thinker description (one line, generated)
+- Stats row (small): Sessions, Insights, Streak
+- Understanding Map: grouped session blocks with problem descriptions
+- Element distribution bar (geometric icons, proportional widths)
+- Dark matte design
+
+8.7 UPDATE: Navbar
+
+- Remove: Elements link, Dashboard link, Sessions link
+- Add: Framework link, Profile link
+- Styling: dark background, clean sans-serif, matte
+
+8.8 UPDATE: Sessions pages
+
+/sessions route can remain for accessing session history, but it should be accessible from the Profile page, not the navbar.
+/sessions/[id] detail page stays but should be updated to show the conversation thread and Deep Understanding Document for that session, not the old 13-prompt format.
+
+8.9 REMOVE: Dead code
+
+After all changes, remove:
+- ElementsSidebar component and all references
+- All prompt-related code (prompt dots, prompt navigation, prompt fetching)
+- All nudge-related code (nudge button, nudge limit, nudge loading states)
+- All puzzle-related code (puzzle selector, puzzle preview, puzzle generation UI)
+- Old dashboard components
+- Any references to "elements" as user-facing labels
+- The GET /prompts fetch call
+- The puzzle fetch calls
+- The nudge limit fetch call
+- ConfettiOverlay if not used in new design (or keep for session completion)
+
+
+========================================
+PART 9: WHAT STAYS UNCHANGED
+========================================
+
+- Clerk authentication (login, JWT, user management)
+- Supabase as database
+- FastAPI backend with hexagonal architecture (ports, adapters, domain)
+- Claude Sonnet 4 as the LLM
+- Next.js 14 frontend
+- The 5 Elements definitions in services.py (used invisibly by backend)
+- The components table and session completion component generation
+- The deep_understanding table and extract-understanding flow
+- NextUI library
+- Framer Motion for animations
+- The API proxy at /api/backend-api/
+
+
+========================================
+PART 10: FILE CLEANUP
+========================================
+
+Frontend files to modify:
+- frontend/app/workspace/page.jsx → complete rewrite
+- frontend/app/page.jsx → complete rewrite (landing page)
+- frontend/app/dashboard/ → rename to frontend/app/profile/ or rewrite in place
+- frontend/app/elements/ → rename to frontend/app/framework/ or rewrite in place
+- frontend/components/navbar.jsx → update links and styling
+- frontend/app/sessions/[id]/page.jsx → update to show conversation + understanding doc
+- frontend/styles/globals.css → update color variables to match new design language
+
+Frontend files/components to remove or deprecate:
+- ElementsSidebar (if it's a separate component)
+- Any puzzle-related components
+- Any prompt-related components
+
+Backend files to modify:
+- backend/app/api/routes.py → remove old endpoints, add POST /chat
+- backend/app/domain/services.py → add select_element(), rewrite chatbot prompt, keep element definitions
+- backend/app/domain/entities.py → update Session entity (add problem_description, thinker_description), simplify
+- backend/app/adapters/supabase_adapter.py → update session adapter, add any new adapters
+- backend/app/adapters/claude_adapter.py → keep model as Sonnet 4, update prompt construction
+
+Backend files to keep unchanged:
+- backend/app/core/config.py
+- backend/app/core/security.py
+- backend/app/ports/ (interfaces stay, implementations change)

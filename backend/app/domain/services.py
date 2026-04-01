@@ -73,6 +73,170 @@ def assess_response_quality(text: str) -> Dict:
 # Based on Edward Burger's "The 5 Elements of Effective Thinking" — AI-utilization
 # ============================================================================
 
+def build_select_element_prompt(
+    problem_description: str,
+    conversation_history: list,
+    user_message: str,
+) -> str:
+    """
+    Build the prompt for Claude to select which element to invisibly apply.
+    Returns a prompt that asks for ONLY the element name.
+    """
+    # Format conversation history
+    history_text = ""
+    if conversation_history:
+        for msg in conversation_history:
+            role_label = "User" if msg.get("role") == "user" else "Assistant"
+            history_text += f"{role_label}: {msg.get('message_text', '')}\n"
+    else:
+        history_text = "(No prior conversation yet)"
+
+    return f"""You are an expert in the 5 Elements of Effective Thinking. Given a user's problem and their conversation so far, determine which element would best serve the user's thinking RIGHT NOW.
+
+The elements are:
+- earth: The user needs to ground their understanding. They're missing fundamentals, haven't simplified the problem, or need to add specificity.
+- fire: The user needs to try something and fail. They're stuck, overthinking, or afraid to attempt an approach.
+- air: The user needs to question their assumptions. They may be solving the wrong problem or missing a fundamental question.
+- water: The user needs to see connections and flow. They should map out all approaches, embrace doubt, or follow their best idea further.
+- change: The user has gone through significant thinking and needs to reflect on how their understanding has shifted.
+
+The user's problem: {problem_description}
+Conversation so far: {history_text}
+User's latest message: {user_message}
+
+Respond with ONLY the element name in lowercase (earth, fire, air, water, or change). Nothing else."""
+
+
+def build_chatbot_prompt(
+    problem_description: str,
+    element: str,
+    conversation_history: list,
+    user_message: str,
+) -> str:
+    """
+    Build the chatbot prompt using the selected element's definition invisibly.
+    The chatbot NEVER mentions elements by name.
+    """
+    from app.domain.entities import Element
+    
+    # Get element definition
+    element_enum = Element(element) if element in [e.value for e in Element] else Element.EARTH
+    element_def = ELEMENT_DEFINITIONS.get(element_enum, ELEMENT_DEFINITIONS[Element.EARTH])
+    
+    # Build element guidance from definition
+    element_guidance = f"{element_def.get('core_principle', '')}\n\nSub-elements:\n"
+    for sub_key, sub_def in element_def.get('sub_elements', {}).items():
+        element_guidance += f"- {sub_def.get('name', '')}: {sub_def.get('description', '')}\n"
+        element_guidance += f"  Coaching: {sub_def.get('coaching_guidance', '')}\n"
+
+    # Format conversation history
+    history_text = ""
+    if conversation_history:
+        for msg in conversation_history:
+            role_label = "User" if msg.get("role") == "user" else "Assistant"
+            history_text += f"{role_label}: {msg.get('message_text', '')}\n"
+    else:
+        history_text = "(This is the start of the conversation)"
+
+    return f"""You are a thinking guide helping someone develop deeper understanding of a problem they're facing. You ask smart, probing questions and make observations that help them see their problem from new angles. You never give them the answer — you help them discover it.
+
+You are invisibly applying the element of {element.upper()}: {element_guidance}
+
+But you NEVER mention this element by name. You never say "let's think about the fundamentals" if that sounds like you're following a script. Instead, naturally ask questions or make observations that embody this element's thinking lens.
+
+The user's problem: {problem_description}
+Conversation so far: {history_text}
+User's latest message: {user_message}
+
+Rules:
+1. NEVER mention the 5 Elements, element names, or any framework terminology. The user should not know you're using a framework.
+2. Ask ONE focused question or make ONE sharp observation. Not both. Not multiple.
+3. Only reference information the user has provided. Never invent details.
+4. Keep your response to 40-60 words. Two sentences maximum. Be direct.
+5. Sound like a smart colleague thinking alongside them, not a coach or teacher.
+6. Do not use markdown formatting."""
+
+
+def build_opening_question_prompt(problem_description: str) -> str:
+    """
+    Build the prompt for generating the first chatbot message (opening question).
+    Uses Earth 1.0 invisibly: grounding the user in what they understand.
+    """
+    return f"""You are a thinking guide helping someone develop deeper understanding of a problem they're facing. They just described their problem to you. Your job is to ask the first question that begins their exploration.
+
+The user's problem: {problem_description}
+
+You are invisibly applying Earth (grounding/fundamentals): Help them articulate what they currently understand about this problem and where they feel stuck.
+
+Rules:
+1. NEVER mention frameworks, elements, or methodology. Just ask a natural question.
+2. Ask ONE focused question that helps them articulate their current understanding.
+3. Keep it to 20-40 words. One or two sentences maximum.
+4. Sound like a smart colleague, not a coach or teacher.
+5. Do not use markdown formatting.
+6. Do not say "I see" or "That's interesting" — just ask the question."""
+
+
+def build_extract_insight_prompt(
+    problem_description: str,
+    element: str,
+    user_message: str,
+    assistant_message: str,
+) -> str:
+    """
+    Build the prompt for extracting a single insight from a chat exchange.
+    Returns a concise insight for the Deep Understanding Document.
+    """
+    return f"""Extract the key insight from this exchange about the user's problem.
+
+Problem: {problem_description}
+Element applied (invisibly): {element}
+User said: {user_message}
+Assistant responded: {assistant_message}
+
+Write ONE concise insight (1-2 sentences, under 30 words) that captures what the user now understands or should understand about their problem. Focus on the substance, not the process.
+
+If no meaningful insight emerged, respond with: NO_INSIGHT
+
+Rules:
+- Be specific to their actual problem
+- Don't mention the element or framework
+- Write in third person ("The core issue is..." not "You realized...")
+- Plain text, no formatting"""
+
+
+def build_thinker_description_prompt(conversation_history: list) -> str:
+    """
+    Build the prompt for generating a thinker_description after first completed session.
+    Returns a one-sentence professional observation about how the user thinks.
+    """
+    # Format conversation
+    convo_text = ""
+    for msg in conversation_history:
+        role = "User" if msg.get("role") == "user" else "Guide"
+        convo_text += f"{role}: {msg.get('message_text', '')}\n"
+
+    return f"""Based on this user's conversation about their problem, write a one-sentence professional observation about how they think. Not a gaming archetype. A genuine insight.
+
+Conversation:
+{convo_text}
+
+Examples of good thinker descriptions:
+- "You lead with fundamentals and rarely move forward without solid footing."
+- "You think by trying — your instinct is to test ideas before analyzing them."
+- "You naturally question assumptions before accepting any framing."
+- "You see connections others miss, linking ideas across domains."
+
+Rules:
+- One sentence only
+- Under 15 words
+- Professional tone, not playful
+- Based on actual patterns in their responses
+- No element names or framework terminology
+
+Write ONLY the one-sentence description, nothing else."""
+
+
 ELEMENT_DEFINITIONS = {
     Element.EARTH: {
         "name": "Deep Understanding",
@@ -682,9 +846,10 @@ def build_extract_understanding_prompt(
     element: str,
     prompt_index: int,
     conversation_history: List[ElementMessage],
+    existing_document: str = "",
 ) -> str:
     """
-    Build the prompt for Claude to extract key understanding from a nudge exchange.
+    Build the prompt for Claude to update the unified understanding document based on a nudge exchange.
     """
     element_enum = Element(element) if element in [e.value for e in Element] else Element.EARTH
     element_def = ELEMENT_DEFINITIONS.get(element_enum, {})
@@ -696,13 +861,81 @@ def build_extract_understanding_prompt(
         role_label = "User" if msg.role == "user" else "Coach"
         conversation_text += f"{role_label}: {msg.message_text}\n\n"
 
-    return f"""The user is working through a real software problem using the 5 Elements of Effective Thinking. They just had an exchange on {element_name}. Read their conversation below and extract the KEY UNDERSTANDING they developed about their problem during this exchange.
+    if existing_document:
+        return f"""You are helping a user build a unified understanding document about their software problem. They just had a coaching exchange using the {element_name} element. Your job is to UPDATE their existing document with any new insights from this exchange.
 
-The user's problem: {problem_description}
-Element: {element_name} — {element_def.get('core_principle', '')}
-Conversation:
+PROBLEM: {problem_description}
+
+CURRENT DOCUMENT:
+{existing_document}
+
+LATEST EXCHANGE ({element_name} — {element_def.get('core_principle', '')}):
 {conversation_text}
 
-Write 1-2 sentences capturing the specific insight or understanding the user gained. Focus on what they now understand about their problem that they didn't before. If the exchange didn't produce meaningful new understanding, write "No new understanding extracted from this exchange."
+INSTRUCTIONS:
+1. Read the existing document carefully
+2. Identify any NEW understanding from the latest exchange
+3. Return the COMPLETE UPDATED document that integrates the new insights
+4. Weave new insights naturally into the existing text - don't just append
+5. Keep the document cohesive and well-structured
+6. Use plain text with clear paragraph breaks
+7. If no meaningful new understanding was gained, return the existing document unchanged
 
-Do not use markdown. Plain text only. Be specific to their actual problem."""
+Return ONLY the updated document text. No explanations or meta-commentary."""
+    else:
+        return f"""You are helping a user build a unified understanding document about their software problem. They just had their first coaching exchange using the {element_name} element. Create the initial document.
+
+PROBLEM: {problem_description}
+
+EXCHANGE ({element_name} — {element_def.get('core_principle', '')}):
+{conversation_text}
+
+INSTRUCTIONS:
+1. Create a clear, well-structured document capturing their understanding
+2. Focus on what they now understand about their problem
+3. Use plain text with clear paragraph breaks
+4. Be specific to their actual problem
+5. If no meaningful understanding was gained, write a brief placeholder noting they're just getting started
+
+Return ONLY the document text. No explanations or meta-commentary."""
+
+
+def build_cube_properties_prompt(problem_description: str) -> str:
+    """
+    Build the prompt for Claude to generate visual cube properties based on the problem description.
+    """
+    return f"""Analyze this software engineering problem and generate visual properties for a 3D cube that represents it.
+
+Problem: {problem_description}
+
+Generate a JSON object with these properties:
+- primary_color: A hex color (e.g., "#4A90D9") that represents the essence of this problem. Choose colors that feel appropriate to the domain (e.g., blue for data/infrastructure, red for urgent/performance, green for growth/scaling, purple for complex/architectural).
+- secondary_color: A complementary hex color for accents.
+- complexity: An integer 1-5 representing how multifaceted this problem is (1=simple, 5=very complex).
+- label: A 2-word label that captures the core challenge (e.g., "Data Flow", "Scale Limit", "Auth Maze", "API Debt").
+
+Output ONLY the JSON object. No markdown fences. No explanation."""
+
+
+def build_archetype_prompt(element_breakdown: dict) -> str:
+    """
+    Build the prompt for Claude to generate a user's thinker archetype based on their element usage patterns.
+    """
+    # Sort elements by usage
+    sorted_elements = sorted(element_breakdown.items(), key=lambda x: x[1], reverse=True)
+    strongest = sorted_elements[0][0] if sorted_elements else "earth"
+    
+    breakdown_text = "\n".join([f"- {el.upper()}: {count} words" for el, count in sorted_elements])
+    
+    return f"""Based on this user's thinking patterns across the 5 Elements of Effective Thinking, generate a thinker archetype for them.
+
+Element usage (words written per element):
+{breakdown_text}
+
+Their strongest element is {strongest.upper()}.
+
+Generate a JSON object with:
+- archetype_name: A 2-3 word title that captures their thinking style (e.g., "The Groundkeeper" for earth-dominant, "The Questioner" for air-dominant, "The Experimenter" for fire-dominant, "The Explorer" for water-dominant, "The Transformer" for change-dominant). Be creative but meaningful.
+- archetype_description: One sentence (max 20 words) describing how this person approaches problems based on their element strengths.
+
+Output ONLY the JSON object. No markdown fences. No explanation."""

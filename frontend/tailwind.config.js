@@ -15,19 +15,29 @@ module.exports = {
         dp: "1280px",
       },
       colors: {
-        earth: '#2d5016',
-        fire: '#dc2626',
-        air: '#0ea5e9',
-        water: '#1e40af',
-        change: '#7c3aed',
-        void: '#000000',
-        clarity: '#ffffff',
-        ash: '#374151',
-        smoke: '#6b7280',
-        mist: '#e5e7eb',
+        // Light matte professional palette
+        // Element colors (original brighter versions)
+        earth: '#4A7C59',
+        fire: '#E85D04',
+        air: '#7B9EA8',
+        water: '#3D5A80',
+        change: '#9B5DE5',
+        // Primary action color - deep bloody red
+        primary: '#8B0000',
+        // UI colors
+        void: '#1A1A1A',
+        clarity: '#FFFFFF',
+        ash: '#333333',
+        smoke: '#666666',
+        mist: '#F5F5F5',
+        // Accent colors
+        accent: {
+          red: '#E85D04',
+          blue: '#3D5A80',
+        },
       },
       fontFamily: {
-        display: ['Instrument Serif', 'Georgia', 'serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
       animation: {
@@ -35,6 +45,9 @@ module.exports = {
         'fade-in': 'fadeIn 0.6s ease-out forwards',
         'pulse-subtle': 'pulse-subtle 3s ease-in-out infinite',
         'float': 'float 4s ease-in-out infinite',
+      },
+      borderRadius: {
+        'subtle': '2px',
       },
     },
   },

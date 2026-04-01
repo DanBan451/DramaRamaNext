@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # Anthropic
     ANTHROPIC_API_KEY: str = ""
     
+    # OpenAI
+    OPENAI_API_KEY: str = ""
+    
     # Frontend
     FRONTEND_URL: str = "http://localhost:3000"
     

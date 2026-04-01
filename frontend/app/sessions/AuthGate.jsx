@@ -3,6 +3,7 @@
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import Spinner from "@/components/Spinner";
 
 export function AuthGate({ children }) {
   const { isLoaded, isSignedIn } = useAuth();
@@ -16,8 +17,8 @@ export function AuthGate({ children }) {
     return (
       <div className="min-h-screen bg-white pt-24 pb-16 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin text-4xl mb-4">🎭</div>
-          <p className="text-smoke">Loading...</p>
+          <Spinner size="lg" color="black" />
+          <p className="text-smoke mt-4">Loading...</p>
         </div>
       </div>
     );

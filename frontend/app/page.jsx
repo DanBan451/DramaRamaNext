@@ -1,67 +1,20 @@
 "use client";
 
 import React, { useRef } from "react";
-import Image from "next/image";
 import { Button } from "@nextui-org/button";
 import Link from "next/link";
-import { motion, useScroll, useTransform } from "framer-motion";
+import Image from "next/image";
 import { SignedIn, SignedOut } from "@clerk/nextjs";
+import { motion, useScroll, useTransform } from "framer-motion";
 import Footer from "@/components/Footer";
 
-// Element data
+// Element data for framework preview
 const elements = [
-  {
-    id: "earth",
-    emoji: "🌳",
-    name: "Earth",
-    title: "Deep Understanding",
-    description: "Master the basics. Start with the simple. Spotlight the specific. Add the adjective.",
-    color: "earth",
-    subElements: ["Start with Simple", "Spotlight Specific", "Add the Adjective"],
-  },
-  {
-    id: "fire",
-    emoji: "🔥",
-    name: "Fire",
-    title: "Embrace Failure",
-    description: "Fail fast, fail again, fail intentionally. Each failed attempt is a precious joule of insight.",
-    color: "fire",
-    subElements: ["Fail Fast", "Fail Again", "Fail Intentionally"],
-  },
-  {
-    id: "air",
-    emoji: "💨",
-    name: "Air",
-    title: "Create Questions",
-    description: "Be your own Socrates. Ask basic questions. Ask another question. Never stop questioning.",
-    color: "air",
-    subElements: ["Be Your Own Socrates", "Ask Basic Questions", "Ask Another Question"],
-  },
-  {
-    id: "water",
-    emoji: "🌊",
-    name: "Water",
-    title: "Flow of Ideas",
-    description: "Run down all paths. Embrace doubt. Never stop. See how ideas connect and evolve.",
-    color: "water",
-    subElements: ["Run Down All Paths", "Embrace Doubt", "Never Stop"],
-  },
-  {
-    id: "change",
-    emoji: "🪨",
-    name: "Change",
-    title: "The Quintessential",
-    description: "When you apply all elements, change becomes inevitable. You transform.",
-    color: "change",
-    subElements: ["Transform Thinking", "See Structure", "Become Better"],
-  },
-];
-
-// Mock session data for preview
-const recentSessions = [
-  { id: 1, title: "Legacy API migration blocking 3 teams", element: "earth", progress: 100, date: "Today" },
-  { id: 2, title: "ML model accuracy plateaued at 82%", element: "fire", progress: 75, date: "Yesterday" },
-  { id: 3, title: "CI pipeline takes 45 min per deploy", element: "air", progress: 50, date: "2 days ago" },
+  { name: "Earth", emoji: "🌳", desc: "Ground your understanding" },
+  { name: "Fire", emoji: "🔥", desc: "Try and fail forward" },
+  { name: "Air", emoji: "💨", desc: "Question assumptions" },
+  { name: "Water", emoji: "🌊", desc: "See connections flow" },
+  { name: "Change", emoji: "🪨", desc: "Reflect on transformation" },
 ];
 
 export default function Home() {
@@ -78,7 +31,7 @@ export default function Home() {
 
   return (
     <div className="bg-white">
-      {/* Hero Section - EXACT ORIGINAL DESIGN with Scroll Animation */}
+      {/* Hero Section with Original Design */}
       <section ref={heroRef} className="relative h-screen overflow-hidden">
         {/* Background Image */}
         <div
@@ -86,10 +39,10 @@ export default function Home() {
           style={{ backgroundImage: "url('/images/header.png')" }}
         />
 
-        {/* LEFT: B&W Mask - EXACT ORIGINAL: inset-0 w-1/3 lp:w-1/4 */}
+        {/* LEFT: B&W Mask */}
         <div className="absolute inset-0 w-1/3 lp:w-1/4 h-full backdrop-brightness-100 backdrop-saturate-0" />
 
-        {/* RIGHT: Bright Mask - EXACT ORIGINAL: inset-y-0 right-0 w-2/3 lp:w-3/4 */}
+        {/* RIGHT: Bright Mask */}
         <div className="absolute inset-y-0 right-0 w-2/3 lp:w-3/4 h-full backdrop-brightness-150" />
 
         {/* White overlay that fades in as you scroll */}
@@ -98,50 +51,47 @@ export default function Home() {
           style={{ opacity: whiteOverlayOpacity }}
         />
 
-        {/* Hero Content - positioned after the B&W section like original */}
+        {/* Hero Content */}
         <motion.div
           className="relative z-20 h-full flex flex-col justify-end pb-16 lp:pb-20"
           style={{ opacity: contentOpacity, y: contentY }}
         >
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            {/* Content positioned after the B&W section - matching original lp:left-1/4 lp:ml-10 */}
             <div className="lp:absolute lp:bottom-20 lp:left-1/4 lp:ml-10 mr-3 max-w-none">
               <h1 className="font-display text-3xl tb:text-5xl lp:text-6xl text-black mb-4 lp:mb-6 lp:max-w-[1000px] drop-shadow-sm">
-                Train Your Mind.
-                <br />
-                <span className="italic">Master AI.</span>
+                Understand Deeply.
               </h1>
               <p className="text-lg tb:text-xl lp:text-2xl text-black/80 lp:max-w-[800px] mb-6 lp:mb-8">
-                DramaRama is your mental gym for AI-utilization thinking. Describe a real problem,
-                apply the 5 Elements, and build deep understanding.
+                Describe any problem you're facing. Our AI guides you to deeper 
+                understanding through proven thinking frameworks.
               </p>
               <div className="flex flex-col tb:flex-row gap-4">
                 <SignedIn>
-                  <Link href="/dashboard">
+                  <Link href="/workspace">
                     <Button 
-                      className="bg-fire hover:bg-fire/90 text-white w-full tb:w-[220px] h-[64px] text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                      className="bg-primary hover:bg-primary/90 text-white w-full tb:w-[220px] h-[64px] text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                       radius="none"
                     >
-                      Start Training
+                      Start Exploring
                     </Button>
                   </Link>
                 </SignedIn>
                 <SignedOut>
                   <Link href="/login">
                     <Button 
-                      className="bg-fire hover:bg-fire/90 text-white w-full tb:w-[220px] h-[64px] text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                      className="bg-primary hover:bg-primary/90 text-white w-full tb:w-[220px] h-[64px] text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                       radius="none"
                     >
-                      Start Training
+                      Start Exploring
                     </Button>
                   </Link>
                 </SignedOut>
-                <Link href="/elements">
+                <Link href="/framework">
                   <Button 
-                    className="bg-transparent border-2 border-black text-black hover:bg-black hover:text-white w-full tb:w-[220px] h-[64px] text-lg font-semibold hover:scale-105 transition-all"
+                    className="bg-transparent border border-smoke text-black hover:bg-mist w-full tb:w-[220px] h-[64px] text-lg font-semibold hover:scale-105 transition-all"
                     radius="none"
                   >
-                    Learn the Elements
+                    Learn the Framework
                   </Button>
                 </Link>
               </div>
@@ -164,359 +114,127 @@ export default function Home() {
       {/* Section Divider */}
       <div className="section-divider" />
 
-      {/* The Philosophy Section */}
+      {/* How It Works Section */}
       <section className="py-24 px-6 bg-white">
         <div className="max-w-[1536px] mx-auto">
-          <div className="grid lp:grid-cols-2 gap-16 items-center">
-            <div>
-              <span className="text-sm font-mono text-smoke uppercase tracking-widest mb-4 block">
-                The Philosophy
-              </span>
-              <h2 className="font-display text-4xl lp:text-5xl text-black mb-6">
-                Stop solving.
-                <br />
-                <span className="italic">Start thinking.</span>
-              </h2>
-              <p className="text-lg text-ash mb-6">
-                Most AI tools reward getting things done fast. But that's not
-                what matters. What matters is whether you're thinking deeply—applying
-                creative reasoning, reflecting honestly, and building mental muscles.
-              </p>
-              <p className="text-lg text-ash mb-8">
-                DramaRama tracks how you <em>think</em>, not just what you produce. Describe a real
-                problem you're facing, then work through 13 prompts across the 5 Elements—training
-                your mind to see challenges as opportunities for deeper understanding.
-              </p>
-              <div className="flex items-center gap-4">
-                <div className="text-center">
-                  <div className="metric-value text-black">13</div>
-                  <div className="metric-label">Prompts</div>
-            </div>
-                <div className="w-px h-12 bg-mist" />
-                <div className="text-center">
-                  <div className="metric-value text-black">5</div>
-                  <div className="metric-label">Elements</div>
-              </div>
-                <div className="w-px h-12 bg-mist" />
-                <div className="text-center">
-                  <div className="metric-value text-black">∞</div>
-                  <div className="metric-label">Growth</div>
-              </div>
-              </div>
-            </div>
-
-            <div className="relative">
-              <div className="absolute -inset-4 bg-gradient-to-br from-earth/10 via-fire/10 to-water/10 rounded-3xl blur-2xl" />
-              <div className="relative bg-white border border-mist rounded-2xl p-8 shadow-xl">
-                <div className="font-mono text-sm text-smoke mb-4">// Your journey</div>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <span className="text-2xl">🌳</span>
-                    <div className="flex-1">
-                      <div className="progress-bar">
-                        <div className="progress-bar-fill bg-earth" style={{ width: "85%" }} />
-                      </div>
-                    </div>
-                    <span className="font-mono text-sm">85%</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-2xl">🔥</span>
-                    <div className="flex-1">
-                      <div className="progress-bar">
-                        <div className="progress-bar-fill bg-fire" style={{ width: "72%" }} />
-                      </div>
-                    </div>
-                    <span className="font-mono text-sm">72%</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-2xl">💨</span>
-                    <div className="flex-1">
-                      <div className="progress-bar">
-                        <div className="progress-bar-fill bg-air" style={{ width: "90%" }} />
-                      </div>
-                    </div>
-                    <span className="font-mono text-sm">90%</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-2xl">🌊</span>
-                    <div className="flex-1">
-                      <div className="progress-bar">
-                        <div className="progress-bar-fill bg-water" style={{ width: "65%" }} />
-                      </div>
-                    </div>
-                    <span className="font-mono text-sm">65%</span>
-                  </div>
-                </div>
-                <div className="mt-6 pt-6 border-t border-mist flex justify-between items-center">
-                  <span className="font-mono text-sm text-smoke">Total Joules</span>
-                  <span className="font-display text-3xl text-change">2,847</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* The 5 Elements Section */}
-      <section className="py-24 px-6 bg-gradient-to-b from-white to-mist/30">
-        <div className="max-w-[1536px] mx-auto">
           <div className="text-center mb-16">
             <span className="text-sm font-mono text-smoke uppercase tracking-widest mb-4 block">
-              The Framework
+              How It Works
             </span>
             <h2 className="font-display text-4xl lp:text-5xl text-black mb-6">
-              5 Elements of Effective Thinking
-            </h2>
-            <p className="text-lg text-ash max-w-[600px] mx-auto">
-              Each element provides a different lens to understand any problem.
-              Together, they create change.
-            </p>
-          </div>
-
-          <div className="grid mb:grid-cols-2 lp:grid-cols-5 gap-6">
-            {elements.map((element, index) => (
-              <div
-                key={element.id}
-                className={`element-card element-${element.color} bg-white rounded-xl p-6 opacity-0 animate-fade-in-up`}
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <span className="text-4xl mb-4 block">{element.emoji}</span>
-                <h3 className={`font-display text-2xl mb-2 text-${element.color}`}>
-                  {element.name}
-                </h3>
-                <p className="text-sm text-smoke mb-4">{element.title}</p>
-                <ul className="space-y-1">
-                  {element.subElements.map((sub, i) => (
-                    <li key={i} className="text-xs font-mono text-ash flex items-center gap-2">
-                      <span className="w-1 h-1 rounded-full bg-current opacity-50" />
-                      {sub}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section className="py-24 px-6 bg-black text-white">
-        <div className="max-w-[1536px] mx-auto">
-          <div className="text-center mb-16">
-            <span className="text-sm font-mono text-smoke uppercase tracking-widest mb-4 block">
-              The Process
-            </span>
-            <h2 className="font-display text-4xl lp:text-5xl mb-6">
-              How DramaRama Works
+              A conversation that builds understanding
             </h2>
           </div>
 
           <div className="grid lp:grid-cols-3 gap-12">
             <div className="text-center">
-              <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-6">
-                <span className="text-3xl">📝</span>
+              <div className="w-20 h-20 rounded-full bg-mist flex items-center justify-center mx-auto mb-6">
+                <span className="text-2xl font-display text-change">1</span>
               </div>
-              <h3 className="font-display text-2xl mb-4">1. Describe Your Problem</h3>
+              <h3 className="font-display text-2xl text-black mb-4">Describe your problem</h3>
               <p className="text-smoke">
-                Bring a real challenge you're facing at work. Something you're stuck on,
-                uncertain about, or want to think through more deeply.
+                Bring a real challenge you're facing. Something you're stuck on 
+                or want to think through more deeply.
               </p>
             </div>
 
             <div className="text-center">
-              <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-6">
-                <span className="text-3xl">🎯</span>
+              <div className="w-20 h-20 rounded-full bg-mist flex items-center justify-center mx-auto mb-6">
+                <span className="text-2xl font-display text-change">2</span>
               </div>
-              <h3 className="font-display text-2xl mb-4">2. Apply the 5 Elements</h3>
+              <h3 className="font-display text-2xl text-black mb-4">Have a conversation</h3>
               <p className="text-smoke">
-                Work through 13 prompts across Earth, Fire, Air, Water, and Change.
-                Think deeply. Write honestly. Explore every angle.
+                Chat naturally. The system asks questions that help you see 
+                your problem from new angles.
               </p>
             </div>
 
             <div className="text-center">
-              <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-6">
-                <span className="text-3xl">✨</span>
+              <div className="w-20 h-20 rounded-full bg-mist flex items-center justify-center mx-auto mb-6">
+                <span className="text-2xl font-display text-change">3</span>
               </div>
-              <h3 className="font-display text-2xl mb-4">3. Watch Understanding Build</h3>
+              <h3 className="font-display text-2xl text-black mb-4">Build understanding</h3>
               <p className="text-smoke">
-                As you interact with your AI coach, a Deep Understanding Document
-                builds in real time—capturing the insights you develop about your problem.
+                As you talk, a Deep Understanding Document builds in real time—
+                capturing your insights.
               </p>
             </div>
-          </div>
-
-          <div className="text-center mt-16">
-            {/* Logged in → go to dashboard; logged out → go to login */}
-            <SignedIn>
-              <Link href="/workspace">
-                <Button className="bg-white text-black hover:bg-mist px-8 py-6 text-lg rounded-none font-semibold">
-                  Open Workspace
-                </Button>
-              </Link>
-            </SignedIn>
-            <SignedOut>
-              <Link href="/login">
-                <Button className="bg-white text-black hover:bg-mist px-8 py-6 text-lg rounded-none font-semibold">
-                  Start Thinking
-                </Button>
-              </Link>
-            </SignedOut>
           </div>
         </div>
       </section>
 
-      {/* Dashboard Preview Section */}
-      <section className="py-24 px-6 bg-white">
+      {/* The Framework Section */}
+      <section className="py-24 px-6 bg-mist">
         <div className="max-w-[1536px] mx-auto">
           <div className="grid lp:grid-cols-2 gap-16 items-center">
-            <div className="order-2 lp:order-1">
-              {/* Mock Dashboard */}
-              <div className="bg-mist/30 rounded-2xl p-6 border border-mist">
-                <div className="flex items-center gap-2 mb-6">
-                  <div className="w-3 h-3 rounded-full bg-fire/60" />
-                  <div className="w-3 h-3 rounded-full bg-earth/60" />
-                  <div className="w-3 h-3 rounded-full bg-air/60" />
-                  <span className="ml-2 font-mono text-xs text-smoke">profile</span>
-                </div>
-
-                {/* Stats Row */}
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="bg-white rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-fire flex items-center justify-center gap-1">
-                      <span>🔥</span> 7
-                    </div>
-                    <div className="text-xs text-smoke">Day Streak</div>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-black">23</div>
-                    <div className="text-xs text-smoke">Sessions</div>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-change">847</div>
-                    <div className="text-xs text-smoke">Joules</div>
-                  </div>
-                </div>
-
-                {/* Recent Battles */}
-                <div className="bg-white rounded-lg p-4">
-                  <div className="text-sm font-semibold mb-3">Recent Battles</div>
-                  <div className="space-y-2">
-                    {recentSessions.map((session) => (
-                      <div
-                        key={session.id}
-                        className="flex items-center gap-3 p-2 hover:bg-mist/50 rounded transition-colors"
-                      >
-                        <span className="text-lg">
-                          {session.element === "earth" && "🌳"}
-                          {session.element === "fire" && "🔥"}
-                          {session.element === "air" && "💨"}
-                        </span>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium">{session.title}</div>
-                          <div className="text-xs text-smoke">{session.date}</div>
-                        </div>
-                        <div className="w-16">
-                          <div className="progress-bar h-1">
-                            <div
-                              className={`progress-bar-fill bg-${session.element}`}
-                              style={{ width: `${session.progress}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="order-1 lp:order-2">
+            <div>
               <span className="text-sm font-mono text-smoke uppercase tracking-widest mb-4 block">
-                Your Profile
+                The Framework
               </span>
               <h2 className="font-display text-4xl lp:text-5xl text-black mb-6">
-                Track Your
-                <br />
-                <span className="italic">Transformation</span>
+                Invisible scaffolding for better thinking
               </h2>
               <p className="text-lg text-ash mb-6">
-                Your profile is your character sheet. See your battles fought, element strengths,
-                and how your thinking has evolved over time.
+                Behind every conversation is the 5 Elements of Effective Thinking—a proven 
+                framework for developing deep understanding. But you'll never see it.
               </p>
-              <ul className="space-y-4 mb-8">
-                <li className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-full bg-earth/10 flex items-center justify-center text-earth shrink-0 mt-0.5">
-                    ✓
-                  </span>
-                  <span className="text-ash">
-                    <strong className="text-black">Battle History</strong> — Every problem you've
-                    thought through, preserved
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-full bg-fire/10 flex items-center justify-center text-fire shrink-0 mt-0.5">
-                    ✓
-                  </span>
-                  <span className="text-ash">
-                    <strong className="text-black">Element Strengths</strong> — See which lenses you
-                    favor and which need work
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-full bg-change/10 flex items-center justify-center text-change shrink-0 mt-0.5">
-                    ✓
-                  </span>
-                  <span className="text-ash">
-                    <strong className="text-black">Growth Metrics</strong> — Joules earned,
-                    streaks maintained, progress visualized
-                  </span>
-                </li>
-              </ul>
-              {/* Removed "View Dashboard Demo" button as requested */}
+              <p className="text-lg text-ash mb-8">
+                The system invisibly applies the right thinking lens at the right moment, 
+                so you can focus on your problem, not on methodology.
+              </p>
+              <Link href="/framework">
+                <Button 
+                  className="bg-primary text-white hover:bg-primary/90 px-8 py-6 text-lg font-semibold"
+                  radius="none"
+                >
+                  Explore the Framework
+                </Button>
+              </Link>
+            </div>
+
+            <div className="bg-white border border-mist rounded-xl p-8 shadow-lg">
+              <div className="space-y-4">
+                {elements.map((element) => (
+                  <div 
+                    key={element.name}
+                    className="flex items-center gap-4 p-4 rounded-lg bg-gray-100/80 border border-gray-200 element-shimmer"
+                  >
+                    <div className="text-3xl grayscale opacity-70">{element.emoji}</div>
+                    <div>
+                      <div className="font-semibold text-black">{element.name}</div>
+                      <div className="text-sm text-smoke">{element.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section
-        className="py-32 px-6 relative"
-        style={{
-          backgroundImage: 'url("/images/background-daniel.png")',
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
-        <div className="absolute inset-0 bg-black/80" />
-        <div className="relative z-10 max-w-[1536px] mx-auto text-center">
-          <h2 className="font-display text-4xl lp:text-6xl text-white mb-6">
-            Ready to transform how you think?
+      <section className="py-24 px-6 bg-black text-white">
+        <div className="max-w-[1536px] mx-auto text-center">
+          <h2 className="font-display text-4xl lp:text-5xl mb-6">
+            Ready to think deeper?
           </h2>
-          <p className="text-xl text-white/70 max-w-[600px] mx-auto mb-10">
-            Join the mental gym. Stop rushing through AI tasks. Start thinking deeply about them.
+          <p className="text-xl text-smoke mb-10 max-w-xl mx-auto">
+            Bring a real problem. Have a real conversation. Build real understanding.
           </p>
-          <div className="flex flex-col tb:flex-row gap-4 justify-center">
-            <SignedIn>
-              <Link href="/dashboard">
-                <Button className="bg-white text-black hover:bg-mist w-full tb:w-[260px] h-[72px] text-lg rounded-none font-semibold">
-                  Create Free Account
-                </Button>
-              </Link>
-            </SignedIn>
-            <SignedOut>
-              <Link href="/login">
-                <Button className="bg-white text-black hover:bg-mist w-full tb:w-[260px] h-[72px] text-lg rounded-none font-semibold">
-                  Create Free Account
-                </Button>
-              </Link>
-            </SignedOut>
-            <Link href="/elements">
-              <Button className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-black w-full tb:w-[260px] h-[72px] text-lg rounded-none font-semibold">
-                Explore the Elements
+          <SignedIn>
+            <Link href="/workspace">
+              <Button className="bg-white text-black hover:bg-mist px-8 py-6 text-lg rounded-none font-semibold">
+                Open Workspace
               </Button>
             </Link>
-          </div>
+          </SignedIn>
+          <SignedOut>
+            <Link href="/login">
+              <Button className="bg-white text-black hover:bg-mist px-8 py-6 text-lg rounded-none font-semibold">
+                Get Started Free
+              </Button>
+            </Link>
+          </SignedOut>
         </div>
       </section>
 

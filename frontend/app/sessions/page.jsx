@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@nextui-org/button";
 import { useAuth } from "@clerk/nextjs";
 import Footer from "@/components/Footer";
+import Spinner from "@/components/Spinner";
 
 export default function SessionsPage() {
   const { getToken, isLoaded, isSignedIn } = useAuth();
@@ -72,8 +73,8 @@ export default function SessionsPage() {
     return (
       <div className="min-h-screen bg-white pt-24 pb-16 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin text-4xl mb-4">🎭</div>
-          <p className="text-smoke">Loading...</p>
+          <Spinner size="lg" color="black" />
+          <p className="text-smoke mt-4">Loading...</p>
         </div>
       </div>
     );
@@ -95,7 +96,7 @@ export default function SessionsPage() {
           </div>
           <Button
             as={Link}
-            href="/dashboard"
+            href="/profile"
             className="bg-mist text-black hover:bg-smoke hover:text-white transition-colors"
             radius="none"
           >
@@ -128,13 +129,12 @@ export default function SessionsPage() {
         {/* Sessions List */}
         {loading ? (
           <div className="text-center py-16">
-            <div className="animate-spin text-4xl mb-4">🔄</div>
-            <p className="text-smoke">Loading sessions...</p>
+            <Spinner size="lg" color="black" />
+            <p className="text-smoke mt-4">Loading sessions...</p>
           </div>
         ) : error ? (
-          <div className="text-center py-16 bg-fire/5 rounded-xl border border-fire/20">
-            <div className="text-4xl mb-4">⚠️</div>
-            <p className="text-fire font-medium mb-2">Error Loading Sessions</p>
+          <div className="text-center py-16 bg-primary/5 rounded-xl border border-primary/20">
+            <p className="text-primary font-medium mb-2">Error Loading Sessions</p>
             <p className="text-smoke text-sm">{error}</p>
             <Button
               onClick={fetchSessions}
@@ -154,15 +154,12 @@ export default function SessionsPage() {
                 className="block bg-white border border-mist rounded-xl p-6 hover:shadow-lg hover:border-smoke transition-all"
             >
                 <div className="flex items-start gap-4">
-                  {/* Status Icon */}
-                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl ${
-                    session.status === "completed" ? "bg-earth/10" :
-                    session.status === "in_progress" ? "bg-air/10" :
-                    "bg-smoke/10"
-                  }`}>
-                    {session.status === "completed" ? "✅" :
-                     session.status === "in_progress" ? "🔄" : "⏸️"}
-                </div>
+                  {/* Status Indicator */}
+                  <div className={`w-3 h-12 rounded-full ${
+                    session.status === "completed" ? "bg-earth" :
+                    session.status === "in_progress" ? "bg-air" :
+                    "bg-smoke"
+                  }`} />
 
                   {/* Session Info */}
                 <div className="flex-1 min-w-0">
@@ -274,7 +271,6 @@ export default function SessionsPage() {
           </>
         ) : (
           <div className="text-center py-16 bg-mist/30 rounded-xl">
-            <div className="text-4xl mb-4">⚔️</div>
             <h3 className="font-display text-xl text-black mb-2">
               No {filter === "all" ? "" : filter.replace("_", " ")} sessions
             </h3>

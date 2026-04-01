@@ -49,6 +49,16 @@ class SupabaseUserRepository(UserRepository):
             return user
         return await self.create(clerk_id, email)
 
+    async def update_archetype(self, user_id: str, archetype_name: str, archetype_description: str, avatar_image_url: str = None) -> User:
+        update_data = {
+            "archetype_name": archetype_name,
+            "archetype_description": archetype_description,
+        }
+        if avatar_image_url:
+            update_data["avatar_image_url"] = avatar_image_url
+        result = self.client.table("users").update(update_data).eq("id", user_id).execute()
+        return User(**result.data[0])
+
 class SupabaseSessionRepository(SessionRepository):
     def __init__(self):
         self.client = get_supabase_client()
@@ -59,11 +69,18 @@ class SupabaseSessionRepository(SessionRepository):
             user_id=row["user_id"],
             puzzle_id=row.get("puzzle_id"),
             problem_description=row.get("problem_description"),
+            thinker_description=row.get("thinker_description"),
             started_at=datetime.fromisoformat(row["started_at"].replace("Z", "+00:00")),
             ended_at=datetime.fromisoformat(row["ended_at"].replace("Z", "+00:00")) if row.get("ended_at") else None,
             status=SessionStatus(row["status"]),
             prompts_completed=row["prompts_completed"],
             created_at=datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")) if row.get("created_at") else None,
+            cube_primary_color=row.get("cube_primary_color"),
+            cube_secondary_color=row.get("cube_secondary_color"),
+            cube_complexity=row.get("cube_complexity"),
+            cube_label=row.get("cube_label"),
+            cube_image_url=row.get("cube_image_url"),
+            understanding_document=row.get("understanding_document"),
         )
 
     async def create(self, user_id: str, problem_description: str, puzzle_id: str = None) -> Session:
@@ -301,9 +318,10 @@ class SupabaseElementMessageRepository(ElementMessageRepository):
         return ElementMessage(
             id=row["id"],
             session_id=row["session_id"],
-            prompt_index=row["prompt_index"],
+            prompt_index=row.get("prompt_index", 0),
             role=row["role"],
             message_text=row["message_text"],
+            element_applied=row.get("element_applied"),
             created_at=datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")) if row.get("created_at") else None,
         )
 
@@ -314,6 +332,8 @@ class SupabaseElementMessageRepository(ElementMessageRepository):
             "role": message.role,
             "message_text": message.message_text,
         }
+        if message.element_applied:
+            data["element_applied"] = message.element_applied
         result = self.client.table("element_messages").insert(data).execute()
         return self._row_to_msg(result.data[0])
 
@@ -364,7 +384,7 @@ class SupabaseDeepUnderstandingRepository(DeepUnderstandingRepository):
         return DeepUnderstanding(
             id=row["id"],
             session_id=row["session_id"],
-            prompt_index=row["prompt_index"],
+            prompt_index=row.get("prompt_index", 0),
             element=row["element"],
             insight_text=row["insight_text"],
             created_at=datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")) if row.get("created_at") else None,
@@ -373,10 +393,12 @@ class SupabaseDeepUnderstandingRepository(DeepUnderstandingRepository):
     async def create(self, entry: DeepUnderstanding) -> DeepUnderstanding:
         data = {
             "session_id": entry.session_id,
-            "prompt_index": entry.prompt_index,
             "element": entry.element,
             "insight_text": entry.insight_text,
         }
+        # Only include prompt_index if it's set (for backward compatibility)
+        if entry.prompt_index:
+            data["prompt_index"] = entry.prompt_index
         result = self.client.table("deep_understanding").insert(data).execute()
         return self._row_to_entry(result.data[0])
 

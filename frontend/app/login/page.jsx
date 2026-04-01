@@ -50,8 +50,8 @@ export default function LoginPage() {
       return stored;
     }
     
-    console.log("📌 Login page - falling back to /dashboard");
-    return "/dashboard";
+    console.log("📌 Login page - falling back to /profile");
+    return "/profile";
   }, [searchParams]);
 
   // Redirect if already signed in
@@ -99,13 +99,23 @@ export default function LoginPage() {
 
             {/* Elements showcase */}
             <div className="flex gap-4">
-              {["🌳", "🔥", "💨", "🌊", "🪨"].map((emoji, i) => (
+              {[
+                { color: "#4A7C59", name: "E" },
+                { color: "#E85D04", name: "F" },
+                { color: "#7B9EA8", name: "A" },
+                { color: "#3D5A80", name: "W" },
+                { color: "#9B5DE5", name: "C" },
+              ].map((el, i) => (
                 <div
                   key={i}
-                  className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-xl opacity-0 animate-fade-in"
-                  style={{ animationDelay: `${i * 0.1}s`, animationFillMode: 'forwards' }}
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold text-white opacity-0 animate-fade-in"
+                  style={{ 
+                    backgroundColor: el.color,
+                    animationDelay: `${i * 0.1}s`, 
+                    animationFillMode: 'forwards' 
+                  }}
                 >
-                  {emoji}
+                  {el.name}
                 </div>
               ))}
             </div>

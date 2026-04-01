@@ -12,6 +12,12 @@ class SessionStartRequest(BaseModel):
 class SessionStartResponse(BaseModel):
     session_id: str
     problem_description: str
+    first_message: Optional[str] = None  # Opening question from chatbot
+    cube_primary_color: Optional[str] = None
+    cube_secondary_color: Optional[str] = None
+    cube_complexity: Optional[int] = None
+    cube_label: Optional[str] = None
+    cube_image_url: Optional[str] = None
 
 class ResponseSubmitRequest(BaseModel):
     session_id: str
@@ -50,6 +56,10 @@ class DashboardStatsResponse(BaseModel):
     total_joules: int
     current_streak: int
     element_breakdown: dict
+    archetype_name: Optional[str] = None
+    archetype_description: Optional[str] = None
+    strongest_element: Optional[str] = None
+    avatar_image_url: Optional[str] = None
 
 # Prompt schemas
 class PromptResponse(BaseModel):
@@ -102,4 +112,14 @@ class DeepUnderstandingEntry(BaseModel):
 
 class DeepUnderstandingResponse(BaseModel):
     insights: List[DeepUnderstandingEntry]
+
+
+# Chat schemas (new chatbot architecture)
+class ChatRequest(BaseModel):
+    user_message: str
+
+class ChatResponse(BaseModel):
+    assistant_message: str
+    element_applied: str
+    insight: Optional[str] = None  # Extracted insight for Deep Understanding Document
 

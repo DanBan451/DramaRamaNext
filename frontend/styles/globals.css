@@ -3,23 +3,41 @@
 @tailwind utilities;
 
 :root {
-  /* Core colors - symbolic */
-  --color-earth: #2d5016;
-  --color-fire: #dc2626;
-  --color-air: #0ea5e9;
-  --color-water: #1e40af;
-  --color-change: #7c3aed;
+  /* Light Matte Professional Palette */
   
-  /* Neutral palette */
-  --color-void: #000000;
-  --color-clarity: #ffffff;
-  --color-ash: #374151;
-  --color-smoke: #6b7280;
-  --color-mist: #e5e7eb;
+  /* Primary backgrounds */
+  --color-bg-primary: #FFFFFF;
+  --color-bg-secondary: #F5F5F5;
+  --color-bg-card: #FFFFFF;
+  
+  /* Text colors */
+  --color-text-primary: #1A1A1A;
+  --color-text-secondary: #666666;
+  --color-text-accent: #333333;
+  
+  /* Element colors (original brighter versions) */
+  --color-earth: #4A7C59;
+  --color-fire: #E85D04;
+  --color-air: #7B9EA8;
+  --color-water: #3D5A80;
+  --color-change: #9B5DE5;
+  
+  /* Primary action color */
+  --color-primary: #8B0000;
   
   /* Accent */
-  --color-accent: #dc2626;
-  --color-accent-hover: #b91c1c;
+  --color-accent-red: #E85D04;
+  --color-accent-blue: #3D5A80;
+  
+  /* Borders */
+  --color-border: #E5E5E5;
+  
+  /* UI colors */
+  --color-void: #1A1A1A;
+  --color-clarity: #FFFFFF;
+  --color-ash: #333333;
+  --color-smoke: #666666;
+  --color-mist: #F5F5F5;
 }
 
 /* Custom scrollbar */
@@ -347,4 +365,81 @@
 /* Streak flame */
 .streak-flame {
   filter: drop-shadow(0 0 8px rgba(220, 38, 38, 0.5));
+}
+
+/* Element shimmer effect - smooth left-to-right sweep */
+.element-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.element-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 150%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(155, 93, 229, 0.03) 20%,
+    rgba(155, 93, 229, 0.12) 40%,
+    rgba(155, 93, 229, 0.2) 50%,
+    rgba(155, 93, 229, 0.12) 60%,
+    rgba(155, 93, 229, 0.03) 80%,
+    transparent 100%
+  );
+  animation: shimmer-sweep 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmer-sweep {
+  0% {
+    left: -150%;
+  }
+  50% {
+    left: 100%;
+  }
+  50.01%, 100% {
+    left: -150%;
+  }
+}
+
+/* Primary button styles - purple */
+.btn-primary-purple {
+  background: var(--color-change);
+  color: white;
+}
+
+.btn-primary-purple:hover {
+  background: rgba(155, 93, 229, 0.9);
+}
+
+/* Resizable panel handle */
+.resize-handle {
+  width: 8px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resize-handle:hover {
+  background: var(--color-mist);
+}
+
+.resize-handle::after {
+  content: '';
+  width: 4px;
+  height: 40px;
+  background: var(--color-smoke);
+  border-radius: 2px;
+  opacity: 0.5;
+}
+
+.resize-handle:hover::after {
+  opacity: 1;
 }

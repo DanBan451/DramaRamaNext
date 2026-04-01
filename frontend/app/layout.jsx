@@ -33,7 +33,7 @@ export default function RootLayout({ children }) {
           colorText: "#111111",
           colorInputBackground: "#ffffff",
           colorInputText: "#111111",
-          colorPrimary: "#111111",
+          colorPrimary: "#8B0000",
         },
         elements: {
           modalContent: "bg-white text-black",
@@ -43,7 +43,7 @@ export default function RootLayout({ children }) {
           formFieldLabel: "text-ash",
           formFieldInput:
             "bg-white text-black placeholder:text-smoke border border-mist focus:border-black rounded-md",
-          formButtonPrimary: "bg-black hover:bg-ash text-white",
+          formButtonPrimary: "bg-[#8B0000] hover:bg-[#6B0000] text-white",
           footerActionLink: "text-black hover:text-ash",
         },
       }}

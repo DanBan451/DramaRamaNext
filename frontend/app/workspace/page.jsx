@@ -337,10 +337,10 @@ function WorkingPhase({ problemDescription, sessionId, firstMessage, onComplete 
 
   return (
     <div ref={containerRef} className="h-screen pt-20 bg-white flex flex-col lp:flex-row overflow-hidden max-w-[1536px] mx-auto">
-      {/* Left Column: Deep Understanding Structure */}
+      {/* Left Column: Deep Understanding Structure - stacks on mobile, side-by-side on desktop */}
       <div 
-        className="flex flex-col border-b lp:border-b-0 border-mist max-h-[40vh] lp:max-h-none"
-        style={{ width: `${leftPanelWidth}%` }}
+        className="flex flex-col border-b lp:border-b-0 border-mist max-h-[40vh] lp:max-h-none lp:flex-shrink-0"
+        style={{ width: leftPanelWidth < 100 ? `${leftPanelWidth}%` : undefined }}
       >
         {/* Header */}
         <div className="flex-shrink-0 px-6 py-6 border-b border-mist bg-mist/50">

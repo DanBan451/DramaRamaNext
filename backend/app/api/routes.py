@@ -67,6 +67,13 @@ async def start_session(
     """Start a new session from a problem description and generate opening question"""
     user = current_user["db_user"]
     
+    # Rate limit session creation
+    if not rate_limit_user(user.id, "session_start"):
+        raise HTTPException(
+            status_code=429,
+            detail="Session creation rate limit exceeded. You can start up to 10 sessions per hour."
+        )
+    
     if not request.problem_description or not request.problem_description.strip():
         raise HTTPException(status_code=400, detail="Problem description is required")
     
@@ -148,10 +155,16 @@ async def chat_with_session(
     3. Builds chatbot prompt with selected element
     4. Streams response via SSE
     5. Saves assistant response with element_applied
-    6. Extracts insight in background
-    7. Returns insight for Deep Understanding Document
+    6. Updates understanding document
     """
     user = current_user["db_user"]
+    
+    # Rate limit LLM calls
+    if not rate_limit_user(user.id, "llm_calls"):
+        raise HTTPException(
+            status_code=429, 
+            detail="Rate limit exceeded. Please wait before sending more messages."
+        )
     
     session = await session_repo.get_by_id(session_id)
     if not session:
@@ -586,6 +599,13 @@ async def regenerate_avatar(
 ):
     """Manually regenerate the user's avatar image."""
     user = current_user["db_user"]
+    
+    # Rate limit image generation (expensive operation)
+    if not rate_limit_user(user.id, "image_generation"):
+        raise HTTPException(
+            status_code=429,
+            detail="Image generation rate limit exceeded. You can generate up to 5 images per hour."
+        )
     
     try:
         # Get element breakdown

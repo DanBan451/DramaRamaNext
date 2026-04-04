@@ -48,6 +48,21 @@ async function proxy(req, { path }) {
     const headers = filterResponseHeaders(res.headers);
     headers.set("x-backend-proxy-upstream", upstream);
 
+    // Log errors for debugging in Vercel
+    if (!res.ok) {
+      const clonedRes = res.clone();
+      try {
+        const errorBody = await clonedRes.text();
+        console.error("[backend-api proxy] upstream error", {
+          status: res.status,
+          upstream,
+          body: errorBody.substring(0, 500),
+        });
+      } catch (e) {
+        console.error("[backend-api proxy] could not read error body", e);
+      }
+    }
+
     return new Response(res.body, {
       status: res.status,
       headers,

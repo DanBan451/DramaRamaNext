@@ -41,7 +41,10 @@ function SetupPhase({ onStart }) {
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error(j.detail || "Failed to start session.");
+        const errorMsg = typeof j.detail === 'string' 
+          ? j.detail 
+          : (j.error || j.message || "Failed to start session.");
+        throw new Error(errorMsg);
       }
       const data = await res.json();
 

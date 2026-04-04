@@ -21,7 +21,10 @@ const createFetcher = (getToken) => async (url) => {
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to fetch");
+    const errorMsg = typeof err.detail === 'string' 
+      ? err.detail 
+      : (err.error || err.message || "Failed to fetch");
+    throw new Error(errorMsg);
   }
   return res.json();
 };
@@ -64,10 +67,13 @@ export default function ProfilePage() {
         // Refresh stats to get new avatar
         mutate("/api/backend-api/user/stats");
       } else {
-        alert("Failed to generate avatar: " + (data.error || "Unknown error"));
+        const errorMsg = typeof data.error === 'string' 
+          ? data.error 
+          : (data.detail || "Unknown error");
+        alert("Failed to generate avatar: " + errorMsg);
       }
     } catch (e) {
-      alert("Error: " + e.message);
+      alert("Error: " + (e?.message || String(e)));
     } finally {
       setAvatarLoading(false);
     }

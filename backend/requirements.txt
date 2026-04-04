@@ -19,6 +19,7 @@ openai>=1.12.0  # For DALL-E image generation
 pydantic>=2.10.0
 pydantic-settings>=2.1.0
 httpx>=0.26.0  # For downloading DALL-E images
+boto3>=1.34.0  # For AWS Secrets Manager
 
 # Testing
 pytest>=8.0.0

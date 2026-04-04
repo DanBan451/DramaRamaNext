@@ -43,7 +43,7 @@ export default function ComingSoonPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 py-12">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 py-12 pt-24">
       {/* Background subtle gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-white via-change/5 to-white pointer-events-none" />
       

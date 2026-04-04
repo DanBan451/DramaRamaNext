@@ -65,7 +65,9 @@ export default function ProfilePage() {
       const data = await res.json();
       if (data.success) {
         // Refresh stats to get new avatar
-        mutate("/api/backend-api/user/stats");
+        await mutate("/api/backend-api/user/stats");
+        // Reload page to show new image (avoids cache issues)
+        window.location.reload();
       } else {
         const errorMsg = typeof data.error === 'string' 
           ? data.error 

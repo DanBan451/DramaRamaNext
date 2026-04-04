@@ -2,6 +2,26 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import ReactMarkdown from "react-markdown";
+
+const markdownComponents = {
+  p: ({ children }) => <span className="block mb-4 last:mb-0">{children}</span>,
+  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  em: ({ children }) => <em className="italic">{children}</em>,
+  h1: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  h2: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  h3: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  h4: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  h5: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  h6: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  ul: ({ children }) => <span>{children}</span>,
+  ol: ({ children }) => <span>{children}</span>,
+  li: ({ children }) => <span>{children} </span>,
+  code: ({ children }) => <span>{children}</span>,
+  pre: ({ children }) => <span>{children}</span>,
+  blockquote: ({ children }) => <span>{children}</span>,
+  a: ({ children }) => <span>{children}</span>,
+};
 
 // Compute word-level diff between old and new text
 function computeWordDiff(oldText, newText) {
@@ -163,11 +183,13 @@ export default function LiveDocument({ text, className = "" }) {
     }
   }, [phase]);
   
-  // If not animating, show plain text
+  // If not animating, show rendered markdown
   if (!isAnimating || diff.length === 0) {
     return (
-      <div className={`font-mono text-sm leading-relaxed text-ash whitespace-pre-wrap ${className}`}>
-        {displayText || (
+      <div className={`font-mono text-sm leading-relaxed text-ash ${className}`}>
+        {displayText ? (
+          <ReactMarkdown components={markdownComponents}>{displayText}</ReactMarkdown>
+        ) : (
           <span className="text-smoke italic">Your understanding will appear here as you explore...</span>
         )}
       </div>

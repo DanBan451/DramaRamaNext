@@ -862,7 +862,7 @@ def build_extract_understanding_prompt(
         conversation_text += f"{role_label}: {msg.message_text}\n\n"
 
     if existing_document:
-        return f"""You are helping a user build a unified understanding document about their software problem. They just had a coaching exchange using the {element_name} element. Your job is to UPDATE their existing document with any new insights from this exchange.
+        return f"""You are observing a user thinking through a problem. They just had another exchange with a thinking coach. Your job is to UPDATE their understanding document with any new realizations the USER had.
 
 PROBLEM: {problem_description}
 
@@ -873,17 +873,17 @@ LATEST EXCHANGE ({element_name} — {element_def.get('core_principle', '')}):
 {conversation_text}
 
 INSTRUCTIONS:
-1. Read the existing document carefully
-2. Identify any NEW understanding from the latest exchange
-3. Return the COMPLETE UPDATED document that integrates the new insights
-4. Weave new insights naturally into the existing text - don't just append
-5. Keep the document cohesive and well-structured
-6. Use plain text with clear paragraph breaks
-7. If no meaningful new understanding was gained, return the existing document unchanged
+1. The Coach's messages are included for context only. Focus EXCLUSIVELY on what the User said and what the User appears to understand. Do not incorporate the Coach's reasoning or analysis into the document.
+2. Read the latest exchange. Look for moments where the USER realized something new, changed their thinking, or figured something out.
+3. Update the document to include these new realizations. Write them as the user's understanding — "I now see that..." or "I figured out that..." or "This means that..."
+4. Weave new realizations naturally into the existing text. Don't just append at the end.
+5. Do NOT add your own analysis. Do NOT solve the problem for them. Only include what the USER has demonstrated they understand.
+6. If the user didn't have any new realizations in this exchange, return the existing document unchanged.
+7. Do NOT use markdown headers (no # or ## or ###). Do NOT use bullet points with dashes. Write in plain flowing paragraphs with blank lines between them.
 
-Return ONLY the updated document text. No explanations or meta-commentary."""
+Return ONLY the updated document text."""
     else:
-        return f"""You are helping a user build a unified understanding document about their software problem. They just had their first coaching exchange using the {element_name} element. Create the initial document.
+        return f"""You are observing a user thinking through a problem. They just had a conversation with a thinking coach. Your job is to write down what the USER now understands — not your own analysis.
 
 PROBLEM: {problem_description}
 
@@ -891,13 +891,16 @@ EXCHANGE ({element_name} — {element_def.get('core_principle', '')}):
 {conversation_text}
 
 INSTRUCTIONS:
-1. Create a clear, well-structured document capturing their understanding
-2. Focus on what they now understand about their problem
-3. Use plain text with clear paragraph breaks
-4. Be specific to their actual problem
-5. If no meaningful understanding was gained, write a brief placeholder noting they're just getting started
+1. The Coach's messages are included for context only. Focus EXCLUSIVELY on what the User said and what the User appears to understand. Do not incorporate the Coach's reasoning or analysis into the document.
+2. Read the exchange carefully. Identify the specific moments where the USER realized something, figured something out, or changed their thinking.
+3. Write ONLY what the user now understands, in simple clear language. Use phrases like "I understand that..." or "I figured out that..." or "I realized that..."
+4. If the user hasn't had any clear realizations yet, write what they currently know and what they're still working through.
+5. Do NOT write your own analysis of the problem. Do NOT solve the problem. Do NOT add information the user hasn't expressed.
+6. Keep it short — only include genuine understanding the user has demonstrated.
+7. Do NOT use markdown headers (no # or ## or ###). Do NOT use bullet points with dashes. Write in plain flowing paragraphs with blank lines between them.
+8. Structure it naturally: start with what the user understands about the setup, then what they've figured out, then what's still unclear to them.
 
-Return ONLY the document text. No explanations or meta-commentary."""
+Return ONLY the document text."""
 
 
 def build_cube_properties_prompt(problem_description: str) -> str:

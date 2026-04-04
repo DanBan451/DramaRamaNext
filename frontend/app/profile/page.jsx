@@ -277,16 +277,21 @@ export default function ProfilePage() {
               className="w-full h-full object-cover"
               onError={(e) => {
                 e.target.style.display = 'none';
-                e.target.parentElement.innerHTML = `
+                const parent = e.target.parentElement;
+                parent.innerHTML = `
                   <div class="w-full h-full bg-gradient-to-br from-change/5 via-change/10 to-change/15 flex items-center justify-center">
                     <div class="text-center p-8">
                       <p class="text-smoke text-sm mb-6">Image expired. Click regenerate to create a new one.</p>
-                      <button onclick="window.location.reload()" class="bg-change text-white text-sm px-4 py-2 rounded hover:bg-change/90">
+                      <button id="regenerate-btn" class="bg-change text-white text-sm px-4 py-2 rounded hover:bg-change/90">
                         Regenerate
                       </button>
                     </div>
                   </div>
                 `;
+                setTimeout(() => {
+                  const btn = document.getElementById('regenerate-btn');
+                  if (btn) btn.onclick = () => regenerateAvatar();
+                }, 0);
               }}
             />
           ) : (

@@ -80,6 +80,10 @@ export default function FrameworkPage() {
             You don't need to know any of this to use it — but if you're curious, 
             here's how it works under the hood.
           </p>
+          <p className="text-smoke text-sm mb-8 mt-6">
+            Based on the work of Edward B. Burger — 
+            <em>The 5 Elements of Effective Thinking</em> and <em>Making Up Your Own Mind</em>.
+          </p>
         </div>
       </section>
 

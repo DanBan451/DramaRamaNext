@@ -293,6 +293,15 @@ export default function Home() {
         </motion.div>
       </section>
 
+      {/* Attribution */}
+      <div className="py-12 px-6 border-t border-mist">
+        <p className="text-center text-smoke text-sm max-w-lg mx-auto leading-relaxed">
+          The puzzles and thinking framework behind DramaRama are inspired by
+          Edward B. Burger's <em>The 5 Elements of Effective Thinking</em> and
+          <em>Making Up Your Own Mind</em>.
+        </p>
+      </div>
+
       <Footer />
     </div>
   );

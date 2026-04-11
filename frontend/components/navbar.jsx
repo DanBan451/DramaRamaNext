@@ -176,11 +176,12 @@ export const Navbar = () => {
               <Link
                 className={`w-full text-lg py-2 ${
                   isActive(item.path)
-                    ? "text-black font-semibold"
-                    : "text-smoke hover:text-black"
+                    ? `font-bold ${textColor} ${borderColor}`
+                    : `${textMuted} ${hoverBorder}`
                 }`}
                 href={item.path}
                 size="lg"
+                onClick={() => setIsMenuOpen(false)}
               >
                 {item.name}
               </Link>
@@ -202,11 +203,12 @@ export const Navbar = () => {
               <Link
                 className={`w-full text-lg py-2 ${
                   isActive(item.path)
-                    ? "text-black font-semibold"
-                    : "text-smoke hover:text-black"
+                    ? `font-bold ${textColor} ${borderColor}`
+                    : `${textMuted} ${hoverBorder}`
                 }`}
                 href={item.path}
                 size="lg"
+                onClick={() => setIsMenuOpen(false)}
               >
                 {item.name}
               </Link>

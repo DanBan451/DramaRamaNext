@@ -32,11 +32,14 @@ export default function Home() {
           style={{ backgroundImage: "url('/images/header.png')" }}
         />
 
-        {/* LEFT: B&W Mask */}
-        <div className="absolute inset-0 w-1/3 lp:w-1/4 h-full backdrop-brightness-100 backdrop-saturate-0" />
+        {/* Mobile: White overlay for readability */}
+        <div className="absolute inset-0 bg-white/80 tb:hidden" />
 
-        {/* RIGHT: Bright Mask */}
-        <div className="absolute inset-y-0 right-0 w-2/3 lp:w-3/4 h-full backdrop-brightness-150" />
+        {/* LEFT: B&W Mask - hidden on mobile */}
+        <div className="hidden tb:block absolute inset-0 w-1/3 lp:w-1/4 h-full backdrop-brightness-100 backdrop-saturate-0" />
+
+        {/* RIGHT: Bright Mask - hidden on mobile */}
+        <div className="hidden tb:block absolute inset-y-0 right-0 w-2/3 lp:w-3/4 h-full backdrop-brightness-150" />
 
         {/* White overlay that fades in as you scroll */}
         <motion.div

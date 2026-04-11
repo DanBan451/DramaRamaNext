@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@nextui-org/button";
-import { Spinner } from "@nextui-org/spinner";
+import Spinner from "@/components/Spinner";
 import LiveDocument from "@/components/LiveDocument";
 import { PUZZLES } from "@/lib/puzzles";
 
@@ -14,11 +14,11 @@ function PuzzleCard({ puzzle, onSelect, index }) {
   return (
     <button
       onClick={() => onSelect(puzzle)}
-      className="group text-left bg-white border border-mist hover:border-black active:scale-[0.98] transition-all duration-300 p-5 tb:p-6 flex flex-col justify-between min-h-[180px] tb:min-h-[200px] relative overflow-hidden"
+      className="group text-left bg-white border border-mist hover:border-black transition-all duration-300 p-6 flex flex-col justify-between min-h-[200px] relative overflow-hidden"
       style={{ animationDelay: `${index * 80}ms` }}
     >
       {/* Puzzle number */}
-      <div className="flex items-start justify-between mb-3 tb:mb-4">
+      <div className="flex items-start justify-between mb-4">
         <span className="font-mono text-xs text-smoke tracking-widest">
           {puzzle.number}
         </span>
@@ -28,7 +28,7 @@ function PuzzleCard({ puzzle, onSelect, index }) {
       </div>
 
       {/* Title */}
-      <h3 className="font-display text-lg tb:text-xl text-black mb-2 tb:mb-3 group-hover:translate-x-1 transition-transform duration-200">
+      <h3 className="font-display text-xl text-black mb-3 group-hover:translate-x-1 transition-transform duration-200">
         {puzzle.title}
       </h3>
 
@@ -38,7 +38,7 @@ function PuzzleCard({ puzzle, onSelect, index }) {
       </p>
 
       {/* Arrow on hover */}
-      <div className="mt-3 tb:mt-4 flex justify-end">
+      <div className="mt-4 flex justify-end">
         <span className="text-smoke group-hover:text-black group-hover:translate-x-1 transition-all duration-200 text-lg">
           →
         </span>
@@ -93,14 +93,14 @@ function SetupPhase({ onStart }) {
   }
 
   return (
-    <div className="min-h-screen bg-white px-4 tb:px-6 py-20 tb:py-24">
+    <div className="min-h-screen bg-white px-6 py-24">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-10 tb:mb-16 max-w-xl">
-          <h1 className="font-display text-3xl tb:text-4xl lp:text-5xl text-black mb-3 tb:mb-4">
+        <div className="mb-16 max-w-xl">
+          <h1 className="font-display text-4xl lp:text-5xl text-black mb-4">
             Pick a puzzle.
           </h1>
-          <p className="text-smoke text-base tb:text-lg leading-relaxed">
+          <p className="text-smoke text-lg leading-relaxed">
             The goal is not to solve it. The goal is to think through it — to
             see it from every angle you can. The answer will come on its own.
           </p>
@@ -109,9 +109,9 @@ function SetupPhase({ onStart }) {
         {err && <div className="text-primary text-sm mb-6">{err}</div>}
 
         {loading && (
-          <div className="fixed inset-0 flex items-center justify-center bg-white z-50">
-            <div className="flex flex-col items-center justify-center">
-              <Spinner size="md" color="default" />
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <Spinner size="lg" color="black" />
               <p className="text-smoke mt-4 text-sm">
                 Preparing your puzzle...
               </p>
@@ -120,7 +120,7 @@ function SetupPhase({ onStart }) {
         )}
 
         {!loading && (
-          <div className="grid grid-cols-1 tb:grid-cols-2 lp:grid-cols-3 gap-3 tb:gap-4">
+          <div className="grid tb:grid-cols-2 lp:grid-cols-3 gap-4">
             {PUZZLES.map((puzzle, i) => (
               <PuzzleCard
                 key={puzzle.id}
@@ -158,14 +158,11 @@ function WorkingPhase({
   const [streamingText, setStreamingText] = useState("");
   const [documentText, setDocumentText] = useState("");
   const [documentLoading, setDocumentLoading] = useState(true);
-  const [messagesLoading, setMessagesLoading] = useState(!firstMessage);
   const [completeLoading, setCompleteLoading] = useState(false);
   const [completionData, setCompletionData] = useState(null);
   const [leftPanelWidth, setLeftPanelWidth] = useState(50);
   const [isResizing, setIsResizing] = useState(false);
   const [showPuzzle, setShowPuzzle] = useState(true);
-  const [backgroundUrl, setBackgroundUrl] = useState(null);
-  const [understandingHighlight, setUnderstandingHighlight] = useState(false);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -174,30 +171,6 @@ function WorkingPhase({
   // Find puzzle from ID if resuming
   const activePuzzle =
     puzzle || PUZZLES.find((p) => problemDescription?.includes(p.title));
-
-  // Generate background image for this session
-  useEffect(() => {
-    let cancelled = false;
-    async function generateBackground() {
-      try {
-        const token = await getToken({ skipCache: true });
-        const res = await fetch(`/api/backend-api/session/${sessionId}/generate-background`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!cancelled && res.ok) {
-          const data = await res.json();
-          if (data.success && data.background_url) {
-            setBackgroundUrl(data.background_url);
-          }
-        }
-      } catch (e) {
-        console.log("Background generation skipped:", e);
-      }
-    }
-    generateBackground();
-    return () => { cancelled = true; };
-  }, [sessionId, getToken]);
 
   // Load existing session data
   useEffect(() => {
@@ -230,7 +203,6 @@ function WorkingPhase({
           allMsgs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
           if (allMsgs.length > 0) setMessages(allMsgs);
         }
-        if (!cancelled) setMessagesLoading(false);
 
         if (!cancelled && duRes.ok) {
           const data = await duRes.json();
@@ -284,10 +256,6 @@ function WorkingPhase({
     setInputText("");
     setIsStreaming(true);
     setStreamingText("");
-    
-    // Flash the "Your Understanding" tab purple briefly
-    setUnderstandingHighlight(true);
-    setTimeout(() => setUnderstandingHighlight(false), 1000);
 
     try {
       const token = await getToken({ skipCache: true });
@@ -379,46 +347,19 @@ function WorkingPhase({
     }
   }
 
-  // Current element from last assistant message
-  const currentElement = messages.filter(m => m.role === 'assistant').slice(-1)[0]?.element || 'earth';
-  const elementColors = {
-    earth: 'border-earth/30',
-    fire: 'border-fire/30',
-    air: 'border-air/30',
-    water: 'border-water/30',
-    change: 'border-change/30',
-  };
-  const elementNames = {
-    earth: 'Grounding',
-    fire: 'Failing Forward',
-    air: 'Questioning',
-    water: 'Flowing',
-    change: 'Transforming',
-  };
-
   return (
     <div
       ref={containerRef}
-      className="h-screen pt-20 flex flex-col lp:flex-row overflow-hidden max-w-[1536px] mx-auto relative"
+      className="h-screen pt-16 bg-white flex flex-col lp:flex-row overflow-hidden max-w-[1536px] mx-auto"
     >
-      {/* Background image - generated per session, grayscale and low opacity */}
-      {backgroundUrl && (
-        <div 
-          className="absolute inset-0 bg-cover bg-center pointer-events-none opacity-[0.06] grayscale"
-          style={{ backgroundImage: `url(${backgroundUrl})` }}
-        />
-      )}
-      {/* Subtle purple background accent */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/95 via-white/90 to-change/[0.05] pointer-events-none" />
-      <div className="absolute top-1/4 right-0 w-96 h-96 bg-change/[0.04] rounded-full blur-3xl pointer-events-none" />
       {/* ── Left: Puzzle + Understanding ── */}
       <div
-        className="flex flex-col border-b lp:border-b-0 border-mist max-h-[45vh] lp:max-h-none lp:flex-shrink-0 overflow-hidden relative bg-white/80 backdrop-blur-sm"
-        style={{ width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `${leftPanelWidth}%` : '100%' }}
+        className="flex flex-col border-b lp:border-b-0 border-mist max-h-[40vh] lp:max-h-none lp:flex-shrink-0 overflow-hidden"
+        style={{ width: `${leftPanelWidth}%` }}
       >
         {/* Puzzle toggle header */}
-        <div className="flex-shrink-0 px-4 tb:px-6 py-3 tb:py-4 border-b border-mist bg-white/90 flex items-center justify-between">
-          <div className="flex gap-3 tb:gap-4">
+        <div className="flex-shrink-0 px-6 py-4 border-b border-mist bg-white flex items-center justify-between">
+          <div className="flex gap-4">
             <button
               onClick={() => setShowPuzzle(true)}
               className={`text-xs font-mono uppercase tracking-widest transition-colors ${
@@ -429,12 +370,8 @@ function WorkingPhase({
             </button>
             <button
               onClick={() => setShowPuzzle(false)}
-              className={`text-xs font-mono uppercase tracking-colors duration-500 ${
-                understandingHighlight 
-                  ? "text-change" 
-                  : !showPuzzle 
-                    ? "text-black" 
-                    : "text-smoke hover:text-ash"
+              className={`text-xs font-mono uppercase tracking-widest transition-colors ${
+                !showPuzzle ? "text-black" : "text-smoke hover:text-ash"
               }`}
             >
               Your Understanding
@@ -443,12 +380,15 @@ function WorkingPhase({
         </div>
 
         {/* Content area */}
-        <div className="flex-1 overflow-y-auto px-4 tb:px-6 py-4 tb:py-6">
+        <div className="flex-1 overflow-y-auto px-6 py-6">
           {showPuzzle ? (
             <div>
               {activePuzzle && (
                 <>
-                  <h2 className="font-display text-xl tb:text-2xl text-black mb-4 tb:mb-6">
+                  <span className="font-mono text-xs text-smoke tracking-widest block mb-2">
+                    {activePuzzle.number}
+                  </span>
+                  <h2 className="font-display text-2xl text-black mb-6">
                     {activePuzzle.title}
                   </h2>
                   <div className="text-ash text-sm leading-relaxed whitespace-pre-line">
@@ -473,7 +413,7 @@ function WorkingPhase({
         </div>
 
         {/* Complete button */}
-        <div className="flex-shrink-0 px-4 tb:px-6 py-3 border-t border-mist">
+        <div className="flex-shrink-0 px-6 py-3 border-t border-mist">
           <Button
             className="bg-transparent border border-mist text-smoke hover:bg-mist hover:text-black w-full text-xs"
             radius="none"
@@ -493,18 +433,10 @@ function WorkingPhase({
       />
 
       {/* ── Right: Conversation ── */}
-      <div className="flex flex-col bg-white/60 backdrop-blur-sm flex-1 min-h-0 relative">
+      <div className="flex flex-col bg-mist/20 flex-1">
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 tb:px-6 py-4 tb:py-6 space-y-3 tb:space-y-4">
-          {/* Loading state for conversation history */}
-          {messagesLoading && (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Spinner size="sm" color="default" />
-              <p className="text-smoke mt-4 text-sm">Loading conversation...</p>
-            </div>
-          )}
-
-          {!messagesLoading && messages.map((msg, i) => (
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+          {messages.map((msg, i) => (
             <div
               key={i}
               className={`flex ${
@@ -512,17 +444,12 @@ function WorkingPhase({
               }`}
             >
               <div
-                className={`max-w-[90%] tb:max-w-[85%] px-4 py-3 ${
+                className={`max-w-[85%] px-4 py-3 ${
                   msg.role === "user"
                     ? "bg-black text-white rounded-2xl rounded-br-sm"
-                    : "bg-gradient-to-br from-white to-change/[0.03] border border-change/10 text-ash rounded-2xl rounded-bl-sm shadow-sm"
+                    : "bg-white border border-mist text-ash rounded-2xl rounded-bl-sm shadow-sm"
                 }`}
               >
-                {msg.role === "assistant" && msg.element && (
-                  <span className="font-mono text-[9px] text-change/50 uppercase tracking-widest block mb-1">
-                    {elementNames[msg.element]}
-                  </span>
-                )}
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">
                   {msg.text}
                 </p>
@@ -533,10 +460,10 @@ function WorkingPhase({
           {/* Streaming */}
           {isStreaming && streamingText && (
             <div className="flex justify-start">
-              <div className="max-w-[90%] tb:max-w-[85%] px-4 py-3 bg-gradient-to-br from-white to-change/[0.03] border border-change/10 text-ash rounded-2xl rounded-bl-sm shadow-sm">
+              <div className="max-w-[85%] px-4 py-3 bg-white border border-mist text-ash rounded-2xl rounded-bl-sm shadow-sm">
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">
                   {streamingText}
-                  <span className="inline-block w-1.5 h-4 bg-change/30 ml-0.5 animate-pulse" />
+                  <span className="inline-block w-1.5 h-4 bg-smoke/40 ml-0.5 animate-pulse" />
                 </p>
               </div>
             </div>
@@ -545,11 +472,11 @@ function WorkingPhase({
           {/* Typing dots */}
           {isStreaming && !streamingText && (
             <div className="flex justify-start">
-              <div className="px-4 py-3 bg-gradient-to-br from-white to-change/[0.03] border border-change/10 rounded-2xl rounded-bl-sm shadow-sm">
+              <div className="px-4 py-3 bg-white border border-mist rounded-2xl rounded-bl-sm shadow-sm">
                 <div className="flex gap-1">
-                  <span className="w-1.5 h-1.5 bg-change/40 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-1.5 h-1.5 bg-change/40 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-1.5 h-1.5 bg-change/40 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <span className="w-1.5 h-1.5 bg-smoke/40 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-1.5 h-1.5 bg-smoke/40 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-1.5 h-1.5 bg-smoke/40 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                 </div>
               </div>
             </div>
@@ -559,8 +486,8 @@ function WorkingPhase({
         </div>
 
         {/* Input */}
-        <div className="flex-shrink-0 px-4 tb:px-6 py-3 tb:py-4 border-t border-mist bg-white">
-          <form onSubmit={sendMessage} className="flex gap-2 tb:gap-3">
+        <div className="flex-shrink-0 px-6 py-4 border-t border-mist bg-white">
+          <form onSubmit={sendMessage} className="flex gap-3">
             <input
               ref={inputRef}
               type="text"
@@ -572,7 +499,7 @@ function WorkingPhase({
             />
             <Button
               type="submit"
-              className="bg-black text-white font-medium px-5 tb:px-6 hover:bg-ash rounded-full min-w-[44px]"
+              className="bg-black text-white font-medium px-6 hover:bg-ash rounded-full"
               isDisabled={!inputText.trim() || isStreaming}
               size="md"
             >
@@ -584,13 +511,13 @@ function WorkingPhase({
 
       {/* Completion Modal */}
       {completionData && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 tb:p-6">
-          <div className="bg-white max-w-lg w-full p-6 tb:p-10 shadow-2xl">
-            <div className="text-center mb-6 tb:mb-8">
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-6">
+          <div className="bg-white max-w-lg w-full p-10 shadow-2xl">
+            <div className="text-center mb-8">
               <span className="font-mono text-xs text-smoke tracking-widest">
                 SESSION COMPLETE
               </span>
-              <h2 className="font-display text-2xl tb:text-3xl text-black mt-2 mb-3">
+              <h2 className="font-display text-3xl text-black mt-2 mb-3">
                 Well done.
               </h2>
               {completionData.thinker_description && (
@@ -601,7 +528,7 @@ function WorkingPhase({
             </div>
 
             {completionData.analysis?.key_insight && (
-              <div className="mb-6 tb:mb-8 border-l-2 border-ash/20 pl-4">
+              <div className="mb-8 border-l-2 border-ash/20 pl-4">
                 <p className="text-xs font-mono text-smoke uppercase tracking-wider mb-2">
                   Key Insight
                 </p>
@@ -674,16 +601,16 @@ export default function WorkspacePage() {
   if (!isLoaded || phase === "loading") {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <Spinner size="md" color="default" />
+        <Spinner size="lg" color="black" />
       </div>
     );
   }
 
   if (!isSignedIn) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-4 tb:px-6">
-        <div className="max-w-sm w-full text-center p-6 tb:p-8">
-          <h2 className="font-display text-xl tb:text-2xl text-black mb-3">
+      <div className="min-h-screen bg-white flex items-center justify-center px-6">
+        <div className="max-w-sm w-full text-center p-8">
+          <h2 className="font-display text-2xl text-black mb-3">
             Sign in to start.
           </h2>
           <p className="text-smoke text-sm mb-6">

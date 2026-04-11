@@ -142,6 +142,46 @@ async def start_session(
         cube_image_url=session.cube_image_url,
     )
 
+@router.post("/session/{session_id}/generate-background")
+async def generate_puzzle_background(
+    session_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Generate a desaturated background image for the puzzle workspace."""
+    user = current_user["db_user"]
+    
+    # Rate limit image generation
+    if not rate_limit_user(user.id, "image_generation"):
+        raise HTTPException(
+            status_code=429,
+            detail="Image generation rate limit exceeded."
+        )
+    
+    session = await session_repo.get_by_id(session_id)
+    if not session or session.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Extract puzzle title from problem description
+    problem_desc = session.problem_description or ""
+    puzzle_title = "abstract thinking"
+    if "PUZZLE:" in problem_desc:
+        lines = problem_desc.split("\n")
+        for line in lines:
+            if line.startswith("PUZZLE:"):
+                puzzle_title = line.replace("PUZZLE:", "").strip()
+                break
+    
+    try:
+        # Generate a muted, artistic background - NOT black and white, just desaturated/muted
+        image_prompt = f"Minimalist artistic illustration inspired by '{puzzle_title}'. Soft muted tones, very low saturation, gentle grays and subtle warm undertones. Abstract shapes, soft gradients, dreamlike quality. No text, no people, no faces. Suitable as a subtle background texture. Elegant and understated."
+        
+        background_url = await image_client.generate_image(image_prompt)
+        
+        return {"success": True, "background_url": background_url}
+    except Exception as e:
+        logger.error(f"Failed to generate background: {e}")
+        return {"success": False, "error": str(e)}
+
 @router.post("/session/{session_id}/chat")
 async def chat_with_session(
     session_id: str,

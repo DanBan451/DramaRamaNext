@@ -184,24 +184,31 @@ def build_extract_insight_prompt(
     assistant_message: str,
 ) -> str:
     """
-    Build the prompt for extracting a single insight from a chat exchange.
-    Returns a concise insight for the Deep Understanding Document.
+    Build the prompt for extracting a single realization from a chat exchange.
+    Returns a concise realization for the Understanding Document, written as the user's own insight.
     """
-    return f"""Extract the key insight from this exchange about the user's problem.
+    return f"""Extract the user's realization from this exchange, if any.
 
 Problem: {problem_description}
 Element applied (invisibly): {element}
 User said: {user_message}
 Assistant responded: {assistant_message}
 
-Write ONE concise insight (1-2 sentences, under 30 words) that captures what the user now understands or should understand about their problem. Focus on the substance, not the process.
+ONLY extract a realization if the user genuinely had one in their message. Look for moments where they:
+- Discovered something new about the problem
+- Made a connection they hadn't seen before
+- Questioned an assumption they were holding
+- Simplified or clarified their thinking
 
-If no meaningful insight emerged, respond with: NO_INSIGHT
+If the user had a genuine realization, write it as THEIR insight in first person (1-2 sentences, under 30 words). Start with "I" - as if the user is noting their own realization.
+
+If no meaningful realization emerged from the USER (not the assistant), respond with: NO_INSIGHT
 
 Rules:
+- Only capture realizations the USER actually had, not things the assistant suggested
+- Write in first person as the user ("I realized..." or "I see now that...")
 - Be specific to their actual problem
 - Don't mention the element or framework
-- Write in third person ("The core issue is..." not "You realized...")
 - Plain text, no formatting"""
 
 

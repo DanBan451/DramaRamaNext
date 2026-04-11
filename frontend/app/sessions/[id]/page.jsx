@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@nextui-org/button";
 import { useAuth } from "@clerk/nextjs";
 import { useParams } from "next/navigation";
-import Spinner from "@/components/Spinner";
+import { Spinner } from "@nextui-org/spinner";
 import InsightStructure from "@/components/InsightStructure";
 
 // Element colors (original brighter versions)
@@ -117,7 +117,7 @@ export default function SessionDetailPage() {
     return (
       <div className="min-h-screen bg-white pt-24 pb-16 flex items-center justify-center">
         <div className="text-center">
-          <Spinner size="lg" color="black" />
+          <Spinner size="md" color="default" />
           <p className="text-smoke mt-4">Loading session...</p>
         </div>
       </div>

@@ -75,10 +75,10 @@ export const Navbar = () => {
           <Link href="/" className="flex items-center gap-3">
             <Image
               src="/images/icons8-drama-96.png"
-              className="hidden tb:block w-[40px] lp:w-[50px]"
+              className="w-[32px] tb:w-[40px] lp:w-[50px]"
               alt="DramaRama"
             />
-            <span className={`font-medium ${textColor} text-[18px] lp:text-[20px] hidden tb:block`}>
+            <span className={`font-mono text-xs ${textColor} tracking-[0.3em] uppercase`}>
               DramaRama
             </span>
           </Link>

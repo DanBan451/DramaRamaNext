@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
 import Link from "next/link";
+import Image from "next/image";
 import { SignIn, SignUp } from "@clerk/nextjs";
 import { useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -50,8 +50,8 @@ export default function LoginPage() {
       return stored;
     }
     
-    console.log("📌 Login page - falling back to /profile");
-    return "/profile";
+    console.log("📌 Login page - falling back to /");
+    return "/";
   }, [searchParams]);
 
   // Redirect if already signed in
@@ -66,85 +66,80 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Panel - Decorative */}
-      <div className="hidden lp:flex w-1/2 bg-black relative overflow-hidden">
-        {/* Gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-earth/20 via-fire/20 to-water/20" />
+      {/* Left Panel - Subtle grayish-purple palette */}
+      <div className="hidden lp:flex w-1/2 bg-gradient-to-br from-ash via-void to-ash relative overflow-hidden">
+        {/* Subtle purple glow */}
+        <div className="absolute top-1/4 right-0 w-96 h-96 bg-change/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-1/4 w-64 h-64 bg-change/5 rounded-full blur-2xl" />
         
         {/* Content */}
-        <div className="relative z-10 flex flex-col justify-center px-20 py-16">
+        <div className="relative z-10 flex flex-col justify-center px-12 lp:px-16 py-16 w-full">
           <div className="mb-auto">
-            <Link href="/" className="flex items-center gap-3">
-              {/* White logo for dark background */}
+            <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <Image
                 src="/images/icons8-drama-96.png"
-                width={50}
-                height={50}
+                width={32}
+                height={32}
                 alt="DramaRama"
                 style={{ filter: 'brightness(0) invert(1)' }}
               />
-              <span className="font-display text-white text-2xl">DramaRama</span>
+              <span className="font-mono text-xs text-white/80 tracking-[0.3em] uppercase">DramaRama</span>
             </Link>
           </div>
 
           <div className="my-auto">
-            <h1 className="font-display text-5xl text-white mb-6 leading-tight">
-              Enter the
-              <br />
-              <span className="italic text-white/80">Mental Gym</span>
+            <h1 className="font-display text-4xl lp:text-5xl text-white mb-6 leading-tight">
+              Think through it.
             </h1>
-            <p className="text-white/60 text-lg max-w-md mb-12">
-              Where real problems become opportunities for deep understanding.
+            <p className="text-white/60 text-lg max-w-md mb-12 leading-relaxed">
+              Pick a puzzle. An AI coach guides your thinking. Your understanding builds in real time.
             </p>
 
-            {/* Elements showcase */}
-            <div className="flex gap-4">
+            {/* Steps preview */}
+            <div className="space-y-4">
               {[
-                { color: "#4A7C59", name: "E" },
-                { color: "#E85D04", name: "F" },
-                { color: "#7B9EA8", name: "A" },
-                { color: "#3D5A80", name: "W" },
-                { color: "#9B5DE5", name: "C" },
-              ].map((el, i) => (
+                { num: "01", text: "Pick a puzzle" },
+                { num: "02", text: "Think out loud" },
+                { num: "03", text: "Watch understanding build" },
+              ].map((step, i) => (
                 <div
                   key={i}
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold text-white opacity-0 animate-fade-in"
+                  className="flex items-center gap-4 opacity-0 animate-fade-in"
                   style={{ 
-                    backgroundColor: el.color,
-                    animationDelay: `${i * 0.1}s`, 
+                    animationDelay: `${i * 0.15}s`, 
                     animationFillMode: 'forwards' 
                   }}
                 >
-                  {el.name}
+                  <span className="font-mono text-xs text-change/60 tracking-widest w-6">{step.num}</span>
+                  <span className="text-white/70 text-sm">{step.text}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="mt-auto text-white/40 text-sm">
-            "The challenges themselves begin to change when you apply the 5 Elements."
-            <br />
-            <span className="text-white/60">— Edward Burger</span>
+          <div className="mt-auto">
+            <p className="text-white/40 text-sm italic">
+              "The goal is not to solve it. The goal is to think through it."
+            </p>
+            <p className="text-change/50 text-xs mt-2">— Edward Burger</p>
           </div>
         </div>
-
-        {/* Decorative elements */}
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-tl from-change/30 to-transparent rounded-full blur-3xl" />
-        <div className="absolute top-20 right-20 w-64 h-64 bg-gradient-to-bl from-fire/20 to-transparent rounded-full blur-2xl" />
       </div>
 
       {/* Right Panel - Clerk Auth */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 tb:px-8 py-16 bg-white">
         <div className="w-full max-w-[640px]">
           {/* Mobile logo */}
-          <div className="lp:hidden flex items-center gap-3 mb-12">
-            <Image
-              src="/images/icons8-drama-96.png"
-              width={40}
-              height={40}
-              alt="DramaRama"
-            />
-            <span className="font-display text-black text-xl">DramaRama</span>
+          <div className="lp:hidden mb-12">
+            <Link href="/" className="flex items-center gap-2">
+              <Image
+                src="/images/icons8-drama-96.png"
+                width={28}
+                height={28}
+                alt="DramaRama"
+              />
+              <span className="font-mono text-xs text-black tracking-[0.3em] uppercase">DramaRama</span>
+            </Link>
           </div>
 
           {/* Toggle - same width as Clerk card */}

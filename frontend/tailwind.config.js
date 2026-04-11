@@ -42,9 +42,26 @@ module.exports = {
       },
       animation: {
         'fade-in-up': 'fadeInUp 0.8s ease-out forwards',
-        'fade-in': 'fadeIn 0.6s ease-out forwards',
+        'fade-in': 'fadeIn 0.5s ease-out forwards',
         'pulse-subtle': 'pulse-subtle 3s ease-in-out infinite',
         'float': 'float 4s ease-in-out infinite',
+        'shimmer': 'shimmer 1s ease-out forwards',
+        'shimmer-slide': 'shimmerSlide 1.5s ease-in-out infinite',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        shimmer: {
+          '0%': { boxShadow: '0 0 0 0 rgba(155, 93, 229, 0)' },
+          '30%': { boxShadow: '0 0 20px 5px rgba(155, 93, 229, 0.3)' },
+          '100%': { boxShadow: '0 0 0 0 rgba(155, 93, 229, 0)' },
+        },
+        shimmerSlide: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
+        },
       },
       borderRadius: {
         'subtle': '2px',

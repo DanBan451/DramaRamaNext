@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@nextui-org/button";
 import { useAuth } from "@clerk/nextjs";
 import Footer from "@/components/Footer";
-import Spinner from "@/components/Spinner";
+import { Spinner } from "@nextui-org/spinner";
 
 export default function SessionsPage() {
   const { getToken, isLoaded, isSignedIn } = useAuth();
@@ -73,7 +73,7 @@ export default function SessionsPage() {
     return (
       <div className="min-h-screen bg-white pt-24 pb-16 flex items-center justify-center">
         <div className="text-center">
-          <Spinner size="lg" color="black" />
+          <Spinner size="md" color="default" />
           <p className="text-smoke mt-4">Loading...</p>
         </div>
       </div>
@@ -129,7 +129,7 @@ export default function SessionsPage() {
         {/* Sessions List */}
         {loading ? (
           <div className="text-center py-16">
-            <Spinner size="lg" color="black" />
+            <Spinner size="md" color="default" />
             <p className="text-smoke mt-4">Loading sessions...</p>
           </div>
         ) : error ? (

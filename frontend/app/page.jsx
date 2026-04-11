@@ -1,23 +1,16 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@nextui-org/button";
 import Link from "next/link";
 import Image from "next/image";
 import { SignedIn, SignedOut } from "@clerk/nextjs";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Footer from "@/components/Footer";
-
-// Element data for framework preview
-const elements = [
-  { name: "Earth", emoji: "🌳", desc: "Ground your understanding" },
-  { name: "Fire", emoji: "🔥", desc: "Try and fail forward" },
-  { name: "Air", emoji: "💨", desc: "Question assumptions" },
-  { name: "Water", emoji: "🌊", desc: "See connections flow" },
-  { name: "Change", emoji: "🪨", desc: "Reflect on transformation" },
-];
+import { PUZZLES } from "@/lib/puzzles";
 
 export default function Home() {
+  const [selectedPuzzle, setSelectedPuzzle] = useState(null);
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -56,9 +49,9 @@ export default function Home() {
           className="relative z-20 h-full flex flex-col justify-end pb-16 lp:pb-20"
           style={{ opacity: contentOpacity, y: contentY }}
         >
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-[1536px] mx-auto px-6 w-full">
             <div className="lp:absolute lp:bottom-20 lp:left-1/4 lp:ml-10 mr-3 max-w-none">
-              <h1 className="font-display text-3xl tb:text-5xl lp:text-6xl text-black mb-4 lp:mb-6 lp:max-w-[1000px] drop-shadow-sm">
+              <h1 className="font-display text-3xl tb:text-5xl lp:text-6xl text-black mb-4 lp:mb-6 lp:max-w-[1000px] drop-shadow-sm italic">
                 Understand Deeply.
               </h1>
               <p className="text-lg tb:text-xl lp:text-2xl text-black/80 lp:max-w-[800px] mb-6 lp:mb-8">
@@ -111,59 +104,62 @@ export default function Home() {
         </motion.div>
       </section>
 
-      {/* Section Divider */}
-      <div className="section-divider" />
-
-      {/* How It Works Section */}
-      <section className="py-24 px-6 bg-white">
+      {/* ── How It Works ── */}
+      <section className="py-24 tb:py-32 px-6 bg-gradient-to-b from-white to-mist/30">
         <div className="max-w-[1536px] mx-auto">
-          <div className="text-center mb-16">
-            <span className="text-sm font-mono text-smoke uppercase tracking-widest mb-4 block">
-              How It Works
-            </span>
-            <h2 className="font-display text-4xl lp:text-5xl text-black mb-6">
-              A conversation that builds understanding
-            </h2>
-          </div>
+          <motion.span 
+            className="font-mono text-xs text-smoke tracking-[0.3em] uppercase block mb-12 tb:mb-16"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+          >
+            The Process
+          </motion.span>
 
-          <div className="grid lp:grid-cols-3 gap-12">
-            <div className="text-center">
-              <div className="w-20 h-20 rounded-full bg-mist flex items-center justify-center mx-auto mb-6">
-                <span className="text-2xl font-display text-change">1</span>
-              </div>
-              <h3 className="font-display text-2xl text-black mb-4">Describe your problem</h3>
-              <p className="text-smoke">
-                Bring a real challenge you're facing. Something you're stuck on 
-                or want to think through more deeply.
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-20 h-20 rounded-full bg-mist flex items-center justify-center mx-auto mb-6">
-                <span className="text-2xl font-display text-change">2</span>
-              </div>
-              <h3 className="font-display text-2xl text-black mb-4">Have a conversation</h3>
-              <p className="text-smoke">
-                Chat naturally. The system asks questions that help you see 
-                your problem from new angles.
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-20 h-20 rounded-full bg-mist flex items-center justify-center mx-auto mb-6">
-                <span className="text-2xl font-display text-change">3</span>
-              </div>
-              <h3 className="font-display text-2xl text-black mb-4">Build understanding</h3>
-              <p className="text-smoke">
-                As you talk, a Deep Understanding Document builds in real time—
-                capturing your insights.
-              </p>
-            </div>
+          <div className="grid tb:grid-cols-3 gap-8 tb:gap-12">
+            {[
+              {
+                step: "01",
+                title: "Choose a challenge",
+                desc: "Select from carefully crafted thinking puzzles. Each one targets a specific cognitive skill.",
+              },
+              {
+                step: "02",
+                title: "Explore with guidance",
+                desc: "An AI coach asks the right questions and guides you deeper — without giving you the answer.",
+              },
+              {
+                step: "03",
+                title: "Watch understanding grow",
+                desc: "Your realizations build into a document in real time. Structured, clear, yours.",
+              },
+            ].map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ delay: i * 0.15, duration: 0.6 }}
+                className="relative"
+              >
+                <div className="p-6 tb:p-8">
+                  <span className="font-mono text-2xl tb:text-3xl text-change/30 font-light block mb-4">
+                    {item.step}
+                  </span>
+                  <h3 className="font-display text-xl tb:text-2xl text-black mb-3 tb:mb-4">
+                    {item.title}
+                  </h3>
+                  <p className="text-smoke text-sm tb:text-base leading-relaxed">
+                    {item.desc}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* The Framework Section */}
+      {/* ── The Framework Section ── */}
       <section className="py-24 px-6 bg-mist">
         <div className="max-w-[1536px] mx-auto">
           <div className="grid lp:grid-cols-2 gap-16 items-center">
@@ -175,11 +171,11 @@ export default function Home() {
                 Invisible scaffolding for better thinking
               </h2>
               <p className="text-lg text-ash mb-6">
-                Behind every conversation is the 5 Elements of Effective Thinking—a proven 
+                Behind every conversation is the 5 Elements of Effective Thinking—a proven
                 framework for developing deep understanding. But you'll never see it.
               </p>
               <p className="text-lg text-ash mb-8">
-                The system invisibly applies the right thinking lens at the right moment, 
+                The system invisibly applies the right thinking lens at the right moment,
                 so you can focus on your problem, not on methodology.
               </p>
               <Link href="/framework">
@@ -194,7 +190,13 @@ export default function Home() {
 
             <div className="bg-white border border-mist rounded-xl p-8 shadow-lg">
               <div className="space-y-4">
-                {elements.map((element) => (
+                {[
+                  { name: "Earth", emoji: "🌳", desc: "Ground your understanding" },
+                  { name: "Fire", emoji: "🔥", desc: "Try and fail forward" },
+                  { name: "Air", emoji: "💨", desc: "Question assumptions" },
+                  { name: "Water", emoji: "🌊", desc: "See connections flow" },
+                  { name: "Change", emoji: "🪨", desc: "Reflect on transformation" },
+                ].map((element) => (
                   <div 
                     key={element.name}
                     className="flex items-center gap-4 p-4 rounded-lg bg-gray-100/80 border border-gray-200 element-shimmer"
@@ -212,30 +214,155 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-24 px-6 bg-black text-white">
-        <div className="max-w-[1536px] mx-auto text-center">
-          <h2 className="font-display text-4xl lp:text-5xl mb-6">
-            Ready to think deeper?
+      {/* ── Puzzle Preview ── */}
+      <section className="py-24 tb:py-32 px-6 bg-white">
+        <div className="max-w-[1536px] mx-auto">
+          <span className="font-mono text-xs text-smoke tracking-[0.3em] uppercase block mb-12 tb:mb-16">
+            The Puzzles
+          </span>
+
+          <div className="grid tb:grid-cols-2 lp:grid-cols-3 gap-4 tb:gap-6">
+            {PUZZLES.slice(0, 6).map((puzzle, i) => (
+              <motion.button
+                key={puzzle.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-30px" }}
+                transition={{ delay: i * 0.08, duration: 0.5 }}
+                onClick={() => setSelectedPuzzle(puzzle)}
+                className="group bg-white border border-mist hover:border-change/30 p-6 tb:p-8 min-h-[180px] tb:min-h-[200px] flex flex-col justify-between transition-all duration-300 hover:shadow-lg hover:-translate-y-1 text-left cursor-pointer"
+              >
+                <div>
+                  <span className="font-mono text-[10px] text-change/60 tracking-widest">
+                    {puzzle.number}
+                  </span>
+                  <h4 className="font-display text-lg tb:text-xl text-black mt-2 mb-3 group-hover:text-change transition-colors">
+                    {puzzle.title}
+                  </h4>
+                  <p className="text-smoke text-sm leading-relaxed line-clamp-2">
+                    {puzzle.text.split("\n")[0]}
+                  </p>
+                </div>
+                <span className="text-[10px] font-mono text-smoke/40 uppercase tracking-wider mt-4">
+                  {puzzle.category}
+                </span>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Puzzle Modal ── */}
+      <AnimatePresence>
+        {selectedPuzzle && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 tb:p-6"
+            onClick={() => setSelectedPuzzle(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white max-w-2xl w-full max-h-[80vh] overflow-y-auto p-8 tb:p-12 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-start mb-6">
+                <span className="font-mono text-xs text-change/60 tracking-widest">
+                  {selectedPuzzle.number} · {selectedPuzzle.category}
+                </span>
+                <button 
+                  onClick={() => setSelectedPuzzle(null)}
+                  className="text-smoke hover:text-black transition-colors text-2xl leading-none"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <h2 className="font-display text-2xl tb:text-3xl text-black mb-6">
+                {selectedPuzzle.title}
+              </h2>
+              
+              <div className="text-ash text-sm tb:text-base leading-relaxed whitespace-pre-line mb-8 tb:mb-10">
+                {selectedPuzzle.text}
+              </div>
+
+              <div className="flex flex-col tb:flex-row gap-3 tb:gap-4">
+                <SignedIn>
+                  <Link href="/workspace" className="flex-1">
+                    <Button
+                      className="bg-black text-white w-full h-12 tb:h-14 text-base font-medium hover:bg-ash transition-colors"
+                      radius="none"
+                    >
+                      Start This Puzzle
+                    </Button>
+                  </Link>
+                </SignedIn>
+                <SignedOut>
+                  <Link href="/login" className="flex-1">
+                    <Button
+                      className="bg-black text-white w-full h-12 tb:h-14 text-base font-medium hover:bg-ash transition-colors"
+                      radius="none"
+                    >
+                      Get Started
+                    </Button>
+                  </Link>
+                </SignedOut>
+                <Link href="/framework" className="flex-1">
+                  <Button
+                    className="bg-transparent border border-black text-black w-full h-12 tb:h-14 text-base font-medium hover:bg-black/5 transition-colors"
+                    radius="none"
+                  >
+                    Explore the Framework
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── CTA ── */}
+      <section className="py-24 tb:py-32 px-6 bg-gradient-to-br from-ash via-void to-ash relative overflow-hidden">
+        {/* Subtle purple glow */}
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-change/10 rounded-full blur-3xl" />
+        
+        <motion.div
+          className="max-w-[1536px] mx-auto text-center relative z-10"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
+          <h2 className="font-display text-3xl tb:text-4xl lp:text-5xl text-white mb-4 tb:mb-6">
+            Ready to think?
           </h2>
-          <p className="text-xl text-smoke mb-10 max-w-xl mx-auto">
-            Bring a real problem. Have a real conversation. Build real understanding.
+          <p className="text-white/50 text-base tb:text-lg mb-8 tb:mb-10 max-w-lg mx-auto">
+            The puzzles are waiting. Your understanding is not.
           </p>
           <SignedIn>
             <Link href="/workspace">
-              <Button className="bg-white text-black hover:bg-mist px-8 py-6 text-lg rounded-none font-semibold">
-                Open Workspace
+              <Button
+                className="bg-white text-black px-8 tb:px-10 h-12 tb:h-14 text-base font-medium hover:bg-white/90"
+                radius="none"
+              >
+                Start a Puzzle
               </Button>
             </Link>
           </SignedIn>
           <SignedOut>
             <Link href="/login">
-              <Button className="bg-white text-black hover:bg-mist px-8 py-6 text-lg rounded-none font-semibold">
-                Get Started Free
+              <Button
+                className="bg-white text-black px-8 tb:px-10 h-12 tb:h-14 text-base font-medium hover:bg-white/90"
+                radius="none"
+              >
+                Start a Puzzle
               </Button>
             </Link>
           </SignedOut>
-        </div>
+        </motion.div>
       </section>
 
       <Footer />

@@ -70,15 +70,15 @@ export default function FrameworkPage() {
       <section className="py-24 px-6 pt-32">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-sm font-mono text-smoke uppercase tracking-widest mb-4">
-            The Framework
+            How It Works
           </p>
           <h1 className="font-display text-5xl md:text-6xl text-black mb-6">
-            5 Elements of Effective Thinking
+            The thinking behind DramaRama
           </h1>
           <p className="text-xl text-smoke max-w-2xl mx-auto leading-relaxed">
-            A proven framework for developing deep understanding of any problem. 
-            In DramaRama, these elements work invisibly—guiding your conversation 
-            without you having to think about methodology.
+            DramaRama uses five ways of thinking to guide your conversation. 
+            You don't need to know any of this to use it — but if you're curious, 
+            here's how it works under the hood.
           </p>
         </div>
       </section>
@@ -174,17 +174,17 @@ export default function FrameworkPage() {
       <section className="py-16 px-6 bg-mist">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="font-display text-2xl text-black mb-4">
-            Want to learn more?
+            Want to dig deeper?
           </h2>
           <p className="text-smoke mb-6">
-            Explore each element in depth with detailed principles and guiding questions.
+            Each element has its own principles and guiding questions.
           </p>
           <Link href="/elements">
             <Button 
               className="bg-change text-white font-medium px-8 hover:bg-change/90"
               radius="none"
             >
-              Explore Elements in Depth →
+              See All Five Elements →
             </Button>
           </Link>
         </div>
@@ -194,17 +194,17 @@ export default function FrameworkPage() {
       <section className="py-24 px-6 bg-black text-white">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="font-display text-3xl mb-6">
-            Ready to think through a problem?
+            Ready to try a puzzle?
           </h2>
           <p className="text-lg text-smoke mb-10">
-            The framework works best when you bring a real challenge. Let's think together.
+            It takes about 15 minutes. Pick one and see where your thinking goes.
           </p>
           <Link href="/workspace">
             <Button 
               className="bg-white text-black font-semibold px-10 py-6 text-lg hover:bg-mist"
               radius="none"
             >
-              Open Workspace
+              Pick a Puzzle
             </Button>
           </Link>
         </div>

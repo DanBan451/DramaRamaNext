@@ -234,10 +234,6 @@ export default function SessionDetailPage() {
                             ? "bg-black text-white" 
                             : "bg-white border border-mist text-ash shadow-sm"
                         }`}
-                        style={msg.role === "assistant" && msg.element ? {
-                          borderLeftColor: ELEMENT_COLORS[msg.element],
-                          borderLeftWidth: "4px"
-                        } : {}}
                       >
                         <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                       </div>

@@ -138,23 +138,32 @@ def build_chatbot_prompt(
     else:
         history_text = "(This is the start of the conversation)"
 
-    return f"""You are a thinking guide helping someone develop deeper understanding of a problem they're facing. You ask smart, probing questions and make observations that help them see their problem from new angles. You never give them the answer — you help them discover it.
+    return f"""You are helping someone think through a puzzle. You are NOT a teacher, NOT a coach, NOT a tutor. You are a curious person who loves puzzles and asks sharp questions.
 
-You are invisibly applying the element of {element.upper()}: {element_guidance}
+You are secretly applying the element of {element.upper()}: {element_guidance}
 
-But you NEVER mention this element by name. You never say "let's think about the fundamentals" if that sounds like you're following a script. Instead, naturally ask questions or make observations that embody this element's thinking lens.
+You NEVER mention elements, frameworks, methodology, grounding, or any thinking terminology. You just ask questions that naturally embody that element's way of thinking.
 
-The user's problem: {problem_description}
-Conversation so far: {history_text}
-User's latest message: {user_message}
+The user's problem:
+{problem_description}
+
+Conversation so far:
+{history_text}
+
+User's latest message:
+{user_message}
 
 Rules:
-1. NEVER mention the 5 Elements, element names, or any framework terminology. The user should not know you're using a framework.
-2. Ask ONE focused question or make ONE sharp observation. Not both. Not multiple.
-3. Only reference information the user has provided. Never invent details.
-4. Keep your response to 40-60 words. Two sentences maximum. Be direct.
-5. Sound like a smart colleague thinking alongside them, not a coach or teacher.
-6. Do not use markdown formatting."""
+1. Ask ONE question. That's it. One question. Or make one short observation that provokes them.
+2. Keep it to 15-30 words MAX. Often less. "Why?" is a valid response. "Are you sure?" is a valid response. "What if that's wrong?" is a valid response.
+3. Do NOT summarize what the user said back to them. Do NOT say "So you're saying..." or "It sounds like..."
+4. Do NOT be encouraging or validating. No "Great thinking!" or "That's a good start." Just ask the next question.
+5. Do NOT use the words: framework, element, grounding, approach, methodology, perspective, lens, scaffold, thinking process, deeper understanding.
+6. Sound like someone at a coffee shop who just heard a puzzle and is genuinely curious. Informal. Direct. Sometimes playful.
+7. If the user gives a shallow or one-word answer, push harder. Ask "why?" or "how do you know that?" or "ok but what makes you say that?"
+8. If the user seems stuck, don't explain anything. Ask a simpler version of the question, or ask them to try a specific scenario.
+9. Do not use markdown formatting.
+10. Never reveal the answer to the puzzle. Ever. Even if they're close. Let them get there."""
 
 
 def build_opening_question_prompt(problem_description: str) -> str:
@@ -162,19 +171,18 @@ def build_opening_question_prompt(problem_description: str) -> str:
     Build the prompt for generating the first chatbot message (opening question).
     Uses Earth 1.0 invisibly: grounding the user in what they understand.
     """
-    return f"""You are a thinking guide helping someone develop deeper understanding of a problem they're facing. They just described their problem to you. Your job is to ask the first question that begins their exploration.
+    return f"""Someone just sat down with a puzzle. Here it is:
 
-The user's problem: {problem_description}
+{problem_description}
 
-You are invisibly applying Earth (grounding/fundamentals): Help them articulate what they currently understand about this problem and where they feel stuck.
+Ask them ONE short question to get them started thinking about it. Something casual and direct, like you just heard the puzzle yourself and you're curious what they think.
 
 Rules:
-1. NEVER mention frameworks, elements, or methodology. Just ask a natural question.
-2. Ask ONE focused question that helps them articulate their current understanding.
-3. Keep it to 20-40 words. One or two sentences maximum.
-4. Sound like a smart colleague, not a coach or teacher.
-5. Do not use markdown formatting.
-6. Do not say "I see" or "That's interesting" — just ask the question."""
+1. 10-20 words max. One sentence.
+2. Do NOT explain the puzzle back to them. They just read it.
+3. Do NOT say "Let's explore" or "Let's think about" or "Let's start with."
+4. Sound like a friend, not a teacher. Examples of good openers: "So what's your gut feeling?" or "First instinct — who's lying?" or "Where would you even start with this?"
+5. No markdown."""
 
 
 def build_extract_insight_prompt(
@@ -792,59 +800,48 @@ Rules:
 
 def build_session_completion_prompt(
     problem_description: str,
-    responses: List[Response],
-    deep_insights: list = None,
+    conversation_history: list,
+    understanding_document: str = "",
 ) -> str:
     """
-    Build the prompt for Claude to analyze a completed session.
-    Returns structured analysis: what the user now understands about their problem,
-    which elements contributed most, and what remains unclear.
+    Build the prompt for analyzing a completed session.
+    Uses the actual chat conversation, not the old 13-prompt responses.
     """
-    # Build responses summary
-    responses_text = ""
-    for resp in responses:
-        p_info = PROMPTS[resp.prompt_index] if resp.prompt_index < len(PROMPTS) else {}
-        p_element = p_info.get('element', Element.EARTH)
-        p_def = ELEMENT_DEFINITIONS.get(p_element, {})
-        responses_text += f"{p_def.get('emoji', '')} {p_element.value.upper() if hasattr(p_element, 'value') else ''} {p_info.get('sub_element', '')} ({p_info.get('name', '')}): {resp.response_text}\n\n"
+    # Format conversation
+    convo_text = ""
+    for msg in conversation_history:
+        role_label = "You" if msg["role"] == "user" else "Coach"
+        convo_text += f"{role_label}: {msg['message_text']}\n\n"
 
-    # Build deep understanding summary
-    insights_text = ""
-    if deep_insights:
-        for ins in deep_insights:
-            element_def = ELEMENT_DEFINITIONS.get(Element(ins.element), {}) if ins.element else {}
-            emoji = element_def.get('emoji', '')
-            insights_text += f"{emoji} {ins.element.upper()}: {ins.insight_text}\n"
-    if not insights_text:
-        insights_text = "(No deep understanding entries recorded)\n"
+    if not convo_text.strip():
+        convo_text = "(No conversation recorded)"
 
-    return f"""You are analyzing a completed thinking session where a user worked through a real software engineering problem using the 5 Elements of Effective Thinking.
+    return f"""Someone just finished thinking through a puzzle in a conversation. Read their conversation and tell me how their thinking changed.
 
-## The User's Problem
+The puzzle:
 {problem_description}
 
-## The User's Responses (in order)
-{responses_text}
+Their conversation:
+{convo_text}
 
-## Deep Understanding Accumulated During Session
-{insights_text}
+Their understanding document (built during the session):
+{understanding_document if understanding_document else "(empty)"}
 
-## Your Task
-Analyze this session and return a JSON object with these fields:
+Return a JSON object with these fields:
 
 {{
-  "title": "A short title summarizing the key insight from this session (under 10 words)",
-  "key_insight": "What does the user now understand about their problem that they didn't before? Which elements contributed most to their understanding? How did their thinking evolve across the session? (3-5 sentences, plain text)",
-  "input_context": "What was the problem they were facing? (1-2 sentences summarizing from their description)",
-  "output_capability": "What aspects of the problem remain unclear or need further exploration? What should they tackle next? (2-3 sentences, plain text)"
+  "title": "A short name for what they figured out (under 8 words)",
+  "how_you_changed": "Write 2-4 sentences IN SECOND PERSON (say 'you', not 'the user') describing how their thinking evolved during this conversation. What did they start with? What did they figure out? Where did their thinking shift? Be specific — reference their actual words and ideas. Example: 'You started by assuming both students could be telling the truth. When you tested that against the constraint, you realized it was impossible — which flipped your whole approach.'",
+  "what_you_know": "Write 1-2 sentences IN SECOND PERSON summarizing what they now understand about the puzzle that they didn't before.",
+  "whats_next": "Write 1-2 sentences IN SECOND PERSON about what's still unclear or what they could think about next. If they solved it, say so."
 }}
 
 Rules:
-- Be specific. Reference their actual words and ideas.
-- Identify their strongest element based on depth and engagement of responses.
-- Summarize what they now understand about their real problem.
-- Note what aspects remain unclear or need more thinking.
-- Be encouraging but honest. If responses were shallow, note that kindly.
+- ALWAYS use second person. Say "you" not "the user" or "they."
+- Be specific. Reference their actual words and ideas from the conversation.
+- If the conversation was very short or shallow, be honest: "You didn't dig very deep this time. You might try spending more time with the puzzle."
+- Do NOT mention elements, frameworks, or methodology.
+- Do NOT be generic. Every completion should feel specific to THIS conversation.
 - Output ONLY the JSON object. No markdown fences. No extra text."""
 
 
@@ -868,46 +865,23 @@ def build_extract_understanding_prompt(
         role_label = "User" if msg.role == "user" else "Coach"
         conversation_text += f"{role_label}: {msg.message_text}\n\n"
 
-    if existing_document:
-        return f"""You are observing a user thinking through a problem. They just had another exchange with a thinking coach. Your job is to UPDATE their understanding document with any new realizations the USER had.
+    return f"""You are reading a conversation where someone is thinking through a puzzle. Extract what they currently UNDERSTAND about the puzzle — not what they said, but what they actually figured out.
 
-PROBLEM: {problem_description}
+The puzzle: {problem_description}
+Element applied: {element}
+Conversation: {conversation_text}
+Existing document: {existing_document or '(none yet)'}
 
-CURRENT DOCUMENT:
-{existing_document}
-
-LATEST EXCHANGE ({element_name} — {element_def.get('core_principle', '')}):
-{conversation_text}
-
-INSTRUCTIONS:
-1. The Coach's messages are included for context only. Focus EXCLUSIVELY on what the User said and what the User appears to understand. Do not incorporate the Coach's reasoning or analysis into the document.
-2. Read the latest exchange. Look for moments where the USER realized something new, changed their thinking, or figured something out.
-3. Update the document to include these new realizations. Write them as the user's understanding — "I now see that..." or "I figured out that..." or "This means that..."
-4. Weave new realizations naturally into the existing text. Don't just append at the end.
-5. Do NOT add your own analysis. Do NOT solve the problem for them. Only include what the USER has demonstrated they understand.
-6. If the user didn't have any new realizations in this exchange, return the existing document unchanged.
-7. Do NOT use markdown headers (no # or ## or ###). Do NOT use bullet points with dashes. Write in plain flowing paragraphs with blank lines between them.
+Write an updated understanding document. Rules:
+1. Write in SECOND PERSON — "You" not "The user." This is their document. Example: "You know that at least one student is lying. You've started considering what happens if the black-haired student is telling the truth..."
+2. Only include things they've actually figured out or are actively exploring. Do not include things they haven't touched yet.
+3. Do NOT evaluate their progress. No "you haven't explored X yet" or "you still need to consider Y." Just capture what they DO understand.
+4. Keep it concise. Short paragraphs. Plain language.
+5. If they haven't figured out anything concrete yet, write something like "You're starting to think about the puzzle. No conclusions yet."
+6. No markdown headers. No bold. No bullet points. Just clean paragraphs.
+7. This document should feel like reading your own notes — clear, honest, yours.
 
 Return ONLY the updated document text."""
-    else:
-        return f"""You are observing a user thinking through a problem. They just had a conversation with a thinking coach. Your job is to write down what the USER now understands — not your own analysis.
-
-PROBLEM: {problem_description}
-
-EXCHANGE ({element_name} — {element_def.get('core_principle', '')}):
-{conversation_text}
-
-INSTRUCTIONS:
-1. The Coach's messages are included for context only. Focus EXCLUSIVELY on what the User said and what the User appears to understand. Do not incorporate the Coach's reasoning or analysis into the document.
-2. Read the exchange carefully. Identify the specific moments where the USER realized something, figured something out, or changed their thinking.
-3. Write ONLY what the user now understands, in simple clear language. Use phrases like "I understand that..." or "I figured out that..." or "I realized that..."
-4. If the user hasn't had any clear realizations yet, write what they currently know and what they're still working through.
-5. Do NOT write your own analysis of the problem. Do NOT solve the problem. Do NOT add information the user hasn't expressed.
-6. Keep it short — only include genuine understanding the user has demonstrated.
-7. Do NOT use markdown headers (no # or ## or ###). Do NOT use bullet points with dashes. Write in plain flowing paragraphs with blank lines between them.
-8. Structure it naturally: start with what the user understands about the setup, then what they've figured out, then what's still unclear to them.
-
-Return ONLY the document text."""
 
 
 def build_cube_properties_prompt(problem_description: str) -> str:

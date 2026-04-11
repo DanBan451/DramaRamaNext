@@ -34,26 +34,26 @@ export const Navbar = () => {
   // Base nav items (always visible)
   const baseNavItems = [
     { name: "Home", path: "/" },
-    { name: "Framework", path: "/framework" },
+    { name: "About", path: "/framework" },
   ];
 
   // Auth-only nav items
   const authNavItems = [
-    { name: "Workspace", path: "/workspace" },
+    { name: "Puzzles", path: "/workspace" },
     { name: "Profile", path: "/profile" },
   ];
 
   // Mobile menu items for signed out users
   const signedOutMenuItems = [
     { name: "Home", path: "/" },
-    { name: "Framework", path: "/framework" },
+    { name: "About", path: "/framework" },
   ];
 
   // Mobile menu items for signed in users
   const signedInMenuItems = [
     { name: "Home", path: "/" },
-    { name: "Framework", path: "/framework" },
-    { name: "Workspace", path: "/workspace" },
+    { name: "About", path: "/framework" },
+    { name: "Puzzles", path: "/workspace" },
     { name: "Profile", path: "/profile" },
   ];
 

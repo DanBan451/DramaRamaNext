@@ -52,11 +52,10 @@ export default function Home() {
           <div className="max-w-[1536px] mx-auto px-6 w-full">
             <div className="lp:absolute lp:bottom-20 lp:left-1/4 lp:ml-10 mr-3 max-w-none">
               <h1 className="font-display text-3xl tb:text-5xl lp:text-6xl text-black mb-4 lp:mb-6 lp:max-w-[1000px] drop-shadow-sm italic">
-                Understand Deeply.
+                Try a puzzle.
               </h1>
               <p className="text-lg tb:text-xl lp:text-2xl text-black/80 lp:max-w-[800px] mb-6 lp:mb-8">
-                Describe any problem you're facing. Our AI guides you to deeper 
-                understanding through proven thinking frameworks.
+                Think out loud. A conversation builds your understanding in real time.
               </p>
               <div className="flex flex-col tb:flex-row gap-4">
                 <SignedIn>
@@ -65,7 +64,7 @@ export default function Home() {
                       className="bg-primary hover:bg-primary/90 text-white w-full tb:w-[220px] h-[64px] text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                       radius="none"
                     >
-                      Start Exploring
+                      Pick a Puzzle
                     </Button>
                   </Link>
                 </SignedIn>
@@ -75,18 +74,10 @@ export default function Home() {
                       className="bg-primary hover:bg-primary/90 text-white w-full tb:w-[220px] h-[64px] text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                       radius="none"
                     >
-                      Start Exploring
+                      Pick a Puzzle
                     </Button>
                   </Link>
                 </SignedOut>
-                <Link href="/framework">
-                  <Button 
-                    className="bg-transparent border border-smoke text-black hover:bg-mist w-full tb:w-[220px] h-[64px] text-lg font-semibold hover:scale-105 transition-all"
-                    radius="none"
-                  >
-                    Learn the Framework
-                  </Button>
-                </Link>
               </div>
             </div>
           </div>
@@ -120,18 +111,18 @@ export default function Home() {
             {[
               {
                 step: "01",
-                title: "Choose a challenge",
-                desc: "Select from carefully crafted thinking puzzles. Each one targets a specific cognitive skill.",
+                title: "Pick a puzzle",
+                desc: "Classic thinking puzzles. Each one is trickier than it looks.",
               },
               {
                 step: "02",
-                title: "Explore with guidance",
-                desc: "An AI coach asks the right questions and guides you deeper — without giving you the answer.",
+                title: "Think out loud",
+                desc: "Talk through it in a conversation. You'll be asked questions that push your thinking further.",
               },
               {
                 step: "03",
-                title: "Watch understanding grow",
-                desc: "Your realizations build into a document in real time. Structured, clear, yours.",
+                title: "See what you know",
+                desc: "A document captures your understanding as it builds. You might surprise yourself.",
               },
             ].map((item, i) => (
               <motion.div
@@ -155,61 +146,6 @@ export default function Home() {
                 </div>
               </motion.div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── The Framework Section ── */}
-      <section className="py-24 px-6 bg-mist">
-        <div className="max-w-[1536px] mx-auto">
-          <div className="grid lp:grid-cols-2 gap-16 items-center">
-            <div>
-              <span className="text-sm font-mono text-smoke uppercase tracking-widest mb-4 block">
-                The Framework
-              </span>
-              <h2 className="font-display text-4xl lp:text-5xl text-black mb-6">
-                Invisible scaffolding for better thinking
-              </h2>
-              <p className="text-lg text-ash mb-6">
-                Behind every conversation is the 5 Elements of Effective Thinking—a proven
-                framework for developing deep understanding. But you'll never see it.
-              </p>
-              <p className="text-lg text-ash mb-8">
-                The system invisibly applies the right thinking lens at the right moment,
-                so you can focus on your problem, not on methodology.
-              </p>
-              <Link href="/framework">
-                <Button 
-                  className="bg-primary text-white hover:bg-primary/90 px-8 py-6 text-lg font-semibold"
-                  radius="none"
-                >
-                  Explore the Framework
-                </Button>
-              </Link>
-            </div>
-
-            <div className="bg-white border border-mist rounded-xl p-8 shadow-lg">
-              <div className="space-y-4">
-                {[
-                  { name: "Earth", emoji: "🌳", desc: "Ground your understanding" },
-                  { name: "Fire", emoji: "🔥", desc: "Try and fail forward" },
-                  { name: "Air", emoji: "💨", desc: "Question assumptions" },
-                  { name: "Water", emoji: "🌊", desc: "See connections flow" },
-                  { name: "Change", emoji: "🪨", desc: "Reflect on transformation" },
-                ].map((element) => (
-                  <div 
-                    key={element.name}
-                    className="flex items-center gap-4 p-4 rounded-lg bg-gray-100/80 border border-gray-200 element-shimmer"
-                  >
-                    <div className="text-3xl grayscale opacity-70">{element.emoji}</div>
-                    <div>
-                      <div className="font-semibold text-black">{element.name}</div>
-                      <div className="text-sm text-smoke">{element.desc}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -310,14 +246,6 @@ export default function Home() {
                     </Button>
                   </Link>
                 </SignedOut>
-                <Link href="/framework" className="flex-1">
-                  <Button
-                    className="bg-transparent border border-black text-black w-full h-12 tb:h-14 text-base font-medium hover:bg-black/5 transition-colors"
-                    radius="none"
-                  >
-                    Explore the Framework
-                  </Button>
-                </Link>
               </div>
             </motion.div>
           </motion.div>
@@ -337,10 +265,10 @@ export default function Home() {
           transition={{ duration: 0.8 }}
         >
           <h2 className="font-display text-3xl tb:text-4xl lp:text-5xl text-white mb-4 tb:mb-6">
-            Ready to think?
+            Pick a puzzle.
           </h2>
           <p className="text-white/50 text-base tb:text-lg mb-8 tb:mb-10 max-w-lg mx-auto">
-            The puzzles are waiting. Your understanding is not.
+            It's free. It takes 15 minutes. You'll think differently after.
           </p>
           <SignedIn>
             <Link href="/workspace">

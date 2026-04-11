@@ -101,8 +101,7 @@ function SetupPhase({ onStart }) {
             Pick a puzzle.
           </h1>
           <p className="text-smoke text-base tb:text-lg leading-relaxed">
-            The goal is not to solve it. The goal is to think through it — to
-            see it from every angle you can. The answer will come on its own.
+            You'll think through it in a conversation. Pick one that looks interesting.
           </p>
         </div>
 
@@ -518,11 +517,6 @@ function WorkingPhase({
                     : "bg-gradient-to-br from-white to-change/[0.03] border border-change/10 text-ash rounded-2xl rounded-bl-sm shadow-sm"
                 }`}
               >
-                {msg.role === "assistant" && msg.element && (
-                  <span className="font-mono text-[9px] text-change/50 uppercase tracking-widest block mb-1">
-                    {elementNames[msg.element]}
-                  </span>
-                )}
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">
                   {msg.text}
                 </p>
@@ -586,27 +580,38 @@ function WorkingPhase({
       {completionData && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 tb:p-6">
           <div className="bg-white max-w-lg w-full p-6 tb:p-10 shadow-2xl">
-            <div className="text-center mb-6 tb:mb-8">
-              <span className="font-mono text-xs text-smoke tracking-widest">
-                SESSION COMPLETE
-              </span>
-              <h2 className="font-display text-2xl tb:text-3xl text-black mt-2 mb-3">
-                Well done.
-              </h2>
-              {completionData.thinker_description && (
-                <p className="text-smoke italic text-sm">
-                  {completionData.thinker_description}
-                </p>
+            {/* Puzzle title */}
+            <div className="text-center mb-8">
+              {activePuzzle && (
+                <h2 className="font-display text-2xl tb:text-3xl text-black">
+                  {activePuzzle.title}
+                </h2>
               )}
             </div>
 
-            {completionData.analysis?.key_insight && (
-              <div className="mb-6 tb:mb-8 border-l-2 border-ash/20 pl-4">
-                <p className="text-xs font-mono text-smoke uppercase tracking-wider mb-2">
-                  Key Insight
-                </p>
+            {/* How your thinking changed */}
+            {completionData.analysis?.how_you_changed && (
+              <div className="mb-6">
                 <p className="text-sm text-ash leading-relaxed">
-                  {completionData.analysis.key_insight}
+                  {completionData.analysis.how_you_changed}
+                </p>
+              </div>
+            )}
+
+            {/* What you now know */}
+            {completionData.analysis?.what_you_know && (
+              <div className="mb-6 border-l-2 border-ash/20 pl-4">
+                <p className="text-sm text-ash leading-relaxed">
+                  {completionData.analysis.what_you_know}
+                </p>
+              </div>
+            )}
+
+            {/* What's next */}
+            {completionData.analysis?.whats_next && (
+              <div className="mb-8">
+                <p className="text-xs text-smoke leading-relaxed italic">
+                  {completionData.analysis.whats_next}
                 </p>
               </div>
             )}

@@ -165,7 +165,7 @@ export default function SessionsPage() {
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
                     <h3 className="font-display text-xl text-black line-clamp-1">
-                        {session.problem_description || "Session"}
+                        {session.component_title || session.problem_description || "Session"}
                     </h3>
                       <span className={`text-xs px-3 py-1 rounded-full font-medium ${
                         session.status === "completed" ? "bg-earth/10 text-earth" :

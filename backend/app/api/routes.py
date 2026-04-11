@@ -335,15 +335,21 @@ async def complete_session(
     if session.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Get responses and deep understanding entries
-    responses = await response_repo.get_session_responses(request.session_id)
-    deep_insights = await deep_understanding_repo.get_by_session_id(request.session_id)
+    # Fetch the actual conversation history
+    all_messages = await element_message_repo.get_all_for_session(request.session_id)
+    conversation_history = [
+        {"role": msg.role, "message_text": msg.message_text, "element_applied": msg.element_applied or ""}
+        for msg in all_messages
+    ]
+
+    # Get the understanding document from the session
+    understanding_doc = session.understanding_document or ""
     
     # Build session completion prompt
     completion_prompt = build_session_completion_prompt(
         problem_description=session.problem_description or "",
-        responses=responses,
-        deep_insights=deep_insights,
+        conversation_history=conversation_history,
+        understanding_document=understanding_doc,
     )
     
     # Call Claude for session analysis (non-streaming)
@@ -375,14 +381,14 @@ async def complete_session(
         logger.warning(f"Failed to parse completion JSON ({parse_err}): {analysis_text[:300]}")
         # Last resort: try to extract fields manually with regex
         title_m = re.search(r'"title"\s*:\s*"([^"]*)"', analysis_text)
-        insight_m = re.search(r'"key_insight"\s*:\s*"((?:[^"\\]|\\.)*)"', analysis_text)
-        context_m = re.search(r'"input_context"\s*:\s*"((?:[^"\\]|\\.)*)"', analysis_text)
-        cap_m = re.search(r'"output_capability"\s*:\s*"((?:[^"\\]|\\.)*)"', analysis_text)
+        changed_m = re.search(r'"how_you_changed"\s*:\s*"((?:[^"\\]|\\.)*)"', analysis_text)
+        know_m = re.search(r'"what_you_know"\s*:\s*"((?:[^"\\]|\\.)*)"', analysis_text)
+        next_m = re.search(r'"whats_next"\s*:\s*"((?:[^"\\]|\\.)*)"', analysis_text)
         component_data = {
             "title": title_m.group(1) if title_m else "Session Summary",
-            "key_insight": insight_m.group(1) if insight_m else analysis_text[:500],
-            "input_context": context_m.group(1) if context_m else (session.problem_description or ""),
-            "output_capability": cap_m.group(1) if cap_m else "",
+            "how_you_changed": changed_m.group(1) if changed_m else analysis_text[:500],
+            "what_you_know": know_m.group(1) if know_m else "",
+            "whats_next": next_m.group(1) if next_m else "",
         }
     
     # Save component
@@ -392,10 +398,10 @@ async def complete_session(
             session_id=request.session_id,
             puzzle_id=session.puzzle_id or "",
             user_id=user.id,
-            title=component_data.get("title", "Session Summary"),
-            key_insight=component_data.get("key_insight", ""),
-            input_context=component_data.get("input_context", ""),
-            output_capability=component_data.get("output_capability", ""),
+            title=component_data.get("title", "Untitled"),
+            key_insight=component_data.get("how_you_changed", ""),
+            input_context=component_data.get("what_you_know", ""),
+            output_capability=component_data.get("whats_next", ""),
         )
         await component_repo.create(component)
     except Exception as e:
@@ -496,7 +502,12 @@ async def complete_session(
     
     return {
         "success": True,
-        "analysis": component_data,
+        "analysis": {
+            "title": component_data.get("title", ""),
+            "how_you_changed": component_data.get("how_you_changed", ""),
+            "what_you_know": component_data.get("what_you_know", ""),
+            "whats_next": component_data.get("whats_next", ""),
+        },
         "thinker_description": thinker_description,
     }
 
@@ -538,10 +549,17 @@ async def get_user_sessions(
     
     sessions_data = []
     for s in sessions:
+        # Fetch component title for completed sessions
+        component_title = None
+        if s.status == SessionStatus.COMPLETED:
+            component = await component_repo.get_by_session_id(s.id)
+            if component:
+                component_title = component.title
         sessions_data.append({
             "id": s.id,
             "puzzle_id": s.puzzle_id,
             "problem_description": s.problem_description or "",
+            "component_title": component_title,
             "started_at": s.started_at.isoformat() if s.started_at else None,
             "ended_at": s.ended_at.isoformat() if s.ended_at else None,
             "status": s.status.value,

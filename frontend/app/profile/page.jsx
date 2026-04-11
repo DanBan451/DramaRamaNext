@@ -235,7 +235,7 @@ export default function ProfilePage() {
                     className="flex items-center justify-between p-3 bg-mist/50 rounded hover:bg-mist transition-colors group"
                   >
                     <span className="text-sm text-black truncate max-w-[200px] group-hover:text-ash">
-                      {session.problem_description?.slice(0, 35) || "Session"}...
+                      {session.component_title || `${session.problem_description?.slice(0, 35) || "Session"}...`}
                     </span>
                     <span className="text-xs text-smoke">
                       {new Date(session.started_at).toLocaleDateString()}

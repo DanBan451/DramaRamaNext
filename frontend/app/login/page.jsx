@@ -91,38 +91,12 @@ export default function LoginPage() {
             <h1 className="font-display text-4xl lp:text-5xl text-white mb-6 leading-tight">
               Think through it.
             </h1>
-            <p className="text-white/60 text-lg max-w-md mb-12 leading-relaxed">
-              Pick a puzzle. An AI coach guides your thinking. Your understanding builds in real time.
+            <p className="text-white/60 text-lg max-w-md leading-relaxed">
+              Pick a puzzle. See where your thinking takes you.
             </p>
-
-            {/* Steps preview */}
-            <div className="space-y-4">
-              {[
-                { num: "01", text: "Pick a puzzle" },
-                { num: "02", text: "Think out loud" },
-                { num: "03", text: "Watch understanding build" },
-              ].map((step, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-4 opacity-0 animate-fade-in"
-                  style={{ 
-                    animationDelay: `${i * 0.15}s`, 
-                    animationFillMode: 'forwards' 
-                  }}
-                >
-                  <span className="font-mono text-xs text-change/60 tracking-widest w-6">{step.num}</span>
-                  <span className="text-white/70 text-sm">{step.text}</span>
-                </div>
-              ))}
-            </div>
           </div>
 
-          <div className="mt-auto">
-            <p className="text-white/40 text-sm italic">
-              "The goal is not to solve it. The goal is to think through it."
-            </p>
-            <p className="text-change/50 text-xs mt-2">— Edward Burger</p>
-          </div>
+          <div className="mt-auto" />
         </div>
       </div>
 

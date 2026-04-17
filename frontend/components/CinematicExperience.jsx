@@ -20,7 +20,7 @@
  *   - onComplete         callback: session finished → return to picker
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@nextui-org/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -49,14 +49,20 @@ export default function CinematicExperience({
 }) {
   const { getToken } = useAuth();
 
-  // Intro gate: only once the cinematic settles do the panel + whispers light up.
+  // Intro gate: only once the cinematic settles do the panel + hint buttons light up.
   const [introDone, setIntroDone] = useState(false);
 
-  // Whisper state — the AI's nudges. One at a time, newest replaces previous.
-  const [whisper, setWhisper] = useState("");
+  // Hint state — separate from thought submissions.
+  const [hint, setHint] = useState({ text: "", element: "", subElement: "" });
+  const [hintLoading, setHintLoading] = useState(false);
 
-  // Settled notes (the user's own writing, retained on the glass).
-  const [notes, setNotes] = useState([]);
+  // How many times the user has successfully deepened understanding.
+  // Hints are only unlocked after at least one deepening.
+  const [deepenCount, setDeepenCount] = useState(0);
+
+  // Increments each time the understanding document updates — drives ThinkingPanel flicker.
+  const [understandingVersion, setUnderstandingVersion] = useState(0);
+
   const [sending, setSending] = useState(false);
 
   // Current element (drives the background tint).
@@ -107,22 +113,15 @@ export default function CinematicExperience({
             (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
           );
 
-          // User messages → settled notes on the glass
-          const userNotes = allMsgs
-            .filter((m) => m.role === "user")
-            .map((m, i) => ({
-              id: `hist-${i}-${m.createdAt}`,
-              text: m.text,
-              submittedAt: m.createdAt,
-            }));
-          if (userNotes.length) setNotes(userNotes);
+          // Count prior user submissions to restore deepenCount
+          const userCount = allMsgs.filter((m) => m.role === "user").length;
+          if (userCount > 0) setDeepenCount(userCount);
 
-          // Latest assistant message → whisper; tracks element tint
+          // Latest assistant message → restore element tint
           const lastAssistant = [...allMsgs].reverse().find(
             (m) => m.role === "assistant"
           );
           if (lastAssistant) {
-            setWhisper(lastAssistant.text);
             setElement(lastAssistant.element || "earth");
           }
         }
@@ -146,10 +145,7 @@ export default function CinematicExperience({
 
   // ── Send a thought (user submission from the thinking panel) ───────────────
   async function sendThought(text) {
-    const noteId = `note-${Date.now()}`;
-    setNotes((prev) => [...prev, { id: noteId, text, submittedAt: Date.now() }]);
     setSending(true);
-    setWhisper("");
 
     try {
       const token = await getToken({ skipCache: true });
@@ -167,24 +163,56 @@ export default function CinematicExperience({
       if (!res.ok) throw new Error("Failed to send");
 
       const data = await res.json();
-      setWhisper(data.response || "");
       setElement(data.element || "earth");
-      if (data.understanding) setDocumentText(data.understanding);
+      if (data.understanding) {
+        setDocumentText(data.understanding);
+        setUnderstandingVersion((v) => v + 1);
+      }
+      setDeepenCount((c) => c + 1);
     } catch (e) {
       console.error("Chat error:", e);
-      setWhisper("Something slipped. Try again.");
     } finally {
       setSending(false);
     }
   }
 
-  // ── Explicit nudge request (the "hint" glyph) ──────────────────────────────
-  // We treat a hint as a minimal user turn; the backend decides what the
-  // element should be based on state. This reuses the same chat stream so
-  // nudge personality is unchanged.
-  function requestNudge() {
-    if (sending) return;
-    sendThought("(I'd like a nudge — push me a little.)");
+  // ── Request a hint from the AI (separate loading state from sendThought) ────
+  async function requestHint() {
+    if (hintLoading) return;
+    setHintLoading(true);
+
+    try {
+      const token = await getToken({ skipCache: true });
+      const res = await fetch(
+        `/api/backend-api/session/${sessionId}/chat`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ user_message: "(Please give me a hint)" }),
+        }
+      );
+      if (!res.ok) throw new Error("Failed to get hint");
+
+      const data = await res.json();
+      setHint({
+        text: data.response || "",
+        element: data.element || "",
+        subElement: data.sub_element || "",
+      });
+      setElement(data.element || "earth");
+      if (data.understanding) {
+        setDocumentText(data.understanding);
+        setUnderstandingVersion((v) => v + 1);
+      }
+    } catch (e) {
+      console.error("Hint error:", e);
+      setHint({ text: "Something slipped — try again.", element: "", subElement: "" });
+    } finally {
+      setHintLoading(false);
+    }
   }
 
   // ── Finish session ─────────────────────────────────────────────────────────
@@ -236,64 +264,25 @@ export default function CinematicExperience({
         />
       </AnimatePresence>
 
-      {/* ── Nudge whisper (top-right) ─────────────────────────────────── */}
+      {/* ── Hint buttons (top-right) ─────────────────────────────────────── */}
       {introDone && (
         <NudgeWhisper
-          text={whisper}
-          streaming={false}
-          onRequest={requestNudge}
-          disabled={sending}
+          hint={hint}
+          hintLoading={hintLoading}
+          onRequestHint={requestHint}
+          canRequestHint={deepenCount > 0 && !sending}
         />
       )}
 
-      {/* ── Understanding overlay trigger (bottom-left) ─────────────────── */}
-      <AnimatePresence>
-        {introDone && !docOpen && (
-          <motion.button
-            key="doc-trigger"
-            onClick={() => setDocOpen(true)}
-            aria-label="open understanding document"
-            className="fixed bottom-6 left-6 z-40 flex flex-col gap-[3px] p-2 pointer-events-auto"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.55 }}
-            whileHover={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <span className="block w-5 h-px bg-white" />
-            <span className="block w-5 h-px bg-white" />
-            <span className="block w-5 h-px bg-white" />
-            <span className="mt-1 font-mono text-[9px] tracking-[0.3em] uppercase text-white/70">
-              doc
-            </span>
-          </motion.button>
-        )}
-      </AnimatePresence>
-
-      {/* ── Finish session trigger (bottom-center, subtle) ─────────────── */}
-      <AnimatePresence>
-        {introDone && notes.length >= 2 && !completionData && (
-          <motion.button
-            key="finish"
-            onClick={handleComplete}
-            disabled={completeLoading}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 font-mono text-[10px] tracking-[0.3em] uppercase text-white/30 hover:text-white/80 transition-colors"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            {completeLoading ? "closing…" : "finish"}
-          </motion.button>
-        )}
-      </AnimatePresence>
-
-      {/* ── Thinking panel (frosted glass, bottom) ─────────────────────── */}
+      {/* ── Thinking panel (white surface, bottom) ─────────────────────── */}
       <ThinkingPanel
         visible={introDone && !completionData}
         disabled={!introDone}
-        notes={notes}
         onSubmit={sendThought}
+        onViewUnderstanding={() => setDocOpen(true)}
+        onComplete={handleComplete}
         isSending={sending}
+        understandingVersion={understandingVersion}
       />
 
       {/* ── Understanding Document overlay ─────────────────────────────── */}

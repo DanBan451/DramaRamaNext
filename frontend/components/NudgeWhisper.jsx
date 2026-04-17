@@ -3,78 +3,125 @@
 /**
  * NudgeWhisper
  * ------------
- * The AI nudge never appears as a chat reply. It appears as an italic
- * serif-display whisper at the top-right of the screen. It holds at full
- * opacity for ~8s, then settles to 30% opacity until the next nudge
- * replaces it.
- *
- * A small "hint" glyph at the top-right requests a new nudge.
+ * Two buttons at top-right: "View Hint" (opens modal with current hint) and
+ * "New Hint" (requests a new hint from the AI). The modal auto-opens when a
+ * new hint finishes loading. Shows element + sub-element badges in the modal.
  *
  * Props:
- *  - text: current nudge text (or streaming partial)
- *  - streaming: true while tokens are arriving
- *  - onRequest: called when user asks for a hint
- *  - disabled: hint button disabled (e.g. during cinematic)
+ *  - hint:          { text, element, subElement }
+ *  - hintLoading:   true while fetching a new hint
+ *  - onRequestHint: called when user asks for a new hint
+ *  - canRequestHint: true once user has deepened understanding at least once
  */
 
 import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function NudgeWhisper({
-  text,
-  streaming = false,
-  onRequest,
-  disabled = false,
+  hint = { text: "", element: "", subElement: "" },
+  hintLoading = false,
+  onRequestHint,
+  canRequestHint = false,
 }) {
-  const [faded, setFaded] = useState(false);
-  const timerRef = useRef(null);
+  const [showModal, setShowModal] = useState(false);
+  const wasLoadingRef = useRef(false);
 
-  // Whenever a new nudge arrives (text changes and not streaming),
-  // start the 8s "loud" period, then fade to 30%.
+  // Auto-open modal when a new hint finishes loading
   useEffect(() => {
-    if (streaming) {
-      setFaded(false);
-      return;
+    if (wasLoadingRef.current && !hintLoading && hint.text) {
+      setShowModal(true);
     }
-    if (!text) return;
-    setFaded(false);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setFaded(true), 8000);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [text, streaming]);
+    wasLoadingRef.current = hintLoading;
+  }, [hintLoading, hint.text]);
 
   return (
     <>
-      {/* Hint request glyph */}
-      <button
-        type="button"
-        onClick={() => !disabled && onRequest && onRequest()}
-        disabled={disabled}
-        aria-label="ask for a nudge"
-        className="fixed top-6 right-6 z-40 font-mono text-[10px] tracking-[0.2em] uppercase px-3 py-1.5 border border-primary/70 text-primary bg-black/60 hover:bg-primary hover:text-white disabled:opacity-20 disabled:cursor-not-allowed transition-all backdrop-blur-sm"
-      >
-        hint
-      </button>
+      {/* Two hint buttons — top-right */}
+      <div className="fixed top-6 right-6 z-40 flex gap-2 items-center">
+        <button
+          type="button"
+          onClick={() => hint.text && setShowModal(true)}
+          disabled={!hint.text}
+          aria-label="view current hint"
+          className="font-mono text-[10px] tracking-[0.2em] uppercase px-3 py-1.5 border border-white/40 text-white/70 bg-black/60 hover:text-white hover:border-white/80 disabled:opacity-20 disabled:cursor-not-allowed transition-all backdrop-blur-sm"
+        >
+          View Hint
+        </button>
+        <button
+          type="button"
+          onClick={() => !hintLoading && canRequestHint && onRequestHint && onRequestHint()}
+          disabled={!canRequestHint || hintLoading}
+          aria-label="request new hint"
+          className="font-mono text-[10px] tracking-[0.2em] uppercase px-3 py-1.5 bg-primary text-white hover:bg-primary/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+        >
+          {hintLoading ? "…" : "New Hint"}
+        </button>
+      </div>
 
-      {/* The whisper itself */}
+      {/* Hint modal */}
       <AnimatePresence>
-        {text && (
+        {showModal && hint.text && (
           <motion.div
-            key={`whisper-${text.slice(0, 16)}`}
-            className="fixed top-16 right-6 z-40 max-w-[340px] tb:max-w-[420px] pointer-events-none"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: faded ? 0.3 : 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/70 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowModal(false)}
           >
-            <p className="font-display italic text-white text-sm tb:text-base leading-relaxed text-right">
-              {text}
-              {streaming && (
-                <span className="inline-block w-1.5 h-3 bg-white/60 ml-1 animate-pulse align-middle" />
+            <motion.div
+              className="bg-white max-w-lg w-full p-8 shadow-2xl relative"
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setShowModal(false)}
+                className="absolute top-4 right-4 text-smoke hover:text-black transition-colors"
+                aria-label="close hint"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+
+              {/* Element + sub-element badges */}
+              {(hint.element || hint.subElement) && (
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {hint.element && (
+                    <span className="font-mono text-[9px] tracking-[0.25em] uppercase px-2 py-0.5 bg-change/10 text-change border border-change/30">
+                      {hint.element}
+                    </span>
+                  )}
+                  {hint.subElement && (
+                    <span className="font-mono text-[9px] tracking-[0.25em] uppercase px-2 py-0.5 bg-ash/10 text-ash border border-ash/20">
+                      {hint.subElement}
+                    </span>
+                  )}
+                </div>
               )}
-            </p>
+
+              <p className="font-mono text-[10px] tracking-[0.3em] uppercase text-smoke mb-3">Hint</p>
+              <p className="font-display italic text-ash text-base leading-relaxed mb-6">
+                {hint.text}
+              </p>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModal(false);
+                    onRequestHint && onRequestHint();
+                  }}
+                  disabled={!canRequestHint || hintLoading}
+                  className="font-mono text-[10px] tracking-[0.2em] uppercase px-4 py-2 bg-primary text-white hover:bg-primary/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  New Hint
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

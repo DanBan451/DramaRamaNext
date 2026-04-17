@@ -3,19 +3,17 @@
 /**
  * ThinkingPanel
  * -------------
- * A frosted glass surface anchored to the bottom of the screen.
- * Replaces the chatbot UI. No bubbles, no send button — just a
- * writing surface where the user thinks out loud.
+ * Fixed-height white panel anchored to the bottom.
+ * User writes thoughts, clicks "Deepen Understanding" to submit (clears text).
+ * "View Understanding" flickers when understanding is updated.
+ * "End Session" is a subtle link to complete the session.
  *
- * Past submissions stay on the glass as "settled" notes (smaller, dimmer),
- * scrolling upward. The active paragraph is bright; once submitted it
- * softens. The intention is the opposite of a messaging app: the user
- * is looking at *their own thinking*, not a conversation thread.
- *
- * Submit: Cmd/Ctrl+Enter OR the tiny tick glyph in the bottom-right.
- * Focus: the panel expands from 40% to 70% of screen height.
- *
- * Voice input: no Web Speech API. The textarea accepts OS-level dictation.
+ * Props:
+ *  - visible, disabled, isSending
+ *  - onSubmit(text)
+ *  - onViewUnderstanding()
+ *  - onComplete()
+ *  - understandingVersion: increments each time understanding updates (drives flicker)
  */
 
 import React, { useEffect, useRef, useState } from "react";
@@ -24,20 +22,23 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function ThinkingPanel({
   visible = true,
   disabled = false,
-  notes = [], // [{ id, text, submittedAt }]
   onSubmit,
+  onViewUnderstanding,
+  onComplete,
   isSending = false,
+  understandingVersion = 0,
 }) {
   const [draft, setDraft] = useState("");
   const textareaRef = useRef(null);
-  const scrollRef = useRef(null);
+  const [uvFlicker, setUvFlicker] = useState(false);
 
-  // Keep the settled notes scrolled to the most recent.
+  // Flicker "View Understanding" each time understandingVersion increments
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [notes.length]);
+    if (understandingVersion === 0) return;
+    setUvFlicker(true);
+    const t = setTimeout(() => setUvFlicker(false), 2000);
+    return () => clearTimeout(t);
+  }, [understandingVersion]);
 
   function handleSubmit() {
     const trimmed = draft.trim();
@@ -47,8 +48,6 @@ export default function ThinkingPanel({
   }
 
   function handleKeyDown(e) {
-    // Cmd/Ctrl + Enter submits. Plain Enter inserts a newline for free
-    // multi-paragraph thinking.
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
       e.preventDefault();
       handleSubmit();
@@ -67,56 +66,63 @@ export default function ThinkingPanel({
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
           <div
-            className="mx-auto pointer-events-auto bg-black/90 backdrop-blur-xl border-t-2 border-primary px-5 tb:px-10 pt-4 pb-4"
+            className="mx-auto pointer-events-auto bg-white border-t-2 border-change px-5 tb:px-10 pt-4 pb-4 shadow-2xl"
             style={{ maxWidth: "880px" }}
           >
-            {/* Settled notes — past thoughts, above the input */}
-            {notes.length > 0 && (
-              <div
-                ref={scrollRef}
-                className="mb-3 max-h-[20vh] overflow-y-auto space-y-2 scrollbar-none"
-                style={{ scrollbarWidth: "none" }}
-              >
-                {notes.map((note) => (
-                  <motion.p
-                    key={note.id}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 0.45, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="text-white/45 text-sm leading-relaxed whitespace-pre-wrap font-sans border-l border-primary/40 pl-3"
-                  >
-                    {note.text}
-                  </motion.p>
-                ))}
-              </div>
-            )}
-
-            {/* Active writing surface */}
-            <div className="flex gap-3 items-start">
+            {/* Fixed-height textarea — never grows the panel */}
+            <div className="mb-3">
               <textarea
                 ref={textareaRef}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Write your thoughts on the puzzle here…"
-                disabled={disabled}
-                rows={3}
-                className="flex-1 resize-none bg-transparent text-white placeholder:text-white/40 text-base tb:text-lg leading-relaxed font-sans outline-none border-0"
-                style={{ caretColor: "#ffffff", verticalAlign: "top" }}
+                disabled={disabled || isSending}
+                className="w-full resize-none bg-white text-black placeholder:text-ash/40 text-base leading-relaxed font-sans outline-none border border-ash/20 focus:border-change/50 px-4 py-3 transition-colors"
+                style={{ caretColor: "#000000", height: "96px", overflow: "auto" }}
               />
+            </div>
+
+            {/* Action row */}
+            <div className="flex items-center justify-between gap-3">
+              {/* Left: View Understanding + End Session */}
+              <div className="flex items-center gap-3">
+                <motion.button
+                  type="button"
+                  onClick={onViewUnderstanding}
+                  disabled={disabled}
+                  animate={uvFlicker ? {
+                    scale: [1, 1.04, 1, 1.04, 1],
+                  } : { scale: 1 }}
+                  transition={{ duration: 0.7 }}
+                  className={`font-mono text-[10px] tracking-[0.2em] uppercase px-4 py-2 border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                    uvFlicker
+                      ? "border-change text-change bg-change/5"
+                      : "border-ash/30 text-ash hover:border-change hover:text-change"
+                  }`}
+                >
+                  View Understanding
+                </motion.button>
+
+                <button
+                  type="button"
+                  onClick={onComplete}
+                  className="font-mono text-[9px] tracking-[0.2em] uppercase text-smoke/50 hover:text-primary transition-colors"
+                >
+                  End Session
+                </button>
+              </div>
+
+              {/* Right: Deepen Understanding */}
               <button
                 type="button"
                 onClick={handleSubmit}
                 disabled={!draft.trim() || disabled || isSending}
-                className="flex-shrink-0 mt-1 bg-primary text-white font-mono text-[11px] tracking-[0.2em] uppercase px-4 py-2 hover:bg-primary/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="flex-shrink-0 bg-change text-white font-mono text-[11px] tracking-[0.2em] uppercase px-5 py-2 hover:bg-change/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
-                {isSending ? "…" : "Submit"}
+                {isSending ? "…" : "Deepen Understanding"}
               </button>
             </div>
-
-            <p className="mt-2 font-mono text-[9px] tracking-[0.25em] uppercase text-white/35">
-              ⌘↵ to submit
-            </p>
           </div>
         </motion.div>
       )}

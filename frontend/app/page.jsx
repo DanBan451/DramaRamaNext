@@ -161,32 +161,51 @@ export default function Home() {
           </span>
 
           <div className="grid tb:grid-cols-2 lp:grid-cols-3 gap-4 tb:gap-6">
-            {PUZZLES.slice(0, 6).map((puzzle, i) => (
-              <motion.button
-                key={puzzle.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-30px" }}
-                transition={{ delay: i * 0.08, duration: 0.5 }}
-                onClick={() => setSelectedPuzzle(puzzle)}
-                className="group bg-white border border-mist hover:border-change/30 p-6 tb:p-8 min-h-[180px] tb:min-h-[200px] flex flex-col justify-between transition-all duration-300 hover:shadow-lg hover:-translate-y-1 text-left cursor-pointer"
-              >
-                <div>
-                  <span className="font-mono text-[10px] text-change/60 tracking-widest">
-                    {puzzle.number}
-                  </span>
-                  <h4 className="font-display text-lg tb:text-xl text-black mt-2 mb-3 group-hover:text-change transition-colors">
-                    {puzzle.title}
-                  </h4>
-                  <p className="text-smoke text-sm leading-relaxed line-clamp-2">
-                    {puzzle.text.split("\n")[0]}
-                  </p>
-                </div>
-                <span className="text-[10px] font-mono text-smoke/40 uppercase tracking-wider mt-4">
-                  {puzzle.category}
-                </span>
-              </motion.button>
-            ))}
+            {PUZZLES.slice(0, 6).map((puzzle, i) => {
+              const isActive = puzzle.id === "whos-who";
+              return (
+                <motion.button
+                  key={puzzle.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-30px" }}
+                  transition={{ delay: i * 0.08, duration: 0.5 }}
+                  onClick={() => isActive && setSelectedPuzzle(puzzle)}
+                  disabled={!isActive}
+                  className={`group bg-white border p-6 tb:p-8 min-h-[180px] tb:min-h-[200px] flex flex-col justify-between transition-all duration-300 text-left relative ${
+                    isActive
+                      ? "border-mist hover:border-change/30 hover:shadow-lg hover:-translate-y-1 cursor-pointer"
+                      : "border-mist/70 opacity-60 cursor-not-allowed"
+                  }`}
+                >
+                  <div>
+                    <span className="font-mono text-[10px] text-change/60 tracking-widest">
+                      {puzzle.number}
+                    </span>
+                    <h4
+                      className={`font-display text-lg tb:text-xl text-black mt-2 mb-3 ${
+                        isActive ? "group-hover:text-change transition-colors" : ""
+                      }`}
+                    >
+                      {puzzle.title}
+                    </h4>
+                    <p className="text-smoke text-sm leading-relaxed line-clamp-2">
+                      {puzzle.text.split("\n")[0]}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between mt-4">
+                    <span className="text-[10px] font-mono text-smoke/40 uppercase tracking-wider">
+                      {puzzle.category}
+                    </span>
+                    {!isActive && (
+                      <span className="text-[10px] font-mono text-smoke/60 uppercase tracking-[0.25em]">
+                        coming soon
+                      </span>
+                    )}
+                  </div>
+                </motion.button>
+              );
+            })}
           </div>
         </div>
       </section>

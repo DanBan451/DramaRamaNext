@@ -208,16 +208,30 @@ ONLY extract a realization if the user genuinely had one in their message. Look 
 - Questioned an assumption they were holding
 - Simplified or clarified their thinking
 
-If the user had a genuine realization, write it as THEIR insight in first person (1-2 sentences, under 30 words). Start with "I" - as if the user is noting their own realization.
-
 If no meaningful realization emerged from the USER (not the assistant), respond with: NO_INSIGHT
 
-Rules:
-- Only capture realizations the USER actually had, not things the assistant suggested
-- Write in first person as the user ("I realized..." or "I see now that...")
-- Be specific to their actual problem
-- Don't mention the element or framework
-- Plain text, no formatting"""
+If there is a genuine realization, write it in the USER'S OWN VOICE. Organize — do NOT rewrite.
+
+Hard rules on voice and wording:
+- Use the user's own words and phrasing verbatim wherever possible.
+- When the user's own short phrase captures the realization (≤ 7 words),
+  quote it directly inside the sentence (without quote marks).
+- Do NOT upgrade their vocabulary, smooth their grammar, or make it sound
+  more polished than they sounded.
+- If their realization is slangy, halting, or informal — keep it that way.
+- Match their register: if they wrote lowercase, stay lowercase; if they
+  wrote fragments, keep fragments.
+- Never paraphrase a clear realization into a different synonym.
+
+Structural rules:
+- First person, starting with "I" (e.g. "I realized...", "I see now that...",
+  "I notice I was...").
+- 1-2 sentences, under 30 words total.
+- Only capture realizations the USER actually had, not things the assistant
+  suggested or nudged toward. If the insight originated in the assistant's
+  reply, respond with NO_INSIGHT.
+- Don't mention the element, framework, or the assistant.
+- Plain text. No formatting, no quote marks, no markdown."""
 
 
 def build_thinker_description_prompt(conversation_history: list) -> str:
@@ -843,6 +857,67 @@ Rules:
 - Do NOT mention elements, frameworks, or methodology.
 - Do NOT be generic. Every completion should feel specific to THIS conversation.
 - Output ONLY the JSON object. No markdown fences. No extra text."""
+
+
+def build_batched_chat_prompt(
+    problem_description: str,
+    conversation_history: list,
+    user_message: str,
+    existing_document: str = "",
+) -> str:
+    """
+    Single-call replacement for element-select + coaching + doc-update.
+    Returns a JSON object: {element, response, understanding}.
+    """
+    history_text = ""
+    if conversation_history:
+        for msg in conversation_history:
+            role_label = "User" if msg.get("role") == "user" else "Coach"
+            history_text += f"{role_label}: {msg.get('message_text', '')}\n"
+    else:
+        history_text = "(No prior conversation yet)"
+
+    return f"""You are helping someone think through a puzzle. Read the conversation and do three things at once.
+
+PUZZLE: {problem_description}
+
+CONVERSATION SO FAR:
+{history_text}
+
+USER'S LATEST MESSAGE: {user_message}
+
+EXISTING UNDERSTANDING DOCUMENT:
+{existing_document or "(none yet)"}
+
+Return ONLY a JSON object with these three fields:
+{{
+  "element": "one of: earth, fire, air, water, change",
+  "response": "your coaching question or nudge",
+  "understanding": "updated understanding document"
+}}
+
+ELEMENT — pick the one that best serves the user right now:
+- earth: missing fundamentals, needs to simplify or ground the problem
+- fire: stuck or overthinking, needs to try something and fail forward
+- air: needs to question assumptions, may be solving the wrong problem
+- water: needs to see connections, map approaches, follow an idea further
+- change: significant thinking shift has occurred, time to reflect on how understanding evolved
+
+RESPONSE rules:
+- ONE question or short observation. 10-25 words. Casual, direct, like a curious friend.
+- No encouragement or validation. No "great thinking!" Just ask the next question.
+- Never mention elements, frameworks, or methodology.
+- If they're shallow or vague, push harder: "why?" or "how do you know that?"
+- Never reveal the puzzle answer.
+
+UNDERSTANDING rules:
+- Write in second person ("You know that...", "You've started thinking about...")
+- Only include things they've actually figured out or are actively exploring.
+- No evaluation ("you haven't explored X"). Just capture what they DO understand.
+- If nothing concrete yet: "You're starting to think about the puzzle. No conclusions yet."
+- Plain paragraphs only. No headers. No bullets.
+
+Output ONLY the JSON. No markdown fences. No extra text."""
 
 
 def build_extract_understanding_prompt(

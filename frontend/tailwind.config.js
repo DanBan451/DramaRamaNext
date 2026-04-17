@@ -35,6 +35,9 @@ module.exports = {
           red: '#E85D04',
           blue: '#3D5A80',
         },
+        // Steel: cool navy-grey reserved for the cinematic "philosophy" figure
+        // and the water element tint. Stays inside the palette (no blue-creep).
+        steel: '#4A5B6E',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

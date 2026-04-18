@@ -224,8 +224,8 @@ async def chat_with_session(
     )
     await element_message_repo.create(assistant_msg)
     
-    # Persist updated understanding doc
-    if updated_doc:
+    # Persist updated understanding doc (skip the no-insights sentinel)
+    if updated_doc and updated_doc != "__no_insights__":
         await session_repo.update(session_id, understanding_document=updated_doc)
     
     return {

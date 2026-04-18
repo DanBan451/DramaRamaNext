@@ -911,11 +911,12 @@ RESPONSE rules:
 - Never reveal the puzzle answer.
 
 UNDERSTANDING rules:
-- Write in second person ("You know that...", "You've started thinking about...")
-- Only include things they've actually figured out or are actively exploring.
-- No evaluation ("you haven't explored X"). Just capture what they DO understand.
-- If nothing concrete yet: "You're starting to think about the puzzle. No conclusions yet."
-- Plain paragraphs only. No headers. No bullets.
+- Write as neutral captured observations — like notes jotted on paper. No "you", no "I", no "the user". No person at all.
+- Example: "At least one person is lying. If the math major is telling the truth, the other must be lying. The hair colors might be relevant."
+- Only include things they have actually noticed, reasoned through, or are actively exploring.
+- No advice, no encouragement, no evaluation. Never say what they should do or haven't done.
+- If there are no concrete observations or reasoning yet (vague or off-topic input), return exactly the string: __no_insights__
+- Plain sentences only. No headers. No bullets. Short, crisp.
 
 Output ONLY the JSON. No markdown fences. No extra text."""
 
@@ -948,15 +949,14 @@ Conversation: {conversation_text}
 Existing document: {existing_document or '(none yet)'}
 
 Write an updated understanding document. Rules:
-1. Write in SECOND PERSON — "You" not "The user." This is their document. Example: "You know that at least one student is lying. You've started considering what happens if the black-haired student is telling the truth..."
-2. Only include things they've actually figured out or are actively exploring. Do not include things they haven't touched yet.
-3. Do NOT evaluate their progress. No "you haven't explored X yet" or "you still need to consider Y." Just capture what they DO understand.
-4. Keep it concise. Short paragraphs. Plain language.
-5. If they haven't figured out anything concrete yet, write something like "You're starting to think about the puzzle. No conclusions yet."
-6. No markdown headers. No bold. No bullet points. Just clean paragraphs.
-7. This document should feel like reading your own notes — clear, honest, yours.
+1. Write as neutral captured observations — like notes on paper. No person: no "you", no "I", no "the user". Just the observations.
+2. Example: "At least one person is lying. If the math major tells the truth, the philosophy major must be lying. The hair colors may be a clue."
+3. Only include things they have actually reasoned through or noticed. Nothing they haven't touched.
+4. No advice, no evaluation, no encouragement. Never mention what they should do or haven't done.
+5. If there are no concrete observations yet (the input is vague, off-topic, or has no real reasoning), return exactly the string: __no_insights__
+6. No markdown headers, no bold, no bullet points. Short, crisp sentences.
 
-Return ONLY the updated document text."""
+Return ONLY the updated document text (or __no_insights__ if nothing concrete)."""
 
 
 def build_cube_properties_prompt(problem_description: str) -> str:

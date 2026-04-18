@@ -22,6 +22,7 @@ export default function NudgeWhisper({
   hintLoading = false,
   onRequestHint,
   canRequestHint = false,
+  onComplete,
 }) {
   const [showModal, setShowModal] = useState(false);
   const wasLoadingRef = useRef(false);
@@ -36,8 +37,15 @@ export default function NudgeWhisper({
 
   return (
     <>
-      {/* Two hint buttons — top-right */}
-      <div className="fixed top-6 right-6 z-40 flex gap-2 items-center">
+      {/* End Session + hint buttons — top-right */}
+      <div className="fixed top-6 right-6 z-40 flex gap-3 items-center">
+        <button
+          type="button"
+          onClick={onComplete}
+          className="font-mono text-[9px] tracking-[0.2em] uppercase text-white/40 hover:text-white/80 transition-colors"
+        >
+          End Session
+        </button>
         <button
           type="button"
           onClick={() => hint.text && setShowModal(true)}

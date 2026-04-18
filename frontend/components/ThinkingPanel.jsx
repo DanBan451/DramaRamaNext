@@ -24,7 +24,6 @@ export default function ThinkingPanel({
   disabled = false,
   onSubmit,
   onViewUnderstanding,
-  onComplete,
   isSending = false,
   understandingVersion = 0,
 }) {
@@ -85,40 +84,26 @@ export default function ThinkingPanel({
 
             {/* Action row */}
             <div className="flex items-center justify-between gap-3">
-              {/* Left: View Understanding + End Session */}
-              <div className="flex items-center gap-3">
-                <motion.button
-                  type="button"
-                  onClick={onViewUnderstanding}
-                  disabled={disabled}
-                  animate={uvFlicker ? {
-                    scale: [1, 1.04, 1, 1.04, 1],
-                  } : { scale: 1 }}
-                  transition={{ duration: 0.7 }}
-                  className={`font-mono text-[10px] tracking-[0.2em] uppercase px-4 py-2 border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-                    uvFlicker
-                      ? "border-change text-change bg-change/5"
-                      : "border-ash/30 text-ash hover:border-change hover:text-change"
-                  }`}
-                >
-                  View Understanding
-                </motion.button>
+              <motion.button
+                type="button"
+                onClick={onViewUnderstanding}
+                disabled={disabled}
+                animate={uvFlicker ? { scale: [1, 1.04, 1, 1.04, 1] } : { scale: 1 }}
+                transition={{ duration: 0.7 }}
+                className={`whitespace-nowrap font-mono text-[10px] tracking-[0.15em] uppercase px-4 py-2.5 border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                  uvFlicker
+                    ? "border-change text-change bg-change/5"
+                    : "border-ash/30 text-ash hover:border-change hover:text-change"
+                }`}
+              >
+                View Understanding
+              </motion.button>
 
-                <button
-                  type="button"
-                  onClick={onComplete}
-                  className="font-mono text-[9px] tracking-[0.2em] uppercase text-smoke/50 hover:text-primary transition-colors"
-                >
-                  End Session
-                </button>
-              </div>
-
-              {/* Right: Deepen Understanding */}
               <button
                 type="button"
                 onClick={handleSubmit}
                 disabled={!draft.trim() || disabled || isSending}
-                className="flex-shrink-0 bg-change text-white font-mono text-[11px] tracking-[0.2em] uppercase px-5 py-2 hover:bg-change/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="whitespace-nowrap flex-shrink-0 bg-change text-white font-mono text-[10px] tracking-[0.15em] uppercase px-4 py-2.5 hover:bg-change/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 {isSending ? "…" : "Deepen Understanding"}
               </button>

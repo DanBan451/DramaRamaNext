@@ -63,6 +63,9 @@ export default function CinematicExperience({
   // Increments each time the understanding document updates — drives ThinkingPanel flicker.
   const [understandingVersion, setUnderstandingVersion] = useState(0);
 
+  // Shows "no insights" popup when backend finds nothing concrete in user's text.
+  const [noInsights, setNoInsights] = useState(false);
+
   const [sending, setSending] = useState(false);
 
   // Current element (drives the background tint).
@@ -113,10 +116,6 @@ export default function CinematicExperience({
             (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
           );
 
-          // Count prior user submissions to restore deepenCount
-          const userCount = allMsgs.filter((m) => m.role === "user").length;
-          if (userCount > 0) setDeepenCount(userCount);
-
           // Latest assistant message → restore element tint
           const lastAssistant = [...allMsgs].reverse().find(
             (m) => m.role === "assistant"
@@ -164,7 +163,10 @@ export default function CinematicExperience({
 
       const data = await res.json();
       setElement(data.element || "earth");
-      if (data.understanding) {
+      if (data.understanding === "__no_insights__") {
+        setNoInsights(true);
+        setTimeout(() => setNoInsights(false), 4000);
+      } else if (data.understanding) {
         setDocumentText(data.understanding);
         setUnderstandingVersion((v) => v + 1);
       }
@@ -271,6 +273,7 @@ export default function CinematicExperience({
           hintLoading={hintLoading}
           onRequestHint={requestHint}
           canRequestHint={deepenCount > 0 && !sending}
+          onComplete={handleComplete}
         />
       )}
 
@@ -280,10 +283,28 @@ export default function CinematicExperience({
         disabled={!introDone}
         onSubmit={sendThought}
         onViewUnderstanding={() => setDocOpen(true)}
-        onComplete={handleComplete}
         isSending={sending}
         understandingVersion={understandingVersion}
       />
+
+      {/* ── No-insights toast ───────────────────────────────────────────── */}
+      <AnimatePresence>
+        {noInsights && (
+          <motion.div
+            key="no-insights"
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white shadow-2xl px-8 py-5 max-w-sm w-full text-center"
+            initial={{ opacity: 0, scale: 0.93 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.93 }}
+            transition={{ duration: 0.2 }}
+          >
+            <p className="font-mono text-[10px] tracking-[0.25em] uppercase text-smoke mb-2">No Key Insights Found</p>
+            <p className="text-ash text-sm leading-relaxed">
+              Keep writing — nothing concrete enough to capture yet. Try being more specific about what you notice.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Understanding Document overlay ─────────────────────────────── */}
       <UnderstandingOverlay

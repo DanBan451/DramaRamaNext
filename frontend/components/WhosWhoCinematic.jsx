@@ -145,15 +145,18 @@ export default function WhosWhoCinematic({
       {/* ── Full puzzle text — typewrites in after video, stays forever ── */}
       {stage.puzzleOn && (
         <motion.div
-          className="absolute inset-x-0 flex flex-col items-center justify-center px-8 tb:px-20 lp:px-32"
-          style={{ top: "50%", transform: "translateY(-50%)" }}
+          className="absolute inset-x-0 flex flex-col items-center justify-center pointer-events-auto px-8 tb:px-20 lp:px-32"
+          style={{ top: 0, bottom: "190px" }}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1.0, ease: "easeOut" }}
         >
-          <div className="max-h-[60vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent px-2">
+          <div
+            className="pointer-events-auto overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent px-2 w-full"
+            style={{ maxHeight: "100%" }}
+          >
             <p
-              className="font-display text-white text-lg tb:text-xl lp:text-2xl text-center max-w-2xl leading-relaxed drop-shadow-[0_2px_28px_rgba(0,0,0,0.95)] whitespace-pre-wrap"
+              className="font-display text-white text-lg tb:text-xl lp:text-2xl text-center max-w-2xl mx-auto leading-relaxed drop-shadow-[0_2px_28px_rgba(0,0,0,0.95)] whitespace-pre-wrap py-6"
             >
               <Typewriter
                 text={puzzleText}

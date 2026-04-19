@@ -71,7 +71,7 @@ export default function FrameworkPage() {
       <section className="py-24 px-6 pt-32">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-sm font-mono text-smoke uppercase tracking-widest mb-4">
-            How It Works
+            Under the Hood
           </p>
           <h1 className="font-display text-5xl md:text-6xl text-black mb-6">
             The thinking behind DramaRama
@@ -141,9 +141,9 @@ export default function FrameworkPage() {
                 1
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-black mb-2">You describe your problem</h3>
+                <h3 className="text-lg font-semibold text-black mb-2">You pick a puzzle</h3>
                 <p className="text-smoke">
-                  Start with any challenge you're facing. No special format required—just explain what you're thinking about.
+                  Choose a thinking puzzle. No special preparation required—just pick one that catches your eye.
                 </p>
               </div>
             </div>
@@ -167,7 +167,7 @@ export default function FrameworkPage() {
               <div>
                 <h3 className="text-lg font-semibold text-black mb-2">Understanding builds naturally</h3>
                 <p className="text-smoke">
-                  As you chat, insights are extracted and organized into your Deep Understanding Document—a living record of your thinking.
+                  As you chat, insights are extracted and organized into your scratch paper—a living record of your thinking.
                 </p>
               </div>
             </div>

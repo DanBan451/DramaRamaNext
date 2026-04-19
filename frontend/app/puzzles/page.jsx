@@ -87,8 +87,8 @@ export default function PuzzlesPage() {
                   >
                     {puzzle.title}
                   </h4>
-                  <p className="text-smoke text-sm leading-relaxed line-clamp-2">
-                    {puzzle.text.split("\n")[0]}
+                  <p className="text-smoke text-sm leading-relaxed line-clamp-2 italic">
+                    {puzzle.hook || puzzle.text.split("\n")[0]}
                   </p>
                 </div>
                 <div className="flex items-center justify-between mt-4">

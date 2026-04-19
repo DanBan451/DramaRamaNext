@@ -7,6 +7,7 @@ import Image from "next/image";
 import { SignedIn, SignedOut, useAuth } from "@clerk/nextjs";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Footer from "@/components/Footer";
+import PuzzleTypewriter from "@/components/PuzzleTypewriter";
 import { PUZZLES } from "@/lib/puzzles";
 
 export default function Home() {
@@ -54,46 +55,31 @@ export default function Home() {
 
   return (
     <div className="bg-white">
-      {/* Hero Section with Original Design */}
-      <section ref={heroRef} className="relative h-screen overflow-hidden">
-        {/* Background Image */}
+      {/* Hero Section — the puzzle IS the pitch */}
+      <section ref={heroRef} className="relative min-h-screen overflow-hidden bg-white">
+        {/* Background Image — left side only */}
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: "url('/images/header.png')" }}
         />
 
         {/* Mobile: White overlay for readability */}
-        <div className="absolute inset-0 bg-white/80 tb:hidden" />
+        <div className="absolute inset-0 bg-white/90 tb:hidden" />
 
         {/* LEFT: B&W Mask - hidden on mobile */}
         <div className="hidden tb:block absolute inset-0 w-1/3 lp:w-1/4 h-full backdrop-brightness-100 backdrop-saturate-0" />
 
-        {/* RIGHT: Bright Mask - hidden on mobile */}
+        {/* RIGHT: Bright Mask — restores the original brightness boost on the image */}
         <div className="hidden tb:block absolute inset-y-0 right-0 w-2/3 lp:w-3/4 h-full backdrop-brightness-150" />
 
-        {/* RIGHT: Gradient fade to solid white — fully white before the GIF starts */}
+        {/* RIGHT: Gradient fade to solid white — fully white before the puzzle text */}
         <div
           className="hidden tb:block absolute inset-y-0 right-0 pointer-events-none"
           style={{
-            width: "65%",
-            background: "linear-gradient(to right, transparent 0%, rgba(255,255,255,0.4) 20%, rgba(255,255,255,0.85) 38%, rgba(255,255,255,1) 50%)",
+            width: "75%",
+            background: "linear-gradient(to right, transparent 0%, rgba(255,255,255,0.3) 20%, rgba(255,255,255,0.6) 40%, rgba(255,255,255,0.85) 58%, rgba(255,255,255,1) 72%)",
           }}
         />
-
-        {/* Hero GIF — positioned in the white zone on the right */}
-        <div className="hidden tb:flex absolute inset-y-0 right-0 w-[35%] lp:w-[30%] items-center justify-center z-[5] pointer-events-none">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full max-h-[70vh] object-contain border-none outline-none"
-            style={{ display: "block", lineHeight: 0, clipPath: "inset(0 0 0 2px)" }}
-          >
-            <source src="/hero-gif.mov" type="video/quicktime" />
-            <source src="/hero-gif.mov" type="video/mp4" />
-          </video>
-        </div>
 
         {/* White overlay that fades in as you scroll */}
         <motion.div
@@ -103,54 +89,24 @@ export default function Home() {
 
         {/* Hero Content */}
         <motion.div
-          className="relative z-20 h-full flex flex-col justify-end pb-16 lp:pb-20"
+          className="relative z-20 min-h-screen flex items-center"
           style={{ opacity: contentOpacity, y: contentY }}
         >
-          <div className="max-w-[1536px] mx-auto px-6 w-full">
-            <div className="lp:absolute lp:bottom-20 lp:left-1/4 lp:ml-10 mr-3 max-w-none">
-              <h1 className="font-display text-3xl tb:text-5xl lp:text-6xl text-black mb-4 lp:mb-6 lp:max-w-[1000px] drop-shadow-sm italic">
-                Try a puzzle.
-              </h1>
-              <p className="text-lg tb:text-xl lp:text-2xl text-black/80 lp:max-w-[800px] mb-6 lp:mb-8">
-                Think out loud. A conversation builds your understanding in real time.
-              </p>
-              <div className="flex flex-col tb:flex-row gap-4">
-                <SignedIn>
-                  <Link href="/puzzles">
-                    <Button 
-                      className="bg-primary hover:bg-primary/90 text-white w-full tb:w-[220px] h-[64px] text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
-                      radius="none"
-                    >
-                      Pick a Puzzle
-                    </Button>
-                  </Link>
-                </SignedIn>
-                <SignedOut>
-                  <Link href="/puzzles">
-                    <Button 
-                      className="bg-primary hover:bg-primary/90 text-white w-full tb:w-[220px] h-[64px] text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
-                      radius="none"
-                    >
-                      Pick a Puzzle
-                    </Button>
-                  </Link>
-                </SignedOut>
-              </div>
-            </div>
-          </div>
+          <div className="w-full py-24 tb:py-32 px-6 tb:px-0 tb:pl-[45%] lp:pl-[50%] tb:pr-6">
+              {/* Typewriter puzzle animation */}
+              <PuzzleTypewriter />
 
-          {/* Mobile: Hero GIF below content */}
-          <div className="tb:hidden flex justify-center mt-6 px-6">
-            <video
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full max-w-[280px] max-h-[30vh] object-contain"
-            >
-              <source src="/hero-gif.mov" type="video/quicktime" />
-              <source src="/hero-gif.mov" type="video/mp4" />
-            </video>
+              {/* CTA — Think Through It */}
+              <div className="mt-10">
+                <Link href="/workspace?puzzle=whos-who">
+                  <Button
+                    className="bg-primary hover:bg-primary/90 text-white w-full tb:w-[240px] h-[60px] text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                    radius="none"
+                  >
+                    Think Through It
+                  </Button>
+                </Link>
+              </div>
           </div>
 
           {/* Scroll indicator */}
@@ -167,10 +123,10 @@ export default function Home() {
       </section>
 
       {/* ── How It Works ── */}
-      <section className="py-24 tb:py-32 px-6 bg-gradient-to-b from-white to-mist/30">
+      <section className="py-12 tb:py-16 px-6 bg-gradient-to-b from-white to-mist/30">
         <div className="max-w-[1536px] mx-auto">
           <motion.span 
-            className="font-mono text-xs text-smoke tracking-[0.3em] uppercase block mb-12 tb:mb-16"
+            className="font-mono text-xs text-smoke tracking-[0.3em] uppercase block mb-6 tb:mb-8"
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
@@ -178,45 +134,69 @@ export default function Home() {
             The Process
           </motion.span>
 
-          <div className="grid tb:grid-cols-3 gap-8 tb:gap-12">
-            {[
-              {
-                step: "01",
-                title: "Pick a puzzle",
-                desc: "Classic thinking puzzles. Each one is trickier than it looks.",
-              },
-              {
-                step: "02",
-                title: "Think out loud",
-                desc: "Talk through it in a conversation. You'll be asked questions that push your thinking further.",
-              },
-              {
-                step: "03",
-                title: "See what you know",
-                desc: "A document captures your understanding as it builds. You might surprise yourself.",
-              },
-            ].map((item, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ delay: i * 0.15, duration: 0.6 }}
-                className="relative"
+          <div className="flex flex-col lp:flex-row lp:gap-20">
+            {/* LEFT: Steps justified evenly top-to-bottom, stretches to match GIF height */}
+            <div className="flex-1 flex flex-col justify-between mb-12 lp:mb-0">
+              {[
+                {
+                  step: "01",
+                  title: "Pick a puzzle",
+                  desc: "Each one is trickier than it looks.",
+                },
+                {
+                  step: "02",
+                  title: "Think through it",
+                  desc: "You talk. It asks questions. Your thinking goes deeper.",
+                },
+                {
+                  step: "03",
+                  title: "Watch your notes build",
+                  desc: "Your thinking, captured live.",
+                },
+              ].map((item, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-50px" }}
+                  transition={{ delay: i * 0.15, duration: 0.6 }}
+                  className="relative"
+                >
+                  <div>
+                    <span className="font-mono text-2xl tb:text-3xl text-change/30 font-light block mb-3">
+                      {item.step}
+                    </span>
+                    <h3 className="font-display text-2xl tb:text-3xl text-black mb-2 tb:mb-3">
+                      {item.title}
+                    </h3>
+                    <p className="text-smoke text-base tb:text-lg leading-relaxed">
+                      {item.desc}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* RIGHT: Demo GIF — top-aligned so bottom of GIF = bottom of step 03 */}
+            <motion.div
+              className="flex-shrink-0 lp:w-[45%] flex items-end justify-center"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.7 }}
+            >
+              <video
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full max-w-[360px] tb:max-w-[440px] lp:max-w-none lp:w-full object-contain border-none outline-none"
+                style={{ display: "block", lineHeight: 0, clipPath: "inset(2px)" }}
               >
-                <div className="p-6 tb:p-8">
-                  <span className="font-mono text-2xl tb:text-3xl text-change/30 font-light block mb-4">
-                    {item.step}
-                  </span>
-                  <h3 className="font-display text-xl tb:text-2xl text-black mb-3 tb:mb-4">
-                    {item.title}
-                  </h3>
-                  <p className="text-smoke text-sm tb:text-base leading-relaxed">
-                    {item.desc}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
+                <source src="/hero-gif.mov" type="video/quicktime" />
+                <source src="/hero-gif.mov" type="video/mp4" />
+              </video>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -251,14 +231,14 @@ export default function Home() {
                       {puzzle.number}
                     </span>
                     <h4
-                      className={`font-display text-lg tb:text-xl text-black mt-2 mb-3 ${
+                      className={`font-display text-xl tb:text-2xl text-black mt-2 mb-3 ${
                         isActive ? "group-hover:text-change transition-colors" : ""
                       }`}
                     >
                       {puzzle.title}
                     </h4>
-                    <p className="text-smoke text-sm leading-relaxed line-clamp-2">
-                      {puzzle.text.split("\n")[0]}
+                    <p className="text-smoke text-base tb:text-lg leading-relaxed line-clamp-2 italic">
+                      {puzzle.hook || puzzle.text.split("\n")[0]}
                     </p>
                   </div>
                   <div className="flex items-center justify-between mt-4">
@@ -371,11 +351,11 @@ export default function Home() {
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
         >
-          <h2 className="font-display text-3xl tb:text-4xl lp:text-5xl text-white mb-4 tb:mb-6">
-            Pick a puzzle.
+          <h2 className="font-display text-3xl tb:text-4xl lp:text-5xl text-white mb-4 tb:mb-6 italic">
+            You already started thinking about that first one, didn&apos;t you?
           </h2>
           <p className="text-white/50 text-base tb:text-lg mb-8 tb:mb-10 max-w-lg mx-auto">
-            It's free. It takes 15 minutes. You'll think differently after.
+            15 minutes. One puzzle. See what your brain does.
           </p>
           <SignedIn>
             <Link href="/puzzles">
@@ -383,7 +363,7 @@ export default function Home() {
                 className="bg-white text-black px-8 tb:px-10 h-12 tb:h-14 text-base font-medium hover:bg-white/90"
                 radius="none"
               >
-                Start a Puzzle
+                Pick a Puzzle
               </Button>
             </Link>
           </SignedIn>
@@ -393,7 +373,7 @@ export default function Home() {
                 className="bg-white text-black px-8 tb:px-10 h-12 tb:h-14 text-base font-medium hover:bg-white/90"
                 radius="none"
               >
-                Start a Puzzle
+                Pick a Puzzle
               </Button>
             </Link>
           </SignedOut>

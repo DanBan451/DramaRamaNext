@@ -34,7 +34,7 @@ export const Navbar = () => {
   // Base nav items (always visible)
   const baseNavItems = [
     { name: "Home", path: "/" },
-    { name: "About", path: "/framework" },
+    { name: "Under the Hood", path: "/framework" },
     { name: "Puzzles", path: "/puzzles" },
   ];
 
@@ -47,14 +47,14 @@ export const Navbar = () => {
   // Mobile menu items for signed out users
   const signedOutMenuItems = [
     { name: "Home", path: "/" },
-    { name: "About", path: "/framework" },
+    { name: "Under the Hood", path: "/framework" },
     { name: "Puzzles", path: "/puzzles" },
   ];
 
   // Mobile menu items for signed in users
   const signedInMenuItems = [
     { name: "Home", path: "/" },
-    { name: "About", path: "/framework" },
+    { name: "Under the Hood", path: "/framework" },
     { name: "Puzzles", path: "/puzzles" },
     { name: "My Sessions", path: "/workspace" },
     { name: "Profile", path: "/profile" },

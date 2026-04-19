@@ -13,7 +13,7 @@ export default function Footer() {
         </div>
         <div className="flex gap-6 text-sm">
           <Link href="/framework" className="text-smoke hover:text-black transition-colors">
-            Framework
+            Curious how it works?
           </Link>
           <SignedIn>
             <Link href="/profile" className="text-smoke hover:text-black transition-colors">

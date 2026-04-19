@@ -111,6 +111,13 @@ class SupabaseSessionRepository(SessionRepository):
         if result.data:
             return self._row_to_session(result.data[0])
         return None
+
+    async def get_active_session_by_description(self, user_id: str, problem_description: str) -> Optional[Session]:
+        """Find an active (in_progress) session matching exact problem_description."""
+        result = self.client.table("sessions").select("*").eq("user_id", user_id).eq("problem_description", problem_description).eq("status", SessionStatus.IN_PROGRESS.value).order("created_at", desc=True).limit(1).execute()
+        if result.data:
+            return self._row_to_session(result.data[0])
+        return None
     
     async def update(self, session_id: str, **kwargs) -> Session:
         # Convert enums to values

@@ -35,11 +35,12 @@ export const Navbar = () => {
   const baseNavItems = [
     { name: "Home", path: "/" },
     { name: "About", path: "/framework" },
+    { name: "Puzzles", path: "/puzzles" },
   ];
 
   // Auth-only nav items
   const authNavItems = [
-    { name: "Puzzles", path: "/workspace" },
+    { name: "My Sessions", path: "/workspace" },
     { name: "Profile", path: "/profile" },
   ];
 
@@ -47,13 +48,15 @@ export const Navbar = () => {
   const signedOutMenuItems = [
     { name: "Home", path: "/" },
     { name: "About", path: "/framework" },
+    { name: "Puzzles", path: "/puzzles" },
   ];
 
   // Mobile menu items for signed in users
   const signedInMenuItems = [
     { name: "Home", path: "/" },
     { name: "About", path: "/framework" },
-    { name: "Puzzles", path: "/workspace" },
+    { name: "Puzzles", path: "/puzzles" },
+    { name: "My Sessions", path: "/workspace" },
     { name: "Profile", path: "/profile" },
   ];
 

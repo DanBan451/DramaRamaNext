@@ -3,6 +3,7 @@
 import React from "react";
 import { Button } from "@nextui-org/button";
 import Link from "next/link";
+import Footer from "@/components/Footer";
 
 // Element data with geometric SVG icons (original brighter colors)
 const elements = [
@@ -213,6 +214,8 @@ export default function FrameworkPage() {
           </Link>
         </div>
       </section>
+
+      <Footer />
     </div>
   );
 }

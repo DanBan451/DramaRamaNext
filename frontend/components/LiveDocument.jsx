@@ -3,8 +3,8 @@
 import React from "react";
 
 /**
- * LiveDocument — renders the Deep Understanding Document as clean formatted text.
- * Strips markdown artifacts and renders with proper typography.
+ * LiveDocument — renders the Understanding Document as scratch-paper notes.
+ * Each newline-separated line gets its own visual line, like jotted notes on a napkin.
  */
 export default function LiveDocument({ text }) {
 
@@ -22,6 +22,8 @@ export default function LiveDocument({ text }) {
       .replace(/`(.*?)`/g, "$1")
       // Remove horizontal rules
       .replace(/^[-*_]{3,}\s*$/gm, "")
+      // Unescape literal \n that the LLM may produce inside JSON strings
+      .replace(/\\n/g, "\n")
       // Collapse triple+ newlines to double
       .replace(/\n{3,}/g, "\n\n")
       .trim();
@@ -31,25 +33,29 @@ export default function LiveDocument({ text }) {
 
   if (!cleaned) {
     return (
-      <p className="text-smoke/50 italic text-sm">
-        Your understanding builds here as you think through the puzzle...
-      </p>
+      <div className="rounded-sm bg-[#FDFBF7] border border-[#EDE8DF] px-5 py-6">
+        <p className="font-mono text-xs text-smoke/50 italic">
+          No notes yet. Share your thoughts to start building.
+        </p>
+      </div>
     );
   }
 
-  // Split into paragraphs
-  const paragraphs = cleaned.split(/\n\n+/);
+  // Split on any newline (single or double) so each note gets its own line
+  const lines = cleaned.split(/\n+/).filter((l) => l.trim());
 
   return (
-    <div className="space-y-4">
-      {paragraphs.map((para, i) => (
-        <p
-          key={i}
-          className="text-sm leading-relaxed text-ash"
-        >
-          {para.trim()}
-        </p>
-      ))}
+    <div className="rounded-sm bg-[#FDFBF7] border border-[#EDE8DF] px-5 py-5">
+      <div className="space-y-2.5">
+        {lines.map((line, i) => (
+          <p
+            key={i}
+            className="font-mono text-[13px] leading-[1.65] text-[#3A3A3A]"
+          >
+            {line.trim()}
+          </p>
+        ))}
+      </div>
     </div>
   );
 }

@@ -24,7 +24,11 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@nextui-org/button";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import WhosWhoCinematic from "@/components/WhosWhoCinematic";
+import TopTenListCinematic from "@/components/TopTenListCinematic";
+import ThreeSwitchesCinematic from "@/components/ThreeSwitchesCinematic";
+import StarIsBornCinematic from "@/components/StarIsBornCinematic";
 import ThinkingPanel from "@/components/ThinkingPanel";
 import NudgeWhisper from "@/components/NudgeWhisper";
 import UnderstandingOverlay from "@/components/UnderstandingOverlay";
@@ -46,6 +50,7 @@ export default function CinematicExperience({
   sessionId,
   firstMessage,
   onComplete,
+  onLeave,
 }) {
   const { getToken } = useAuth();
 
@@ -68,6 +73,12 @@ export default function CinematicExperience({
 
   const [sending, setSending] = useState(false);
 
+  // Tracks how many hints the user has requested (1 hint allowed per deepen).
+  const [hintCount, setHintCount] = useState(0);
+
+  // User-visible error toast.
+  const [chatError, setChatError] = useState("");
+
   // Current element (drives the background tint).
   const [element, setElement] = useState("earth");
 
@@ -80,24 +91,43 @@ export default function CinematicExperience({
   const [completeLoading, setCompleteLoading] = useState(false);
   const [completionData, setCompletionData] = useState(null);
 
-  const activePuzzle =
-    puzzle || PUZZLES.find((p) => problemDescription?.includes(p.title)) ||
-    PUZZLES.find((p) => p.id === "whos-who");
+  // activePuzzle is derived from props initially but may update after session detail loads.
+  const [resolvedProblemDesc, setResolvedProblemDesc] = useState(problemDescription || "");
 
-  // ── Load existing session data (messages + doc) ────────────────────────────
+  // If we have a puzzle prop or a valid problemDescription, we can resolve immediately.
+  // Otherwise wait for session detail to load before picking a cinematic.
+  const needsDetailToResolve = !puzzle && !problemDescription;
+  const activePuzzle =
+    puzzle || PUZZLES.find((p) => resolvedProblemDesc?.includes(p.title)) ||
+    (needsDetailToResolve && documentLoading ? null : PUZZLES.find((p) => p.id === "whos-who"));
+
+  // ── Load existing session data (messages + doc + optional session detail) ──
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const token = await getToken({ skipCache: true });
-        const [msgsRes, duRes] = await Promise.all([
+        const token = await getToken();
+        const fetches = [
           fetch(`/api/backend-api/session/${sessionId}/element-messages`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
           fetch(`/api/backend-api/session/${sessionId}/deep-understanding`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
-        ]);
+        ];
+
+        // If problemDescription wasn't provided, fetch session detail too
+        const needsDetail = !problemDescription;
+        if (needsDetail) {
+          fetches.push(
+            fetch(`/api/backend-api/user/sessions/${sessionId}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+          );
+        }
+
+        const results = await Promise.all(fetches);
+        const [msgsRes, duRes] = results;
 
         if (!cancelled && msgsRes.ok) {
           const data = await msgsRes.json();
@@ -130,6 +160,15 @@ export default function CinematicExperience({
           if (data.understanding_document)
             setDocumentText(data.understanding_document);
         }
+
+        // Resolve problem description from session detail
+        if (needsDetail && results[2] && !cancelled) {
+          try {
+            const detail = await results[2].json();
+            const desc = detail.session?.problem_description || "";
+            if (desc) setResolvedProblemDesc(desc);
+          } catch { /* session detail is optional */ }
+        }
       } catch (e) {
         console.error("Failed to load session data:", e);
       } finally {
@@ -140,14 +179,14 @@ export default function CinematicExperience({
     return () => {
       cancelled = true;
     };
-  }, [sessionId, getToken]);
+  }, [sessionId, getToken, problemDescription]);
 
   // ── Send a thought (user submission from the thinking panel) ───────────────
   async function sendThought(text) {
     setSending(true);
 
     try {
-      const token = await getToken({ skipCache: true });
+      const token = await getToken();
       const res = await fetch(
         `/api/backend-api/session/${sessionId}/chat`,
         {
@@ -163,6 +202,7 @@ export default function CinematicExperience({
 
       const data = await res.json();
       setElement(data.element || "earth");
+
       if (data.understanding === "__no_insights__") {
         setNoInsights(true);
         setTimeout(() => setNoInsights(false), 4000);
@@ -173,6 +213,8 @@ export default function CinematicExperience({
       setDeepenCount((c) => c + 1);
     } catch (e) {
       console.error("Chat error:", e);
+      setChatError("Something went wrong — try again.");
+      setTimeout(() => setChatError(""), 5000);
     } finally {
       setSending(false);
     }
@@ -184,7 +226,7 @@ export default function CinematicExperience({
     setHintLoading(true);
 
     try {
-      const token = await getToken({ skipCache: true });
+      const token = await getToken();
       const res = await fetch(
         `/api/backend-api/session/${sessionId}/chat`,
         {
@@ -204,6 +246,7 @@ export default function CinematicExperience({
         element: data.element || "",
         subElement: data.sub_element || "",
       });
+      setHintCount((c) => c + 1);
       setElement(data.element || "earth");
       if (data.understanding) {
         setDocumentText(data.understanding);
@@ -221,7 +264,7 @@ export default function CinematicExperience({
   async function handleComplete() {
     setCompleteLoading(true);
     try {
-      const token = await getToken({ skipCache: true });
+      const token = await getToken();
       const res = await fetch("/api/backend-api/session/complete", {
         method: "POST",
         headers: {
@@ -243,12 +286,36 @@ export default function CinematicExperience({
 
   return (
     <div className="fixed inset-0 bg-black overflow-hidden">
-      {/* ── Cinematic intro + ambient stage ─────────────────────────────── */}
-      <WhosWhoCinematic
-        sessionId={sessionId}
-        puzzleText={activePuzzle?.text || ""}
-        onComplete={() => setIntroDone(true)}
-      />
+      {/* ── Cinematic intro + ambient stage ───────────────────── */}
+      {!activePuzzle ? (
+        <div className="flex items-center justify-center h-full">
+          <p className="font-mono text-[11px] tracking-[0.3em] uppercase text-white/40">Loading…</p>
+        </div>
+      ) : activePuzzle.id === "top-10-list" ? (
+        <TopTenListCinematic
+          sessionId={sessionId}
+          puzzleText={activePuzzle.text || ""}
+          onComplete={() => setIntroDone(true)}
+        />
+      ) : activePuzzle.id === "three-switches" ? (
+        <ThreeSwitchesCinematic
+          sessionId={sessionId}
+          puzzleText={activePuzzle.text || ""}
+          onComplete={() => setIntroDone(true)}
+        />
+      ) : activePuzzle.id === "star-is-born" ? (
+        <StarIsBornCinematic
+          sessionId={sessionId}
+          puzzleText={activePuzzle.text || ""}
+          onComplete={() => setIntroDone(true)}
+        />
+      ) : (
+        <WhosWhoCinematic
+          sessionId={sessionId}
+          puzzleText={activePuzzle.text || ""}
+          onComplete={() => setIntroDone(true)}
+        />
+      )}
 
       {/* ── Element tint overlay (crossfade between elements) ───────────── */}
       <AnimatePresence>
@@ -272,9 +339,31 @@ export default function CinematicExperience({
           hint={hint}
           hintLoading={hintLoading}
           onRequestHint={requestHint}
-          canRequestHint={deepenCount > 0 && !sending}
+          canRequestHint={deepenCount > 0 && deepenCount > hintCount && !sending}
+          deepenCount={deepenCount}
           onComplete={handleComplete}
+          onLeave={onLeave}
         />
+      )}
+
+      {/* ── Star reference image (persistent, shown after intro for star-is-born) */}
+      {activePuzzle?.id === "star-is-born" && introDone && !completionData && (
+        <motion.div
+          className="fixed z-20 flex justify-center pointer-events-none"
+          style={{ top: "60px", left: 0, right: 0 }}
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <Image
+            src="/images/415-4155175_drawn-stare-star-background-transparent-drawn-star-png.png"
+            alt="Five-pointed star reference"
+            width={140}
+            height={140}
+            className="opacity-70"
+            style={{ filter: "invert(1) brightness(2) drop-shadow(0 2px 16px rgba(255,255,255,0.25))" }}
+          />
+        </motion.div>
       )}
 
       {/* ── Thinking panel (white surface, bottom) ─────────────────────── */}
@@ -286,6 +375,23 @@ export default function CinematicExperience({
         isSending={sending}
         understandingVersion={understandingVersion}
       />
+
+      {/* ── Error toast ──────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {chatError && (
+          <motion.div
+            key="chat-error"
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white shadow-2xl px-8 py-5 max-w-sm w-full text-center"
+            initial={{ opacity: 0, scale: 0.93 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.93 }}
+            transition={{ duration: 0.2 }}
+          >
+            <p className="font-mono text-[10px] tracking-[0.25em] uppercase text-red-500 mb-2">Error</p>
+            <p className="text-ash text-sm leading-relaxed">{chatError}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── No-insights toast ───────────────────────────────────────────── */}
       <AnimatePresence>

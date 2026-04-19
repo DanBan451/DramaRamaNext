@@ -57,7 +57,7 @@ export default function RootLayout({ children }) {
           rel="stylesheet" 
         />
       </head>
-      <body className="bg-white antialiased">
+      <body className="bg-white antialiased overflow-x-hidden">
         <Providers themeProps={{ attribute: "class", defaultTheme: "light" }}>
           <NavbarWrapper />
           {children}

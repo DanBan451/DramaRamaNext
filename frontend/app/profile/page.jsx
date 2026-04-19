@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@nextui-org/button";
 import { useAuth, useUser } from "@clerk/nextjs";
 import useSWR, { mutate } from "swr";
+import Footer from "@/components/Footer";
 
 // Element metadata - simplified for profile display
 const ELEMENTS = [
@@ -357,6 +358,7 @@ export default function ProfilePage() {
           </Button>
         )}
       </div>
+      <Footer />
     </div>
   );
 }

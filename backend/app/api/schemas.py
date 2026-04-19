@@ -8,6 +8,7 @@ from datetime import datetime
 # Session schemas
 class SessionStartRequest(BaseModel):
     problem_description: str
+    puzzle_id: Optional[str] = None
 
 class SessionStartResponse(BaseModel):
     session_id: str

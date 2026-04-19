@@ -911,12 +911,23 @@ RESPONSE rules:
 - Never reveal the puzzle answer.
 
 UNDERSTANDING rules:
-- Write as neutral captured observations — like notes jotted on paper. No "you", no "I", no "the user". No person at all.
-- Example: "At least one person is lying. If the math major is telling the truth, the other must be lying. The hair colors might be relevant."
-- Only include things they have actually noticed, reasoned through, or are actively exploring.
-- No advice, no encouragement, no evaluation. Never say what they should do or haven't done.
-- If there are no concrete observations or reasoning yet (vague or off-topic input), return exactly the string: __no_insights__
-- Plain sentences only. No headers. No bullets. Short, crisp.
+- This document is the user's scratch paper. Write it exactly as if someone were jotting notes to themselves while working through a puzzle on a napkin.
+- Use SHORT, direct statements. Like: "At least one is lying." or "If black-hair tells truth → he's math major → red-hair must be lying about being philosophy major." or "Wait — both can't be telling the truth."
+- NO person references at all. Not "you", not "I", not "the user", not "they." Just the observations. Like notes, not sentences about a person.
+- REFINE, don't just append. If the user's latest thinking contradicts or supersedes something in the existing document, REMOVE or REPLACE the old note. The document should always reflect their CURRENT understanding, not a history of everything they've said.
+- If the user was wrong about something earlier but has now corrected themselves, remove the wrong note entirely. Don't keep it with a note saying it was wrong.
+- Only include things the user has actually reasoned through or noticed. Never add observations they haven't made.
+- NEVER evaluate, assess, or judge. No "hasn't considered X yet" or "needs to think about Y" or "this is correct." Just capture the raw reasoning.
+- NEVER give advice or direction. This is a mirror, not a coach.
+- If the user's input is vague, off-topic, or contains no concrete reasoning about the puzzle, return exactly: __no_insights__
+- No markdown headers. No bold. No bullets. Just plain short sentences or fragments, separated by newlines.
+- Keep it concise. If the entire understanding can be captured in 3 sentences, use 3 sentences. Don't pad it.
+
+GOOD example of understanding notes:
+"At least one student is lying.\\nIf black-hair is telling truth → he's the math major.\\nThen red-hair saying 'I'm philosophy' would also be true → nobody is lying → contradicts the premise.\\nSo black-hair must be lying about being a math major.\\nMath major has red hair."
+
+BAD example (never do this):
+"The user understands that at least one student is lying. They have not yet explored what happens when both students are considered." ← This is evaluative third-person assessment. Never.
 
 Output ONLY the JSON. No markdown fences. No extra text."""
 
@@ -941,7 +952,7 @@ def build_extract_understanding_prompt(
         role_label = "User" if msg.role == "user" else "Coach"
         conversation_text += f"{role_label}: {msg.message_text}\n\n"
 
-    return f"""You are reading a conversation where someone is thinking through a puzzle. Extract what they currently UNDERSTAND about the puzzle — not what they said, but what they actually figured out.
+    return f"""You are reading a conversation where someone is thinking through a puzzle. Distill their reasoning into scratch-paper notes — as if they jotted them on a napkin while thinking.
 
 The puzzle: {problem_description}
 Element applied: {element}
@@ -949,12 +960,16 @@ Conversation: {conversation_text}
 Existing document: {existing_document or '(none yet)'}
 
 Write an updated understanding document. Rules:
-1. Write as neutral captured observations — like notes on paper. No person: no "you", no "I", no "the user". Just the observations.
-2. Example: "At least one person is lying. If the math major tells the truth, the philosophy major must be lying. The hair colors may be a clue."
-3. Only include things they have actually reasoned through or noticed. Nothing they haven't touched.
-4. No advice, no evaluation, no encouragement. Never mention what they should do or haven't done.
-5. If there are no concrete observations yet (the input is vague, off-topic, or has no real reasoning), return exactly the string: __no_insights__
-6. No markdown headers, no bold, no bullet points. Short, crisp sentences.
+1. This is the user's scratch paper. Write SHORT, direct statements. Like: "At least one is lying." or "If black-hair tells truth → math major → contradiction."
+2. NO person references. Not "you", not "I", not "the user", not "they." Just observations.
+3. REFINE, don't just append. If the latest thinking contradicts or supersedes an earlier note, REMOVE or REPLACE the old note. The document should reflect CURRENT understanding, not a timeline.
+4. If something was wrong earlier and now corrected, remove the wrong note entirely.
+5. Only include things actually reasoned through or noticed. Never add observations they haven't made.
+6. NEVER evaluate, assess, or judge. No "hasn't considered X" or "needs to think about Y." Just raw reasoning.
+7. NEVER give advice or direction. This is a mirror, not a coach.
+8. If there are no concrete observations yet (vague, off-topic, or no real reasoning), return exactly: __no_insights__
+9. No markdown headers, no bold, no bullet points. Plain short sentences or fragments separated by newlines.
+10. Keep it concise. Don't pad.
 
 Return ONLY the updated document text (or __no_insights__ if nothing concrete)."""
 

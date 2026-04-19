@@ -3,15 +3,16 @@
 /**
  * NudgeWhisper
  * ------------
- * Two buttons at top-right: "View Hint" (opens modal with current hint) and
- * "New Hint" (requests a new hint from the AI). The modal auto-opens when a
- * new hint finishes loading. Shows element + sub-element badges in the modal.
+ * Session action buttons (top-right) + hint modal.
  *
  * Props:
- *  - hint:          { text, element, subElement }
- *  - hintLoading:   true while fetching a new hint
- *  - onRequestHint: called when user asks for a new hint
- *  - canRequestHint: true once user has deepened understanding at least once
+ *  - hint:            { text, element, subElement }
+ *  - hintLoading:     true while fetching a new hint
+ *  - onRequestHint:   called when user asks for a new hint
+ *  - canRequestHint:  true when deepenCount > hintCount && not sending
+ *  - deepenCount:     how many times the user has deepened
+ *  - onComplete:      end session callback
+ *  - onLeave:         leave session (navigate away) without ending
  */
 
 import React, { useEffect, useRef, useState } from "react";
@@ -22,9 +23,12 @@ export default function NudgeWhisper({
   hintLoading = false,
   onRequestHint,
   canRequestHint = false,
+  deepenCount = 0,
   onComplete,
+  onLeave,
 }) {
   const [showModal, setShowModal] = useState(false);
+  const [gatedMsg, setGatedMsg] = useState("");
   const wasLoadingRef = useRef(false);
 
   // Auto-open modal when a new hint finishes loading
@@ -35,38 +39,91 @@ export default function NudgeWhisper({
     wasLoadingRef.current = hintLoading;
   }, [hintLoading, hint.text]);
 
+  function handleNewHint() {
+    if (hintLoading) return;
+    if (deepenCount === 0) {
+      setGatedMsg("Write your thoughts and deepen your understanding first.");
+      setTimeout(() => setGatedMsg(""), 4000);
+      return;
+    }
+    if (!canRequestHint) {
+      setGatedMsg("Deepen your understanding again to unlock another nudge.");
+      setTimeout(() => setGatedMsg(""), 4000);
+      return;
+    }
+    onRequestHint && onRequestHint();
+  }
+
   return (
     <>
-      {/* End Session + hint buttons — top-right */}
-      <div className="fixed top-6 right-6 z-40 flex gap-3 items-center">
-        <button
-          type="button"
-          onClick={onComplete}
-          className="font-mono text-[9px] tracking-[0.2em] uppercase text-white/40 hover:text-white/80 transition-colors"
-        >
-          End Session
-        </button>
-        <button
-          type="button"
-          onClick={() => hint.text && setShowModal(true)}
-          disabled={!hint.text}
-          aria-label="view current hint"
-          className="font-mono text-[10px] tracking-[0.2em] uppercase px-3 py-1.5 border border-white/40 text-white/70 bg-black/60 hover:text-white hover:border-white/80 disabled:opacity-20 disabled:cursor-not-allowed transition-all backdrop-blur-sm"
-        >
-          View Hint
-        </button>
-        <button
-          type="button"
-          onClick={() => !hintLoading && canRequestHint && onRequestHint && onRequestHint()}
-          disabled={!canRequestHint || hintLoading}
-          aria-label="request new hint"
-          className="font-mono text-[10px] tracking-[0.2em] uppercase px-3 py-1.5 bg-primary text-white hover:bg-primary/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-        >
-          {hintLoading ? "…" : "New Hint"}
-        </button>
+      {/* ── Top bar — leave left, actions right ─────────────────────────── */}
+      <div className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-6 py-4">
+        {/* Left: Leave */}
+        <div>
+          {onLeave && (
+            <button
+              type="button"
+              onClick={onLeave}
+              className="font-mono text-[10px] tracking-[0.15em] uppercase text-white/50 hover:text-white transition-colors flex items-center gap-1.5"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              Leave
+            </button>
+          )}
+        </div>
+
+        {/* Right: Actions */}
+        <div className="flex gap-3 items-center">
+          <button
+            type="button"
+            onClick={() => hint.text && setShowModal(true)}
+            disabled={!hint.text}
+            aria-label="view current nudge"
+            className="font-mono text-[10px] tracking-[0.15em] uppercase px-4 py-2 bg-white text-change border border-change hover:bg-change/5 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+          >
+            View Nudge
+          </button>
+          <button
+            type="button"
+            onClick={handleNewHint}
+            disabled={hintLoading}
+            aria-label="request nudge"
+            className="font-mono text-[10px] tracking-[0.15em] uppercase px-4 py-2 bg-change text-white border border-white/80 hover:bg-change/80 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          >
+            {hintLoading ? "…" : "Nudge"}
+          </button>
+          <button
+            type="button"
+            onClick={onComplete}
+            className="font-mono text-[10px] tracking-[0.15em] uppercase px-4 py-2 bg-[#8B0000] text-white border border-white/80 hover:bg-[#6B0000] transition-all"
+          >
+            End Session
+          </button>
+        </div>
       </div>
 
-      {/* Hint modal */}
+      {/* ── Gated hint message ─────────────────────────────────────────── */}
+      <AnimatePresence>
+        {gatedMsg && (
+          <motion.div
+            key="gated-msg"
+            className="fixed top-16 right-6 z-50 max-w-xs"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25 }}
+          >
+            <div className="bg-white shadow-xl border border-change/20 px-5 py-3">
+              <p className="text-ash text-xs leading-relaxed">{gatedMsg}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Hint modal ─────────────────────────────────────────────────── */}
       <AnimatePresence>
         {showModal && hint.text && (
           <motion.div
@@ -111,24 +168,10 @@ export default function NudgeWhisper({
                 </div>
               )}
 
-              <p className="font-mono text-[10px] tracking-[0.3em] uppercase text-smoke mb-3">Hint</p>
-              <p className="font-display italic text-ash text-base leading-relaxed mb-6">
+              <p className="font-mono text-[10px] tracking-[0.3em] uppercase text-smoke mb-3">Nudge</p>
+              <p className="font-display italic text-ash text-base leading-relaxed">
                 {hint.text}
               </p>
-
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    onRequestHint && onRequestHint();
-                  }}
-                  disabled={!canRequestHint || hintLoading}
-                  className="font-mono text-[10px] tracking-[0.2em] uppercase px-4 py-2 bg-primary text-white hover:bg-primary/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  New Hint
-                </button>
-              </div>
             </motion.div>
           </motion.div>
         )}

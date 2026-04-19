@@ -3,6 +3,7 @@
 import React from "react";
 import { Button } from "@nextui-org/button";
 import Link from "next/link";
+import Footer from "@/components/Footer";
 
 // Detailed element data for deep dive
 const elements = [
@@ -263,6 +264,8 @@ export default function ElementsDeepDivePage() {
           </div>
         </div>
       </section>
+
+      <Footer />
     </div>
   );
 }

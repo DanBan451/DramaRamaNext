@@ -70,7 +70,7 @@ export default function UnderstandingOverlay({
                   Your understanding
                 </span>
                 <h2 className="font-display text-xl tb:text-2xl text-black mt-1">
-                  In your own words.
+                  Your scratch paper
                 </h2>
               </div>
               <button

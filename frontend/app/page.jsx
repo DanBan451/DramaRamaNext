@@ -1,17 +1,47 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Button } from "@nextui-org/button";
 import Link from "next/link";
 import Image from "next/image";
-import { SignedIn, SignedOut } from "@clerk/nextjs";
+import { SignedIn, SignedOut, useAuth } from "@clerk/nextjs";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Footer from "@/components/Footer";
 import { PUZZLES } from "@/lib/puzzles";
 
 export default function Home() {
   const [selectedPuzzle, setSelectedPuzzle] = useState(null);
+  const [activeSessions, setActiveSessions] = useState([]);
+  const { getToken, isSignedIn } = useAuth();
   const heroRef = useRef(null);
+
+  // Fetch active sessions to detect duplicates
+  useEffect(() => {
+    if (!isSignedIn) return;
+    let cancelled = false;
+    async function load() {
+      try {
+        const token = await getToken();
+        const res = await fetch("/api/backend-api/user/sessions", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setActiveSessions(
+            (data.sessions || []).filter((s) => s.status === "in_progress")
+          );
+        }
+      } catch { /* silent */ }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [isSignedIn, getToken]);
+
+  function getActiveSessionForPuzzle(puzzle) {
+    return activeSessions.find(
+      (s) => s.problem_description?.includes(puzzle.title)
+    );
+  }
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"],
@@ -41,6 +71,30 @@ export default function Home() {
         {/* RIGHT: Bright Mask - hidden on mobile */}
         <div className="hidden tb:block absolute inset-y-0 right-0 w-2/3 lp:w-3/4 h-full backdrop-brightness-150" />
 
+        {/* RIGHT: Gradient fade to solid white — fully white before the GIF starts */}
+        <div
+          className="hidden tb:block absolute inset-y-0 right-0 pointer-events-none"
+          style={{
+            width: "65%",
+            background: "linear-gradient(to right, transparent 0%, rgba(255,255,255,0.4) 20%, rgba(255,255,255,0.85) 38%, rgba(255,255,255,1) 50%)",
+          }}
+        />
+
+        {/* Hero GIF — positioned in the white zone on the right */}
+        <div className="hidden tb:flex absolute inset-y-0 right-0 w-[35%] lp:w-[30%] items-center justify-center z-[5] pointer-events-none">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full max-h-[70vh] object-contain border-none outline-none"
+            style={{ display: "block", lineHeight: 0, clipPath: "inset(0 0 0 2px)" }}
+          >
+            <source src="/hero-gif.mov" type="video/quicktime" />
+            <source src="/hero-gif.mov" type="video/mp4" />
+          </video>
+        </div>
+
         {/* White overlay that fades in as you scroll */}
         <motion.div
           className="absolute inset-0 bg-white pointer-events-none z-10"
@@ -62,7 +116,7 @@ export default function Home() {
               </p>
               <div className="flex flex-col tb:flex-row gap-4">
                 <SignedIn>
-                  <Link href="/workspace">
+                  <Link href="/puzzles">
                     <Button 
                       className="bg-primary hover:bg-primary/90 text-white w-full tb:w-[220px] h-[64px] text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                       radius="none"
@@ -72,7 +126,7 @@ export default function Home() {
                   </Link>
                 </SignedIn>
                 <SignedOut>
-                  <Link href="/login">
+                  <Link href="/puzzles">
                     <Button 
                       className="bg-primary hover:bg-primary/90 text-white w-full tb:w-[220px] h-[64px] text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                       radius="none"
@@ -83,6 +137,20 @@ export default function Home() {
                 </SignedOut>
               </div>
             </div>
+          </div>
+
+          {/* Mobile: Hero GIF below content */}
+          <div className="tb:hidden flex justify-center mt-6 px-6">
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full max-w-[280px] max-h-[30vh] object-contain"
+            >
+              <source src="/hero-gif.mov" type="video/quicktime" />
+              <source src="/hero-gif.mov" type="video/mp4" />
+            </video>
           </div>
 
           {/* Scroll indicator */}
@@ -154,7 +222,7 @@ export default function Home() {
       </section>
 
       {/* ── Puzzle Preview ── */}
-      <section className="py-24 tb:py-32 px-6 bg-white">
+      <section id="puzzles" className="py-24 tb:py-32 px-6 bg-white">
         <div className="max-w-[1536px] mx-auto">
           <span className="font-mono text-xs text-smoke tracking-[0.3em] uppercase block mb-12 tb:mb-16">
             The Puzzles
@@ -162,7 +230,7 @@ export default function Home() {
 
           <div className="grid tb:grid-cols-2 lp:grid-cols-3 gap-4 tb:gap-6">
             {PUZZLES.slice(0, 6).map((puzzle, i) => {
-              const isActive = puzzle.id === "whos-who";
+              const isActive = puzzle.id === "whos-who" || puzzle.id === "top-10-list" || puzzle.id === "three-switches" || puzzle.id === "star-is-born";
               return (
                 <motion.button
                   key={puzzle.id}
@@ -243,20 +311,37 @@ export default function Home() {
                 {selectedPuzzle.title}
               </h2>
               
-              <div className="text-ash text-sm tb:text-base leading-relaxed whitespace-pre-line mb-8 tb:mb-10">
+              <div className="text-ash text-sm tb:text-base leading-relaxed whitespace-pre-line mb-8 tb:mb-10 text-left">
                 {selectedPuzzle.text}
               </div>
 
               <div className="flex flex-col tb:flex-row gap-3 tb:gap-4">
                 <SignedIn>
-                  <Link href="/workspace" className="flex-1">
-                    <Button
-                      className="bg-black text-white w-full h-12 tb:h-14 text-base font-medium hover:bg-ash transition-colors"
-                      radius="none"
-                    >
-                      Start This Puzzle
-                    </Button>
-                  </Link>
+                  {(() => {
+                    const existing = selectedPuzzle && getActiveSessionForPuzzle(selectedPuzzle);
+                    if (existing) {
+                      return (
+                        <Link href={`/workspace?session=${existing.id}`} className="flex-1">
+                          <Button
+                            className="bg-black text-white w-full h-12 tb:h-14 text-base font-medium hover:bg-ash transition-colors"
+                            radius="none"
+                          >
+                            Resume Existing Session
+                          </Button>
+                        </Link>
+                      );
+                    }
+                    return (
+                      <Link href={`/workspace?puzzle=${selectedPuzzle.id}`} className="flex-1">
+                        <Button
+                          className="bg-black text-white w-full h-12 tb:h-14 text-base font-medium hover:bg-ash transition-colors"
+                          radius="none"
+                        >
+                          Start This Puzzle
+                        </Button>
+                      </Link>
+                    );
+                  })()}
                 </SignedIn>
                 <SignedOut>
                   <Link href="/login" className="flex-1">
@@ -293,7 +378,7 @@ export default function Home() {
             It's free. It takes 15 minutes. You'll think differently after.
           </p>
           <SignedIn>
-            <Link href="/workspace">
+            <Link href="/puzzles">
               <Button
                 className="bg-white text-black px-8 tb:px-10 h-12 tb:h-14 text-base font-medium hover:bg-white/90"
                 radius="none"
@@ -303,7 +388,7 @@ export default function Home() {
             </Link>
           </SignedIn>
           <SignedOut>
-            <Link href="/login">
+            <Link href="/puzzles">
               <Button
                 className="bg-white text-black px-8 tb:px-10 h-12 tb:h-14 text-base font-medium hover:bg-white/90"
                 radius="none"
@@ -318,9 +403,7 @@ export default function Home() {
       {/* Attribution */}
       <div className="py-12 px-6 border-t border-mist">
         <p className="text-center text-smoke text-sm max-w-lg mx-auto leading-relaxed">
-          The puzzles and thinking framework behind DramaRama are inspired by
-          Edward B. Burger's <em>The 5 Elements of Effective Thinking</em> and
-          <em>Making Up Your Own Mind</em>.
+          The puzzles and thinking framework behind DramaRama are inspired by Edward B. Burger&apos;s <em>The 5 Elements of Effective Thinking</em>{" "}and{" "}<em>Making Up Your Own Mind</em>.
         </p>
       </div>
 

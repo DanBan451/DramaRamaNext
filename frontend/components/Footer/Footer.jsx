@@ -7,7 +7,7 @@ import { SignedIn, SignedOut } from "@clerk/nextjs";
 export default function Footer() {
   return (
     <footer className="bg-mist border-t border-mist py-8 px-6">
-      <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+      <div className="max-w-[1536px] mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
         <div className="text-smoke text-sm">
           © {new Date().getFullYear()} DramaRama. Built for deeper thinking.
         </div>

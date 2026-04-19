@@ -76,7 +76,24 @@ async def start_session(
     
     problem_description = request.problem_description.strip()
     
-    # Create new session with problem description
+    # Check for existing active session for the same puzzle (by exact problem_description match).
+    # The frontend sends a slug (e.g. "top-10-list") as puzzle_id, but the DB column is a UUID FK,
+    # so we match by problem_description instead — single targeted query, no full session list fetch.
+    if request.puzzle_id:
+        existing = await session_repo.get_active_session_by_description(user.id, problem_description)
+        if existing:
+            return SessionStartResponse(
+                session_id=existing.id,
+                problem_description=existing.problem_description,
+                first_message=None,
+                cube_primary_color=existing.cube_primary_color,
+                cube_secondary_color=existing.cube_secondary_color,
+                cube_complexity=existing.cube_complexity,
+                cube_label=existing.cube_label,
+                cube_image_url=existing.cube_image_url,
+            )
+    
+    # Create new session — do NOT pass the frontend slug as puzzle_id (DB expects a UUID)
     session = await session_repo.create(
         user_id=user.id,
         problem_description=problem_description,

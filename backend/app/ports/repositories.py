@@ -3,7 +3,10 @@ Repository Ports - Abstract interfaces for data access
 """
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from app.domain.entities import User, Session, Response, Hint, Puzzle, Component, ElementMessage, DeepUnderstanding
+from app.domain.entities import (
+    User, Session, Response, Hint, Puzzle, Component, ElementMessage, DeepUnderstanding,
+    Course, IntakeMessage, CoursePuzzle, Thought, ThoughtConnection,
+)
 
 class UserRepository(ABC):
     @abstractmethod
@@ -134,3 +137,197 @@ class DeepUnderstandingRepository(ABC):
         """Get all deep understanding entries for a session, ordered by created_at."""
         pass
 
+
+
+class CourseRepository(ABC):
+    @abstractmethod
+    async def create(self, user_id: str) -> Course:
+        """Create a new course in 'in_progress' intake state."""
+        ...
+
+    @abstractmethod
+    async def get_by_id(self, course_id: str) -> Optional[Course]:
+        ...
+
+    @abstractmethod
+    async def get_user_courses(self, user_id: str, limit: int = 50) -> List[Course]:
+        """Return courses for a user, newest first. Includes all statuses."""
+        ...
+
+    @abstractmethod
+    async def append_intake_message(
+        self,
+        course_id: str,
+        message: IntakeMessage,
+    ) -> Course:
+        """Append a message to intake_messages and return the updated course."""
+        ...
+
+    @abstractmethod
+    async def complete_intake(
+        self,
+        course_id: str,
+        crisp_statement: str,
+        domain: str,
+        what: str,
+        why: str,
+        blocker: str,
+        effective_looks_like: str,
+        raw_quotes: List[str],
+    ) -> Course:
+        """Mark intake_status='complete', save structured fields, set
+        course_status='awaiting_puzzles'. Return the updated course."""
+        ...
+
+    @abstractmethod
+    async def abandon(self, course_id: str) -> None:
+        ...
+
+    @abstractmethod
+    async def update_course_status(
+        self,
+        course_id: str,
+        status: str,
+        generation_error: Optional[str] = None,
+    ) -> Course:
+        """Update course_status. Optionally set generation_error.
+        Sets generation_started_at=now() when status='generating'; sets
+        generation_completed_at=now() when status in ('ready', 'generation_failed')."""
+        ...
+
+
+class CoursePuzzleRepository(ABC):
+    @abstractmethod
+    async def create_many(
+        self,
+        course_id: str,
+        puzzles: List[dict],
+    ) -> List[CoursePuzzle]:
+        """Bulk-insert puzzles for a course. Each dict must contain:
+        position, title, puzzle_text, answer, primary_element,
+        why_this_trains_the_element, domain_connection, bridge_back."""
+        ...
+
+    @abstractmethod
+    async def get_by_course(self, course_id: str) -> List[CoursePuzzle]:
+        """Return all puzzles for a course, ordered by position."""
+        ...
+
+    @abstractmethod
+    async def get_by_id(self, puzzle_id: str) -> Optional[CoursePuzzle]:
+        ...
+
+    @abstractmethod
+    async def delete_by_course(self, course_id: str) -> int:
+        """Delete all puzzles for a course. Returns count deleted.
+        Used when retrying generation after a failure."""
+        ...
+
+    @abstractmethod
+    async def update_status(
+        self,
+        puzzle_id: str,
+        status: str,
+    ) -> CoursePuzzle:
+        ...
+
+    @abstractmethod
+    async def get_with_course(
+        self,
+        course_puzzle_id: str,
+    ) -> Optional[tuple]:
+        """Return (course_puzzle, course_user_id) for ownership checks.
+        Returns None if the puzzle doesn't exist."""
+        ...
+
+
+class ThoughtRepository(ABC):
+    @abstractmethod
+    async def create(
+        self,
+        course_puzzle_id: str,
+        user_id: str,
+        content: str,
+        element: Optional[str],
+        sub_element: Optional[str],
+        pos_x: float,
+        pos_y: float,
+        time_spent_seconds: Optional[int],
+    ) -> Thought:
+        """Create a thought. Server assigns flow_order = max(flow_order)+1
+        for the (course_puzzle_id) group."""
+        ...
+
+    @abstractmethod
+    async def get_by_id(self, thought_id: str) -> Optional[Thought]:
+        ...
+
+    @abstractmethod
+    async def get_by_course_puzzle(
+        self,
+        course_puzzle_id: str,
+    ) -> List[Thought]:
+        """Return thoughts for a puzzle, ordered by flow_order ASC."""
+        ...
+
+    @abstractmethod
+    async def update_position(
+        self,
+        thought_id: str,
+        pos_x: float,
+        pos_y: float,
+    ) -> Thought:
+        ...
+
+    @abstractmethod
+    async def update_content(
+        self,
+        thought_id: str,
+        content: str,
+    ) -> Thought:
+        ...
+
+    @abstractmethod
+    async def update_tagging(
+        self,
+        thought_id: str,
+        element: Optional[str],
+        sub_element: Optional[str],
+    ) -> Thought:
+        ...
+
+    @abstractmethod
+    async def delete(self, thought_id: str) -> None:
+        """Cascade-deletes any thought_connections via FK ON DELETE CASCADE."""
+        ...
+
+
+class ThoughtConnectionRepository(ABC):
+    @abstractmethod
+    async def create(
+        self,
+        course_puzzle_id: str,
+        user_id: str,
+        from_thought_id: str,
+        to_thought_id: str,
+    ) -> ThoughtConnection:
+        """Create an edge. Idempotent on the UNIQUE
+        (course_puzzle_id, from_thought_id, to_thought_id) constraint —
+        returns the existing row if the same edge was already created.
+        Raises if from == to (DB CHECK)."""
+        ...
+
+    @abstractmethod
+    async def get_by_id(self, connection_id: str) -> Optional[ThoughtConnection]:
+        ...
+
+    @abstractmethod
+    async def get_by_course_puzzle(
+        self,
+        course_puzzle_id: str,
+    ) -> List[ThoughtConnection]:
+        ...
+
+    @abstractmethod
+    async def delete(self, connection_id: str) -> None:
+        ...

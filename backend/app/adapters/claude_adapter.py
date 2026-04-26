@@ -29,6 +29,28 @@ class ClaudeStreamingAdapter(LLMClient):
             for text in stream.text_stream:
                 yield text
 
+    async def generate_stream_with_system(
+        self,
+        prompt: str,
+        system: str = "",
+        max_tokens: int = 1500,
+    ) -> AsyncGenerator[str, None]:
+        """Generate a streaming response with a caller-supplied system prompt.
+
+        Used by flows like the course intake chatbot whose system prompt
+        differs from the element-coach default in `generate_stream`.
+        """
+        kwargs = dict(
+            model=self.model,
+            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        if system:
+            kwargs["system"] = system
+        with self.client.messages.stream(**kwargs) as stream:
+            for text in stream.text_stream:
+                yield text
+
     async def generate_text(self, prompt: str, system: str = "", max_tokens: int = 1500) -> str:
         """Generate a complete (non-streaming) response from Claude."""
         message = self.client.messages.create(

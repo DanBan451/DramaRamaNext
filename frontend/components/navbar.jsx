@@ -39,7 +39,7 @@ export const Navbar = () => {
 
   // Auth-only nav items
   const authNavItems = [
-    { name: "My Sessions", path: "/workspace" },
+    { name: "My Courses", path: "/courses" },
     { name: "Profile", path: "/profile" },
   ];
 
@@ -53,7 +53,7 @@ export const Navbar = () => {
   const signedInMenuItems = [
     { name: "Home", path: "/" },
     { name: "The Elements", path: "/framework" },
-    { name: "My Sessions", path: "/workspace" },
+    { name: "My Courses", path: "/courses" },
     { name: "Profile", path: "/profile" },
   ];
 

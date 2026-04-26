@@ -124,3 +124,120 @@ class ChatResponse(BaseModel):
     element_applied: str
     insight: Optional[str] = None  # Extracted insight for Deep Understanding Document
 
+
+# ============ Course schemas (Phase 2) ============
+
+class CourseIntakeStartResponse(BaseModel):
+    course_id: str
+
+
+class CourseIntakeMessageRequest(BaseModel):
+    user_message: str
+
+
+class CourseSummary(BaseModel):
+    id: str
+    intake_status: str
+    course_status: str
+    crisp_statement: Optional[str] = None
+    domain: Optional[str] = None
+    generation_error: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class UserCoursesResponse(BaseModel):
+    courses: List[CourseSummary]
+    total_count: int
+
+
+class CourseDetailResponse(BaseModel):
+    course: CourseSummary
+    intake_messages: List[dict]
+
+
+# Phase 3 — Course puzzles & retry
+
+class CoursePuzzleResponse(BaseModel):
+    id: str
+    position: int
+    title: str
+    puzzle_text: str
+    primary_element: str
+    why_this_trains_the_element: str
+    domain_connection: str
+    bridge_back: str
+    status: str
+    completed_at: Optional[datetime] = None
+
+
+class CoursePuzzlesResponse(BaseModel):
+    puzzles: List[CoursePuzzleResponse]
+
+
+class RetryGenerationResponse(BaseModel):
+    success: bool
+    course_id: str
+
+
+# ============ Canvas schemas (Phase 4b) ============
+
+class ThoughtCreateRequest(BaseModel):
+    content: str
+    element: Optional[str] = None
+    sub_element: Optional[str] = None
+    pos_x: float = 0
+    pos_y: float = 0
+    time_spent_seconds: Optional[int] = None
+
+
+class ThoughtUpdatePositionRequest(BaseModel):
+    pos_x: float
+    pos_y: float
+
+
+class ThoughtUpdateContentRequest(BaseModel):
+    content: str
+
+
+class ThoughtUpdateTaggingRequest(BaseModel):
+    element: Optional[str] = None
+    sub_element: Optional[str] = None
+
+
+class ThoughtResponse(BaseModel):
+    id: str
+    course_puzzle_id: str
+    element: Optional[str] = None
+    sub_element: Optional[str] = None
+    content: str
+    flow_order: int
+    time_spent_seconds: Optional[int] = None
+    pos_x: float
+    pos_y: float
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class ConnectionCreateRequest(BaseModel):
+    from_thought_id: str
+    to_thought_id: str
+
+
+class ConnectionResponse(BaseModel):
+    id: str
+    course_puzzle_id: str
+    from_thought_id: str
+    to_thought_id: str
+    created_at: Optional[datetime] = None
+
+
+class CanvasStateResponse(BaseModel):
+    """Single round-trip payload for the canvas page on mount."""
+    course_puzzle: CoursePuzzleResponse
+    thoughts: List[ThoughtResponse]
+    connections: List[ConnectionResponse]
+
+
+class DevRedirectResponse(BaseModel):
+    course_puzzle_id: str

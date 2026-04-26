@@ -16,14 +16,23 @@ from app.api.schemas import (
     DashboardStatsResponse,
     ExtractUnderstandingRequest, ExtractUnderstandingResponse,
     ChatRequest,
+    CourseIntakeStartResponse, CourseIntakeMessageRequest,
+    CourseSummary, UserCoursesResponse, CourseDetailResponse,
+    CoursePuzzleResponse, CoursePuzzlesResponse, RetryGenerationResponse,
+    ThoughtCreateRequest, ThoughtUpdatePositionRequest,
+    ThoughtUpdateContentRequest, ThoughtUpdateTaggingRequest,
+    ThoughtResponse, ConnectionCreateRequest, ConnectionResponse,
+    CanvasStateResponse, DevRedirectResponse,
 )
 from app.domain.entities import (
     Response, Hint, Element, SessionStatus,
     Component, ElementMessage, DeepUnderstanding,
+    IntakeMessage,
 )
 from app.domain.services import (
     build_session_completion_prompt, build_extract_understanding_prompt,
     build_extract_insight_prompt, build_batched_chat_prompt,
+    build_intake_chatbot_prompt,
 )
 from app.adapters.supabase_adapter import (
     SupabaseUserRepository,
@@ -33,9 +42,17 @@ from app.adapters.supabase_adapter import (
     SupabaseComponentRepository,
     SupabaseElementMessageRepository,
     SupabaseDeepUnderstandingRepository,
+    SupabaseCourseRepository,
+    SupabaseCoursePuzzleRepository,
+    SupabaseThoughtRepository,
+    SupabaseThoughtConnectionRepository,
 )
 from app.adapters.claude_adapter import ClaudeStreamingAdapter
 from app.adapters.openai_adapter import OpenAIImageAdapter
+from app.api.streaming import sse_stream
+from app.domain.puzzle_generation import generate_course_puzzles
+from fastapi.responses import StreamingResponse
+import asyncio
 import json
 import logging
 
@@ -51,8 +68,30 @@ hint_repo = SupabaseHintRepository()
 component_repo = SupabaseComponentRepository()
 element_message_repo = SupabaseElementMessageRepository()
 deep_understanding_repo = SupabaseDeepUnderstandingRepository()
+course_repo = SupabaseCourseRepository()
+puzzle_repo = SupabaseCoursePuzzleRepository()
+thought_repo = SupabaseThoughtRepository()
+connection_repo = SupabaseThoughtConnectionRepository()
 llm_client = ClaudeStreamingAdapter()
 image_client = OpenAIImageAdapter()
+
+# Module-level set to keep references to background tasks so asyncio doesn't
+# garbage-collect them mid-execution. Tasks remove themselves via done_callback.
+_BACKGROUND_TASKS: set = set()
+
+
+def _spawn_puzzle_generation(course_id: str) -> None:
+    """Fire-and-forget puzzle generation task. Pinned in _BACKGROUND_TASKS."""
+    task = asyncio.create_task(
+        generate_course_puzzles(
+            course_id=course_id,
+            course_repo=course_repo,
+            puzzle_repo=puzzle_repo,
+            llm_client=llm_client,
+        )
+    )
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
 
 # ============ Session Endpoints ============
 
@@ -713,3 +752,546 @@ async def get_deep_understanding(
     return {
         "understanding_document": session.understanding_document or "",
     }
+
+
+# ============ Course Endpoints (Phase 2) ============
+
+def _course_to_summary(course) -> CourseSummary:
+    return CourseSummary(
+        id=course.id,
+        intake_status=course.intake_status,
+        course_status=course.course_status,
+        crisp_statement=course.crisp_statement,
+        domain=course.domain,
+        generation_error=getattr(course, "generation_error", None),
+        created_at=course.created_at,
+        updated_at=course.updated_at,
+    )
+
+
+@router.post("/course/intake/start", response_model=CourseIntakeStartResponse)
+async def start_course_intake(
+    current_user: dict = Depends(get_current_user),
+):
+    """Create a new Course in 'in_progress' intake state."""
+    user = current_user["db_user"]
+
+    if not rate_limit_user(user.id, "course_intake_start"):
+        raise HTTPException(
+            status_code=429,
+            detail="Course creation rate limit exceeded. You can start up to 5 courses per hour.",
+        )
+
+    course = await course_repo.create(user_id=user.id)
+    return CourseIntakeStartResponse(course_id=course.id)
+
+
+async def _handle_intake_response(course_id: str, full_response: str) -> None:
+    """Persist the assistant turn after the SSE stream finishes.
+
+    If the model emitted the <<INTAKE_COMPLETE>> marker followed by valid JSON,
+    save only the user-visible portion as the assistant message and commit
+    the structured fields via complete_intake. Otherwise save the response
+    as-is and leave intake open.
+    """
+    marker = "<<INTAKE_COMPLETE>>"
+    if marker in full_response:
+        visible_part, _, json_part = full_response.partition(marker)
+        try:
+            data = json.loads(json_part.strip())
+        except json.JSONDecodeError as e:
+            logger.warning(
+                "Intake marker present but JSON unparseable for course %s: %s",
+                course_id, e,
+            )
+            assistant_msg = IntakeMessage(role="assistant", content=full_response.strip())
+            await course_repo.append_intake_message(course_id, assistant_msg)
+            return
+
+        assistant_msg = IntakeMessage(role="assistant", content=visible_part.strip())
+        await course_repo.append_intake_message(course_id, assistant_msg)
+        try:
+            await course_repo.complete_intake(
+                course_id=course_id,
+                crisp_statement=data.get("crisp_statement", "").strip(),
+                domain=data.get("domain", "").strip(),
+                what=data.get("what", "").strip(),
+                why=data.get("why", "").strip(),
+                blocker=data.get("blocker", "").strip(),
+                effective_looks_like=data.get("effective_looks_like", "").strip(),
+                raw_quotes=data.get("raw_quotes", []) or [],
+            )
+            # Phase 3: kick off puzzle generation as a background task.
+            _spawn_puzzle_generation(course_id)
+        except Exception as e:
+            logger.error("Failed to complete intake for course %s: %s", course_id, e)
+    else:
+        assistant_msg = IntakeMessage(role="assistant", content=full_response.strip())
+        await course_repo.append_intake_message(course_id, assistant_msg)
+
+
+@router.post("/course/intake/{course_id}/message")
+async def course_intake_message(
+    course_id: str,
+    request: CourseIntakeMessageRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Stream the intake chatbot's next reply (SSE).
+
+    On stream completion, the buffered response is parsed for the
+    <<INTAKE_COMPLETE>> marker and either commits the course or saves
+    the assistant message as-is.
+    """
+    user = current_user["db_user"]
+
+    if not rate_limit_user(user.id, "course_intake"):
+        raise HTTPException(
+            status_code=429,
+            detail="Intake rate limit exceeded. Please wait before sending more messages.",
+        )
+
+    course = await course_repo.get_by_id(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if course.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not your course")
+    if course.intake_status != "in_progress":
+        raise HTTPException(status_code=400, detail="Intake already complete")
+
+    user_message = (request.user_message or "").strip()
+    if not user_message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    # 1. Save user message and refresh history
+    user_msg = IntakeMessage(role="user", content=user_message)
+    course = await course_repo.append_intake_message(course_id, user_msg)
+
+    # 2. Build prompt
+    history = [{"role": m.role, "content": m.content} for m in course.intake_messages]
+    prompt = build_intake_chatbot_prompt(history)
+
+    # 3. Stream + capture
+    buffer: List[str] = []
+
+    async def stream_and_capture():
+        async for chunk in llm_client.generate_stream_with_system(
+            prompt=prompt,
+            system="",  # all instructions live in the user prompt itself
+            max_tokens=1500,
+        ):
+            buffer.append(chunk)
+            yield chunk
+
+    async def gen():
+        async for ev in sse_stream(stream_and_capture()):
+            yield ev
+        # After [DONE], persist the buffered assistant turn (and commit intake if marker present)
+        try:
+            await _handle_intake_response(course_id, "".join(buffer))
+        except Exception as e:
+            logger.error("Post-stream intake handling failed for course %s: %s", course_id, e)
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+@router.get("/user/courses", response_model=UserCoursesResponse)
+async def get_user_courses(
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user),
+):
+    user = current_user["db_user"]
+    courses = await course_repo.get_user_courses(user.id, limit)
+    summaries = [_course_to_summary(c) for c in courses]
+    return UserCoursesResponse(courses=summaries, total_count=len(summaries))
+
+
+@router.get("/course/{course_id}", response_model=CourseDetailResponse)
+async def get_course_detail(
+    course_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    user = current_user["db_user"]
+    course = await course_repo.get_by_id(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if course.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not your course")
+
+    intake_messages = [
+        {
+            "role": m.role,
+            "content": m.content,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+        }
+        for m in course.intake_messages
+    ]
+    return CourseDetailResponse(
+        course=_course_to_summary(course),
+        intake_messages=intake_messages,
+    )
+
+
+# ============ Course Puzzles & Generation (Phase 3) ============
+
+@router.get("/course/{course_id}/puzzles", response_model=CoursePuzzlesResponse)
+async def get_course_puzzles(
+    course_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Return puzzles for a course. The internal `answer` field is NEVER
+    serialized — phase 3 only exposes user-visible content."""
+    user = current_user["db_user"]
+    course = await course_repo.get_by_id(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if course.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not your course")
+
+    puzzles = await puzzle_repo.get_by_course(course_id)
+    return CoursePuzzlesResponse(
+        puzzles=[
+            CoursePuzzleResponse(
+                id=p.id,
+                position=p.position,
+                title=p.title,
+                puzzle_text=p.puzzle_text,
+                primary_element=p.primary_element,
+                why_this_trains_the_element=p.why_this_trains_the_element,
+                domain_connection=p.domain_connection,
+                bridge_back=p.bridge_back,
+                status=p.status,
+                completed_at=p.completed_at,
+            )
+            for p in puzzles
+        ]
+    )
+
+
+@router.get("/course/{course_id}/status-stream")
+async def course_status_stream(
+    course_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Stream course_status changes via SSE.
+
+    Polls the DB every second; emits a payload when status changes; ends
+    streaming on terminal states (ready, generation_failed, abandoned) or
+    after a 2-minute hard cap.
+    """
+    user = current_user["db_user"]
+    course = await course_repo.get_by_id(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if course.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not your course")
+
+    async def gen():
+        last_status = None
+        for _ in range(120):
+            current_course = await course_repo.get_by_id(course_id)
+            if not current_course:
+                break
+
+            current_status = current_course.course_status
+            if current_status != last_status:
+                payload = json.dumps({
+                    "course_status": current_status,
+                    "generation_error": current_course.generation_error,
+                })
+                yield f"data: {payload}\n\n".encode("utf-8")
+                last_status = current_status
+
+            if current_status in ("ready", "generation_failed", "abandoned"):
+                break
+
+            await asyncio.sleep(1)
+
+        yield b"data: [DONE]\n\n"
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+@router.post(
+    "/course/{course_id}/retry-generation",
+    response_model=RetryGenerationResponse,
+)
+async def retry_course_generation(
+    course_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Re-fire puzzle generation for a course in 'generation_failed' or
+    'awaiting_puzzles' state. Rate-limited to 5/hour per user."""
+    user = current_user["db_user"]
+
+    if not rate_limit_user(user.id, "retry_generation"):
+        raise HTTPException(
+            status_code=429,
+            detail="Retry rate limit exceeded. You can retry up to 5 times per hour.",
+        )
+
+    course = await course_repo.get_by_id(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if course.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not your course")
+    if course.course_status not in ("generation_failed", "awaiting_puzzles"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot retry generation from status '{course.course_status}'",
+        )
+
+    _spawn_puzzle_generation(course_id)
+    return RetryGenerationResponse(success=True, course_id=course_id)
+
+
+# ============ Canvas: Thoughts & Connections (Phase 4b) ============
+
+def _cp_to_response(cp) -> CoursePuzzleResponse:
+    """Shared CoursePuzzle -> response mapper (answer is never exposed)."""
+    return CoursePuzzleResponse(
+        id=cp.id,
+        position=cp.position,
+        title=cp.title,
+        puzzle_text=cp.puzzle_text,
+        primary_element=cp.primary_element,
+        why_this_trains_the_element=cp.why_this_trains_the_element,
+        domain_connection=cp.domain_connection,
+        bridge_back=cp.bridge_back,
+        status=cp.status,
+        completed_at=cp.completed_at,
+    )
+
+
+def _thought_to_response(t) -> ThoughtResponse:
+    return ThoughtResponse(
+        id=t.id,
+        course_puzzle_id=t.course_puzzle_id,
+        element=t.element,
+        sub_element=t.sub_element,
+        content=t.content,
+        flow_order=t.flow_order,
+        time_spent_seconds=t.time_spent_seconds,
+        pos_x=t.pos_x,
+        pos_y=t.pos_y,
+        created_at=t.created_at,
+        updated_at=t.updated_at,
+    )
+
+
+def _connection_to_response(c) -> ConnectionResponse:
+    return ConnectionResponse(
+        id=c.id,
+        course_puzzle_id=c.course_puzzle_id,
+        from_thought_id=c.from_thought_id,
+        to_thought_id=c.to_thought_id,
+        created_at=c.created_at,
+    )
+
+
+async def _verify_puzzle_ownership(course_puzzle_id: str, user):
+    """Raise 404 if puzzle doesn't exist; 403 if the caller doesn't own its
+    parent course. Returns the CoursePuzzle on success."""
+    result = await puzzle_repo.get_with_course(course_puzzle_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Puzzle not found")
+    cp, course_user_id = result
+    if course_user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not your puzzle")
+    return cp
+
+
+async def _verify_thought_ownership(thought_id: str, user):
+    """Verify that `thought_id` exists and the caller owns the parent course.
+    Returns the Thought on success."""
+    t = await thought_repo.get_by_id(thought_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Thought not found")
+    await _verify_puzzle_ownership(t.course_puzzle_id, user)
+    return t
+
+
+async def _verify_connection_ownership(connection_id: str, user):
+    c = await connection_repo.get_by_id(connection_id)
+    if not c:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    await _verify_puzzle_ownership(c.course_puzzle_id, user)
+    return c
+
+
+@router.get(
+    "/canvas/{course_puzzle_id}",
+    response_model=CanvasStateResponse,
+)
+async def get_canvas_state(
+    course_puzzle_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Single round-trip load: puzzle + thoughts + connections."""
+    user = current_user["db_user"]
+    cp = await _verify_puzzle_ownership(course_puzzle_id, user)
+    thoughts = await thought_repo.get_by_course_puzzle(course_puzzle_id)
+    connections = await connection_repo.get_by_course_puzzle(course_puzzle_id)
+    return CanvasStateResponse(
+        course_puzzle=_cp_to_response(cp),
+        thoughts=[_thought_to_response(t) for t in thoughts],
+        connections=[_connection_to_response(c) for c in connections],
+    )
+
+
+@router.post(
+    "/canvas/{course_puzzle_id}/thoughts",
+    response_model=ThoughtResponse,
+)
+async def create_thought(
+    course_puzzle_id: str,
+    request: ThoughtCreateRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    user = current_user["db_user"]
+    await _verify_puzzle_ownership(course_puzzle_id, user)
+    if not request.content or not request.content.strip():
+        raise HTTPException(status_code=400, detail="content is required")
+    t = await thought_repo.create(
+        course_puzzle_id=course_puzzle_id,
+        user_id=user.id,
+        content=request.content,
+        element=request.element,
+        sub_element=request.sub_element,
+        pos_x=request.pos_x,
+        pos_y=request.pos_y,
+        time_spent_seconds=request.time_spent_seconds,
+    )
+    return _thought_to_response(t)
+
+
+@router.patch(
+    "/canvas/thoughts/{thought_id}/position",
+    response_model=ThoughtResponse,
+)
+async def update_thought_position(
+    thought_id: str,
+    request: ThoughtUpdatePositionRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    user = current_user["db_user"]
+    await _verify_thought_ownership(thought_id, user)
+    t = await thought_repo.update_position(thought_id, request.pos_x, request.pos_y)
+    return _thought_to_response(t)
+
+
+@router.patch(
+    "/canvas/thoughts/{thought_id}/content",
+    response_model=ThoughtResponse,
+)
+async def update_thought_content(
+    thought_id: str,
+    request: ThoughtUpdateContentRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    user = current_user["db_user"]
+    await _verify_thought_ownership(thought_id, user)
+    if not request.content or not request.content.strip():
+        raise HTTPException(status_code=400, detail="content is required")
+    t = await thought_repo.update_content(thought_id, request.content)
+    return _thought_to_response(t)
+
+
+@router.patch(
+    "/canvas/thoughts/{thought_id}/tagging",
+    response_model=ThoughtResponse,
+)
+async def update_thought_tagging(
+    thought_id: str,
+    request: ThoughtUpdateTaggingRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    user = current_user["db_user"]
+    await _verify_thought_ownership(thought_id, user)
+    t = await thought_repo.update_tagging(
+        thought_id, request.element, request.sub_element
+    )
+    return _thought_to_response(t)
+
+
+@router.delete("/canvas/thoughts/{thought_id}", status_code=204)
+async def delete_thought_endpoint(
+    thought_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    user = current_user["db_user"]
+    await _verify_thought_ownership(thought_id, user)
+    await thought_repo.delete(thought_id)
+    # 204 No Content
+    return None
+
+
+@router.post(
+    "/canvas/{course_puzzle_id}/connections",
+    response_model=ConnectionResponse,
+)
+async def create_connection(
+    course_puzzle_id: str,
+    request: ConnectionCreateRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    user = current_user["db_user"]
+    await _verify_puzzle_ownership(course_puzzle_id, user)
+
+    if request.from_thought_id == request.to_thought_id:
+        raise HTTPException(status_code=400, detail="Self-connections are not allowed")
+
+    # Verify both thoughts exist AND both belong to THIS course_puzzle.
+    # Prevents cross-puzzle edges even if someone forges the payload.
+    from_t = await thought_repo.get_by_id(request.from_thought_id)
+    to_t = await thought_repo.get_by_id(request.to_thought_id)
+    if not from_t or not to_t:
+        raise HTTPException(status_code=404, detail="Thought not found")
+    if (
+        from_t.course_puzzle_id != course_puzzle_id
+        or to_t.course_puzzle_id != course_puzzle_id
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Both thoughts must belong to this course_puzzle",
+        )
+
+    c = await connection_repo.create(
+        course_puzzle_id=course_puzzle_id,
+        user_id=user.id,
+        from_thought_id=request.from_thought_id,
+        to_thought_id=request.to_thought_id,
+    )
+    return _connection_to_response(c)
+
+
+@router.delete("/canvas/connections/{connection_id}", status_code=204)
+async def delete_connection_endpoint(
+    connection_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    user = current_user["db_user"]
+    await _verify_connection_ownership(connection_id, user)
+    await connection_repo.delete(connection_id)
+    return None
+
+
+@router.get(
+    "/canvas-test/dev-redirect",
+    response_model=DevRedirectResponse,
+)
+async def canvas_test_dev_redirect(
+    current_user: dict = Depends(get_current_user),
+):
+    """Dev-only helper. Resolves to the first puzzle of the user's most
+    recent ready/active/completed course. Returns 404 if none.
+
+    Used by /canvas-test in the frontend to land on a real canvas without
+    having to click through the course list."""
+    user = current_user["db_user"]
+    courses = await course_repo.get_user_courses(user.id, limit=50)
+    for c in courses:
+        if c.course_status in ("ready", "active", "completed"):
+            puzzles = await puzzle_repo.get_by_course(c.id)
+            if puzzles:
+                return DevRedirectResponse(course_puzzle_id=puzzles[0].id)
+    raise HTTPException(status_code=404, detail="No ready course puzzles found")

@@ -43,15 +43,10 @@ export default function ProfilePage() {
     { revalidateOnFocus: false, dedupingInterval: 300000 }
   );
 
-  const { data: sessionsData, error: sessionsError, isLoading: sessionsLoading } = useSWR(
-    isLoaded && isSignedIn ? "/api/backend-api/user/sessions?limit=20" : null,
-    fetcher,
-    { revalidateOnFocus: false, dedupingInterval: 300000 }
-  );
-
-  const sessions = sessionsData?.sessions || [];
-  const loading = statsLoading || sessionsLoading;
-  const error = statsError?.message || sessionsError?.message;
+  // Phase 4b removed legacy /user/sessions; user-facing work history will
+  // come back as a courses-based recent-activity feed in a later phase.
+  const loading = statsLoading;
+  const error = statsError?.message;
 
   const [avatarLoading, setAvatarLoading] = React.useState(false);
 
@@ -224,34 +219,11 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Recent Sessions */}
-          {sessions.length > 0 && (
-            <div className="mb-8">
-              <h3 className="text-xs uppercase tracking-widest text-smoke mb-4">Recent Work</h3>
-              <div className="space-y-2">
-                {sessions.slice(0, 4).map((session) => (
-                  <Link
-                    key={session.id}
-                    href={`/sessions/${session.id}`}
-                    className="flex items-center justify-between p-3 bg-mist/50 rounded hover:bg-mist transition-colors group"
-                  >
-                    <span className="text-sm text-black truncate max-w-[200px] group-hover:text-ash">
-                      {session.component_title || `${session.problem_description?.slice(0, 35) || "Session"}...`}
-                    </span>
-                    <span className="text-xs text-smoke">
-                      {new Date(session.started_at).toLocaleDateString()}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Action Buttons */}
           <div className="flex gap-3">
             <Button
               as={Link}
-              href="/workspace"
+              href="/course/new"
               className="bg-primary text-white font-medium px-6 hover:bg-primary/90"
               radius="none"
             >
@@ -259,11 +231,11 @@ export default function ProfilePage() {
             </Button>
             <Button
               as={Link}
-              href="/sessions"
+              href="/courses"
               className="bg-transparent border border-mist text-black px-6 hover:bg-mist"
               radius="none"
             >
-              All Work
+              My Courses
             </Button>
           </div>
         </div>

@@ -1013,3 +1013,188 @@ Generate a JSON object with:
 - archetype_description: One sentence (max 20 words) describing how this person approaches problems based on their element strengths.
 
 Output ONLY the JSON object. No markdown fences. No explanation."""
+
+
+# ============ Phase 2: Course intake chatbot ============
+
+def build_intake_chatbot_prompt(intake_messages: List[dict]) -> str:
+    """
+    Build the system prompt for the intake chatbot.
+
+    intake_messages is the conversation history so far, each entry being
+    {"role": "user" | "assistant", "content": str}.
+
+    The prompt instructs Claude to probe until the user has articulated a
+    sharp 'effective at X' statement covering WHAT, WHY, BLOCKER, and
+    EFFECTIVE_LOOKS_LIKE. Once Claude has all four, Claude outputs a
+    special marker: <<INTAKE_COMPLETE>> followed by a JSON object with
+    the structured fields. The route layer detects this marker and
+    triggers the complete_intake repository call.
+    """
+
+    history_text = "\n".join(
+        f"{(m.get('role') or 'user').capitalize()}: {m.get('content', '')}"
+        for m in (intake_messages or [])
+    ) or "(no messages yet)"
+
+    return f"""You are an intake interviewer for DramaRama, a tool that creates personalized thinking-training courses.
+
+Your single job: get the user to articulate, with precision, what they want to become more effective at.
+
+You are strict. You do not accept vague answers. You probe until the statement is sharp enough that someone could design a course of puzzles around it.
+
+OPENING:
+If this is the first turn (no prior assistant messages), begin with: "What's a part of your life you want to become more effective at?"
+
+WHAT COUNTS AS A SHARP STATEMENT:
+A statement is sharp when you can answer all four of these from what the user has said:
+1. WHAT — the activity or situation (not just a domain — what they actually do or face)
+2. WHY — what's pulling them toward this (motivation, stakes, what's at risk)
+3. BLOCKER — what specifically is hard for them right now (where they get stuck, what they avoid, what fails)
+4. EFFECTIVE_LOOKS_LIKE — what changes if they succeed (concrete, observable)
+
+A statement is NOT sharp if:
+- It's just a domain ("software engineering," "relationships," "leadership")
+- It's a generic outcome ("be smarter," "communicate better")
+- It's about a specific tactical problem they want solved this week — that's a task, not a domain to master
+- It's framed as someone else's failure ("my manager doesn't understand me")
+
+PROBING TECHNIQUE:
+Ask ONE question at a time. Short, direct, like a curious friend at a coffee shop — not a therapist. Examples:
+- "What does effective look like for you here?"
+- "What's actually hard about this right now?"
+- "Why this, why now?"
+- "When you're at your worst with this, what happens?"
+- "Give me an example."
+
+If the user is vague, push harder. If they're abstract, ask for a concrete example. If they're describing a one-time problem, redirect to the underlying skill.
+
+DO NOT:
+- Validate or compliment ("Great answer!")
+- Summarize back at length
+- Offer advice or solutions
+- Suggest the framework, elements, or how puzzles will work
+- Ask more than one question per turn
+- Use bullet points or formatted lists
+- Use markdown
+
+WHEN YOU HAVE WHAT YOU NEED:
+Once you have all four pieces (WHAT, WHY, BLOCKER, EFFECTIVE_LOOKS_LIKE), and they fit together coherently, your final response MUST follow this exact format and nothing else:
+
+Got it. You want to become a more effective thinker in: <one to two sentences, second person, e.g. "showing up for your wife emotionally without losing yourself">.
+
+Building your course now.
+
+<<INTAKE_COMPLETE>>
+{{"crisp_statement": "the statement above, verbatim",
+"domain": "1-3 word domain label",
+"what": "what they actually do or face, in their words",
+"why": "what's pulling them toward this",
+"blocker": "what's specifically hard for them",
+"effective_looks_like": "what changes if they succeed",
+"raw_quotes": ["3-5 short verbatim phrases the user said that capture their voice and stakes"]}}
+
+The marker <<INTAKE_COMPLETE>> on its own line, followed by ONLY a JSON object. No code fences. Nothing after the JSON. The frontend will hide everything from the marker onward.
+
+Until you have all four pieces clearly, just keep probing. ONE question per turn. Don't rush to <<INTAKE_COMPLETE>>.
+
+CONVERSATION SO FAR:
+{history_text}
+
+Now generate your next response."""
+
+
+# ============ Phase 3: Puzzle generation ============
+
+def build_puzzle_generation_prompt(course: dict) -> str:
+    """
+    Build the prompt that generates a course of puzzles for a user.
+
+    `course` is a dict with the user's intake fields:
+        crisp_statement, domain, what, why, blocker, effective_looks_like, raw_quotes
+    """
+    quotes_text = "\n".join(f"- \"{q}\"" for q in (course.get("raw_quotes") or []))
+
+    return f"""You are a puzzle author trained in Edward B. Burger's "5 Elements of Effective Thinking." You generate a personalized DramaRama course for ONE user.
+
+THE USER:
+- Crisp statement: {course["crisp_statement"]}
+- Domain (1-3 words): {course["domain"]}
+- What they actually do or face: {course["what"]}
+- Why this matters to them: {course["why"]}
+- What's hard for them: {course["blocker"]}
+- What effective looks like: {course["effective_looks_like"]}
+- Their own words / quotes:
+{quotes_text}
+
+YOUR JOB:
+Generate between 3 and 10 puzzles (you decide the count based on domain complexity — a deep technical domain may need more, a sharp narrow one may need fewer). Each puzzle trains the thinking muscles needed for this person to become more effective at their stated goal.
+
+NON-NEGOTIABLE QUALITY BAR — every puzzle must meet ALL:
+
+1. Stateable in 2-4 sentences.
+2. No specialized knowledge required to engage with it.
+3. ONE LOGICAL ANSWER (or a constrained set of valid answers within strict rules). NOT a parable, thought experiment, coaching question, or perspective shift.
+4. The path to the answer requires applying a specific element of effective thinking.
+5. Visualizable — picturable in the head or sketchable on paper.
+6. Solvable in 5-15 minutes by a thoughtful person.
+7. The puzzle's SURFACE uses imagery, scenarios, objects from the user's domain. The puzzle's UNDERLYING STRUCTURE is universal logic.
+
+THE PARABLE TRAP — DO NOT FALL IN:
+A puzzle has FAILED if its "answer" is a moral lesson, a perspective shift, or an insight about human nature. A puzzle has FAILED if it could be solved by saying "the lesson is..." instead of by deducing an answer.
+
+THE 12-YEAR-OLD TEST: a good puzzle could be solved by a 12-year-old with logic alone, no life experience required. If solving requires emotional insight, you wrote a parable. Reject and rewrite.
+
+DOMAIN CONTENT RULES — NON-NEGOTIABLE:
+
+The puzzle's surface MAY use nouns and scenarios from the user's domain. The puzzle's underlying structure MUST be cold logical deduction.
+
+ALLOWED domain nouns (use freely):
+- Roles in the domain (e.g., engineer, manager, student, partner, customer)
+- Activities in the domain (e.g., scheduling, debugging, writing, deciding)
+- Objects in the domain (e.g., calendar, message, document, diagram)
+- Constraints in the domain (e.g., time limits, budgets, distances)
+
+FORBIDDEN domain content:
+- Emotions named directly (anger, love, fear, hurt, victim, control)
+- Specific situations from the user's intake (NEVER reference the exact people/places/details from raw_quotes)
+- Moral framing (right/wrong, healthy/toxic, should/shouldn't)
+- Words that imply judgment of behavior (manipulation, respect, presence, abandon)
+- The user's blocker as a literal scenario
+
+ELEMENT DISTRIBUTION:
+Distribute across the 5 elements. For a course of N puzzles:
+- ~30% Earth (grounding, simplifying, adding the adjective)
+- ~25% Fire (failing forward, trying something concrete and learning from failure)
+- ~20% Air (questioning the framing, finding the real question)
+- ~15% Water (following one idea into the next, connecting)
+- ~10% Synthesis (requires multiple elements together)
+
+Order them from easiest to hardest. Puzzle 1 should feel inviting. The last puzzle should feel like a real challenge.
+
+VARY THE STRUCTURE across the puzzles. Don't repeat the same logical pattern with different surface details. Use a mix of: counting/numbers, geometry/spatial, words/symbols, situational logic, true-false/contradiction, optimization with constraints, paradox.
+
+THE BRIDGE_BACK FIELD:
+For each puzzle, write a bridge_back prompt — a question the AI will ask the user AFTER they solve the puzzle, to help them see how the muscle they just exercised applies to their stated goal. Reference something specific from their intake (their blocker, their why, or their "effective looks like"). The bridge is where personalization lands. The puzzle itself stays cold.
+
+OUTPUT FORMAT:
+Output ONLY a JSON object. No preamble. No markdown fences. No explanation. Just the object:
+
+{{
+  "course_title": "A short evocative title for this course (5-8 words)",
+  "course_intro": "1-2 sentences in second person addressed to the user. Frames the course in terms of their crisp_statement. Not motivational — direct.",
+  "puzzles": [
+    {{
+      "position": 1,
+      "title": "Short evocative name (3-6 words)",
+      "primary_element": "earth | fire | air | water | synthesis",
+      "puzzle_text": "The puzzle in 2-4 sentences. Self-contained.",
+      "answer": "The actual logical answer (1-3 sentences). For internal verification — never shown to the user.",
+      "why_this_trains_the_element": "1-2 sentences explaining how solving requires this element. Specific, not generic.",
+      "domain_connection": "1 sentence on how the puzzle's surface connects to the user's domain.",
+      "bridge_back": "An open question to ask the user after they solve, helping them connect the muscle they exercised to their stated goal. References something specific from their intake."
+    }}
+  ]
+}}
+
+Generate the course now. Output ONLY the JSON object, nothing else."""

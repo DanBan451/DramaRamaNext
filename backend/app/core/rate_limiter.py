@@ -53,6 +53,9 @@ RATE_LIMITS = {
     "llm_calls": {"max_requests": 15, "window_seconds": 60},        # 15/min LLM calls
     "image_generation": {"max_requests": 5, "window_seconds": 3600}, # 5/hour image gen
     "session_start": {"max_requests": 10, "window_seconds": 3600},  # 10 sessions/hour
+    "course_intake_start": {"max_requests": 5, "window_seconds": 3600},  # 5 new courses/hour
+    "course_intake": {"max_requests": 30, "window_seconds": 3600},       # 30 intake messages/hour
+    "retry_generation": {"max_requests": 5, "window_seconds": 3600},     # 5 retries/hour
 }
 
 def check_rate_limit(

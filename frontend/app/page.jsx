@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@nextui-org/button";
 import Link from "next/link";
 import Image from "next/image";
-import { SignedIn, SignedOut, useAuth } from "@clerk/nextjs";
+import { SignedIn, SignedOut } from "@clerk/nextjs";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Footer from "@/components/Footer";
 import PuzzleTypewriter from "@/components/PuzzleTypewriter";
@@ -12,39 +12,14 @@ import HowItWorksSteps from "@/components/HowItWorksSteps";
 import { PUZZLES } from "@/lib/puzzles";
 
 export default function Home() {
+  // selectedPuzzle is kept as state-only because the modal that used it was
+  // gated behind {false && ...} and the legacy /workspace flow it linked to
+  // has been removed. The puzzle list still calls setSelectedPuzzle(p) on
+  // click — we just no-op the modal until the homepage is redesigned.
   const [selectedPuzzle, setSelectedPuzzle] = useState(null);
   const [puzzleReady, setPuzzleReady] = useState(false);
-  const [activeSessions, setActiveSessions] = useState([]);
-  const { getToken, isSignedIn } = useAuth();
   const heroRef = useRef(null);
 
-  // Fetch active sessions to detect duplicates
-  useEffect(() => {
-    if (!isSignedIn) return;
-    let cancelled = false;
-    async function load() {
-      try {
-        const token = await getToken();
-        const res = await fetch("/api/backend-api/user/sessions", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok && !cancelled) {
-          const data = await res.json();
-          setActiveSessions(
-            (data.sessions || []).filter((s) => s.status === "in_progress")
-          );
-        }
-      } catch { /* silent */ }
-    }
-    load();
-    return () => { cancelled = true; };
-  }, [isSignedIn, getToken]);
-
-  function getActiveSessionForPuzzle(puzzle) {
-    return activeSessions.find(
-      (s) => s.problem_description?.includes(puzzle.title)
-    );
-  }
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"],
@@ -107,7 +82,7 @@ export default function Home() {
                 <p className="text-ash text-[16px] lp:text-[18px] leading-[1.5] mb-8 max-w-[380px]">
                   Tell us what you want to master. We&apos;ll build you a course of puzzles that train you to get there.
                 </p>
-                <Link href="/workspace">
+                <Link href="/course/new">
                   <Button
                     className="bg-primary hover:bg-primary/90 text-white w-full tb:w-[240px] h-[56px] text-base font-semibold tracking-wide shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
                     radius="none"
@@ -261,86 +236,10 @@ export default function Home() {
       </section>
       )}
 
-      {/* ── Puzzle Modal (removed in Phase 1) ── */}
-      <AnimatePresence>
-        {false && selectedPuzzle && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 tb:p-6"
-            onClick={() => setSelectedPuzzle(null)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white max-w-2xl w-full max-h-[80vh] overflow-y-auto p-8 tb:p-12 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-start mb-6">
-                <span className="font-mono text-xs text-change/60 tracking-widest">
-                  {selectedPuzzle.number} · {selectedPuzzle.category}
-                </span>
-                <button 
-                  onClick={() => setSelectedPuzzle(null)}
-                  className="text-smoke hover:text-black transition-colors text-2xl leading-none"
-                >
-                  ×
-                </button>
-              </div>
-              
-              <h2 className="font-display text-2xl tb:text-3xl text-black mb-6">
-                {selectedPuzzle.title}
-              </h2>
-              
-              <div className="text-ash text-sm tb:text-base leading-relaxed whitespace-pre-line mb-8 tb:mb-10 text-left">
-                {selectedPuzzle.text}
-              </div>
-
-              <div className="flex flex-col tb:flex-row gap-3 tb:gap-4">
-                <SignedIn>
-                  {(() => {
-                    const existing = selectedPuzzle && getActiveSessionForPuzzle(selectedPuzzle);
-                    if (existing) {
-                      return (
-                        <Link href={`/workspace?session=${existing.id}`} className="flex-1">
-                          <Button
-                            className="bg-black text-white w-full h-12 tb:h-14 text-base font-medium hover:bg-ash transition-colors"
-                            radius="none"
-                          >
-                            Resume Existing Session
-                          </Button>
-                        </Link>
-                      );
-                    }
-                    return (
-                      <Link href={`/workspace?puzzle=${selectedPuzzle.id}`} className="flex-1">
-                        <Button
-                          className="bg-black text-white w-full h-12 tb:h-14 text-base font-medium hover:bg-ash transition-colors"
-                          radius="none"
-                        >
-                          Start This Puzzle
-                        </Button>
-                      </Link>
-                    );
-                  })()}
-                </SignedIn>
-                <SignedOut>
-                  <Link href="/login" className="flex-1">
-                    <Button
-                      className="bg-black text-white w-full h-12 tb:h-14 text-base font-medium hover:bg-ash transition-colors"
-                      radius="none"
-                    >
-                      Get Started
-                    </Button>
-                  </Link>
-                </SignedOut>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Legacy puzzle-modal removed: it linked to the deleted /workspace
+          legacy session flow. The pitch puzzle list still scrolls/animates
+          via PUZZLES; clicking a puzzle is a no-op until the homepage
+          puzzle-CTA is redesigned. */}
 
       {/* ── CTA ── */}
       <section className="py-24 tb:py-32 px-6 bg-gradient-to-br from-ash via-void to-ash relative overflow-hidden">
@@ -361,7 +260,7 @@ export default function Home() {
             A course of puzzles. One goal. See how your thinking changes.
           </p>
           <SignedIn>
-            <Link href="/workspace">
+            <Link href="/course/new">
               <Button
                 className="bg-white text-black px-8 tb:px-10 h-12 tb:h-14 text-base font-medium hover:bg-white/90"
                 radius="none"
@@ -371,7 +270,7 @@ export default function Home() {
             </Link>
           </SignedIn>
           <SignedOut>
-            <Link href="/login">
+            <Link href="/course/new">
               <Button
                 className="bg-white text-black px-8 tb:px-10 h-12 tb:h-14 text-base font-medium hover:bg-white/90"
                 radius="none"

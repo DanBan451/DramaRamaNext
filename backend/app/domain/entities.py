@@ -220,3 +220,105 @@ def get_prompt(index: int) -> dict:
         return PROMPTS[index]
     return None
 
+
+# ============ Course (Phase 2) ============
+# A Course is the user's commitment to becoming more effective at X.
+# It owns an intake chatbot conversation; once the intake produces a sharp
+# "crisp statement" we save the structured fields and the course moves on
+# to puzzle generation (phase 3).
+
+from typing import Literal as _Literal
+
+
+class IntakeMessage(BaseModel):
+    role: _Literal["user", "assistant"]
+    content: str
+    created_at: Optional[datetime] = None
+
+
+class Course(BaseModel):
+    id: str
+    user_id: str
+
+    intake_status: _Literal["in_progress", "complete", "abandoned"] = "in_progress"
+    intake_messages: List[IntakeMessage] = []
+
+    crisp_statement: Optional[str] = None
+    domain: Optional[str] = None
+    what: Optional[str] = None
+    why: Optional[str] = None
+    blocker: Optional[str] = None
+    effective_looks_like: Optional[str] = None
+    raw_quotes: Optional[List[str]] = None
+
+    course_status: _Literal[
+        "awaiting_puzzles",
+        "generating",
+        "generation_failed",
+        "ready",
+        "active",
+        "completed",
+        "abandoned",
+    ] = "awaiting_puzzles"
+
+    # Generation metadata (phase 3)
+    generation_error: Optional[str] = None
+    generation_started_at: Optional[datetime] = None
+    generation_completed_at: Optional[datetime] = None
+
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+# ============ Course Puzzles (Phase 3) ============
+
+class CoursePuzzle(BaseModel):
+    id: str
+    course_id: str
+    position: int
+
+    title: str
+    puzzle_text: str
+    answer: str  # internal-only; never exposed via API
+    primary_element: _Literal["earth", "fire", "air", "water", "synthesis"]
+    why_this_trains_the_element: str
+    domain_connection: str
+    bridge_back: str
+
+    status: _Literal["pending", "in_progress", "completed", "skipped"] = "pending"
+    completed_at: Optional[datetime] = None
+
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+# ============ Canvas: Thoughts & Connections (Phase 4b) ============
+
+class Thought(BaseModel):
+    id: str
+    course_puzzle_id: str
+    user_id: str
+
+    element: Optional[str] = None
+    sub_element: Optional[str] = None
+    content: str
+
+    flow_order: int
+    time_spent_seconds: Optional[int] = None
+
+    pos_x: float = 0
+    pos_y: float = 0
+
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class ThoughtConnection(BaseModel):
+    id: str
+    course_puzzle_id: str
+    user_id: str
+
+    from_thought_id: str
+    to_thought_id: str
+
+    created_at: Optional[datetime] = None

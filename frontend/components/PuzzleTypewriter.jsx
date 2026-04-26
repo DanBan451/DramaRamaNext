@@ -77,7 +77,7 @@ export default function PuzzleTypewriter({ onReady }) {
 
       // 2. Narrative — three lines, accumulating
       const line1 = "A software engineer walks in. He says: \u201CI want to be a better debugger.\u201D";
-      const line2 = "We hand him eight puzzles about engineers, code, and broken systems.";
+      const line2 = "We hand him a course of puzzles about engineers, code, and broken systems.";
       const line3 = "Two weeks later, he\u2019s a better debugger.";
 
       setCursorAt("narrative");

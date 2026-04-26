@@ -8,6 +8,7 @@ import { SignedIn, SignedOut, useAuth } from "@clerk/nextjs";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Footer from "@/components/Footer";
 import PuzzleTypewriter from "@/components/PuzzleTypewriter";
+import HowItWorksSteps from "@/components/HowItWorksSteps";
 import { PUZZLES } from "@/lib/puzzles";
 
 export default function Home() {
@@ -97,13 +98,13 @@ export default function Home() {
               Anchored near the bottom but lifted a touch for breathing room. */}
           <div className="hidden tb:flex absolute inset-0 z-30 items-end pointer-events-none pb-28 lp:pb-32">
             <div className="w-full max-w-[1536px] mx-auto px-6">
-              <div className="max-w-[440px] lp:max-w-[520px] ml-[24%] lp:ml-[20%] pointer-events-auto">
-                {/* Primary headline — bigger, still italic-accented */}
-                <h1 className="font-display text-[56px] lp:text-[76px] xl:text-[88px] text-black leading-[0.96] tracking-[-0.015em] mb-7">
+              <div className="max-w-[400px] lp:max-w-[460px] ml-[27%] lp:ml-[24%] pointer-events-auto">
+                {/* Primary headline — sized to fit comfortably at 100% zoom (matches the 90% zoom reference) */}
+                <h1 className="font-display text-[44px] lp:text-[60px] xl:text-[72px] text-black leading-[0.98] tracking-[-0.015em] mb-6">
                   Become a more<br />
                   effective <em className="italic">thinker</em>.
                 </h1>
-                <p className="text-ash text-[19px] lp:text-[22px] leading-[1.5] mb-9 max-w-[440px]">
+                <p className="text-ash text-[16px] lp:text-[18px] leading-[1.5] mb-8 max-w-[380px]">
                   Tell us what you want to master. We&apos;ll build you a course of puzzles that train you to get there.
                 </p>
                 <Link href="/workspace">
@@ -184,82 +185,20 @@ export default function Home() {
         </motion.div>
       </section>
 
-      {/* ── How It Works ── */}
-      <section id="how-it-works" className="py-12 tb:py-16 px-6 bg-gradient-to-b from-white to-mist/30 scroll-mt-24">
+      {/* ── How DramaRama Works ── four static step previews of the full product arc */}
+      <section
+        id="how-it-works"
+        className="py-20 tb:py-24 lp:py-28 px-6 bg-white scroll-mt-24"
+      >
         <div className="max-w-[1536px] mx-auto">
-          <motion.span 
-            className="font-mono text-xs text-smoke tracking-[0.3em] uppercase block mb-6 tb:mb-8"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-          >
+          <span className="font-mono text-xs text-smoke tracking-[0.3em] uppercase block mb-4">
             How DramaRama works
-          </motion.span>
+          </span>
+          <p className="font-display italic text-[22px] tb:text-[26px] lp:text-[30px] leading-[1.3] text-ash mb-12 tb:mb-16 lp:mb-20 max-w-[760px]">
+            From your goal to a more effective mind. Here&apos;s the path.
+          </p>
 
-          <div className="flex flex-col lp:flex-row lp:gap-20">
-            {/* LEFT: Steps justified evenly top-to-bottom, stretches to match GIF height */}
-            <div className="flex-1 flex flex-col justify-between mb-12 lp:mb-0">
-              {[
-                {
-                  step: "01",
-                  title: "You set the goal",
-                  desc: "Tell us what you want to become more effective at. Software engineering. Writing. Negotiation. Anything you want to think better about.",
-                },
-                {
-                  step: "02",
-                  title: "We build your course",
-                  desc: "Eight puzzles tailored to your goal. Designed to train the thinking muscles you need.",
-                },
-                {
-                  step: "03",
-                  title: "You think through them",
-                  desc: "One puzzle at a time. The puzzle is the gym. Your thinking is the workout. Your goal is what gets stronger.",
-                },
-              ].map((item, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-50px" }}
-                  transition={{ delay: i * 0.15, duration: 0.6 }}
-                  className="relative"
-                >
-                  <div>
-                    <span className="font-mono text-2xl tb:text-3xl text-change/30 font-light block mb-3">
-                      {item.step}
-                    </span>
-                    <h3 className="font-display text-2xl tb:text-3xl text-black mb-2 tb:mb-3">
-                      {item.title}
-                    </h3>
-                    <p className="text-smoke text-base tb:text-lg leading-relaxed">
-                      {item.desc}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* RIGHT: Demo GIF — top-aligned so bottom of GIF = bottom of step 03 */}
-            <motion.div
-              className="flex-shrink-0 lp:w-[45%] flex items-end justify-center"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
-              transition={{ duration: 0.7 }}
-            >
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="w-full max-w-[360px] tb:max-w-[440px] lp:max-w-none lp:w-full object-contain border-none outline-none"
-                style={{ display: "block", lineHeight: 0, clipPath: "inset(2px)" }}
-              >
-                <source src="/hero-gif.mov" type="video/quicktime" />
-                <source src="/hero-gif.mov" type="video/mp4" />
-              </video>
-            </motion.div>
-          </div>
+          <HowItWorksSteps />
         </div>
       </section>
 
@@ -419,7 +358,7 @@ export default function Home() {
             Pick what you want to master.
           </h2>
           <p className="text-white/50 text-base tb:text-lg mb-8 tb:mb-10 max-w-lg mx-auto">
-            8 puzzles. One goal. See how your thinking changes.
+            A course of puzzles. One goal. See how your thinking changes.
           </p>
           <SignedIn>
             <Link href="/workspace">

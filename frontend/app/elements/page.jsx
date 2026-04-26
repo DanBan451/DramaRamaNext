@@ -151,7 +151,7 @@ export default function ElementsDeepDivePage() {
       <section className="py-24 px-6 pt-32">
         <div className="max-w-4xl mx-auto text-center">
           <Link href="/framework" className="text-sm font-mono text-change hover:text-change/80 uppercase tracking-widest mb-4 inline-block">
-            ← Back to Framework
+            ← Back to The Elements
           </Link>
           <h1 className="font-display text-5xl md:text-6xl text-black mb-6 mt-4">
             The Elements in Depth
@@ -238,11 +238,10 @@ export default function ElementsDeepDivePage() {
       <section className="py-16 px-6 bg-mist">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="font-display text-3xl text-black mb-4">
-            Ready to apply the elements?
+            Ready to put them to work?
           </h2>
           <p className="text-smoke mb-8 max-w-lg mx-auto">
-            Start a session and let DramaRama guide you through applying 
-            these elements to your own challenges.
+            Tell us what you want to be more effective at. We&apos;ll build the course.
           </p>
           <div className="flex gap-4 justify-center">
             <Button
@@ -251,7 +250,7 @@ export default function ElementsDeepDivePage() {
               className="bg-primary text-white font-medium px-8 hover:bg-primary/90"
               radius="none"
             >
-              Start a Session
+              Start Your Course
             </Button>
             <Button
               as={Link}
@@ -259,7 +258,7 @@ export default function ElementsDeepDivePage() {
               className="bg-transparent border border-smoke text-black px-8 hover:bg-white"
               radius="none"
             >
-              Back to Framework
+              Back to The Elements
             </Button>
           </div>
         </div>

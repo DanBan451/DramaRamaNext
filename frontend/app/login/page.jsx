@@ -89,10 +89,10 @@ export default function LoginPage() {
 
           <div className="my-auto">
             <h1 className="font-display text-4xl lp:text-5xl text-white mb-6 leading-tight">
-              Think through it.
+              A thinking gym.
             </h1>
             <p className="text-white/60 text-lg max-w-md leading-relaxed">
-              Pick a puzzle. See where your thinking takes you.
+              Tell us what you want to master. We&apos;ll build the course.
             </p>
           </div>
 

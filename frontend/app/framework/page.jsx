@@ -11,18 +11,18 @@ const elements = [
     name: "Earth",
     emoji: "🌳",
     title: "Understand Deeply",
-    description: "Ground your thinking in fundamentals. Start with what you know, then build understanding layer by layer.",
+    description: "Ground your thinking in fundamentals. Most problems come from a shaky base. Fix the base first.",
     principles: [
       "Start with the simple",
       "Spotlight the specific", 
-      "Add descriptive detail"
+      "Add the adjective"
     ],
   },
   {
     name: "Fire",
     emoji: "🔥",
     title: "Fail Effectively",
-    description: "Embrace failure as fuel for learning. Try quickly, fail fast, and extract insight from every attempt.",
+    description: "Try something. Fail at it. Learn from the failure. Repeat. Failure is the fastest path forward.",
     principles: [
       "Fail fast",
       "Fail again",
@@ -33,7 +33,7 @@ const elements = [
     name: "Air",
     emoji: "💨",
     title: "Create Questions",
-    description: "Question everything. The right question opens more doors than any answer ever could.",
+    description: "The right question opens doors no answer ever could. Be your own Socrates — never stop asking.",
     principles: [
       "Be your own Socrates",
       "Ask basic questions",
@@ -44,7 +44,7 @@ const elements = [
     name: "Water",
     emoji: "🌊",
     title: "Flow with Ideas",
-    description: "Let ideas flow and connect. Follow every path, embrace doubt, and see where the current takes you.",
+    description: "Follow ideas wherever they go. Connect what’s connected. Doubt what feels certain. Don’t stop.",
     principles: [
       "Run down all paths",
       "Embrace doubt",
@@ -55,7 +55,7 @@ const elements = [
     name: "Change",
     emoji: "🪨",
     title: "Transform",
-    description: "When you apply all elements, transformation becomes inevitable. You don't just solve—you evolve.",
+    description: "When you apply the other four elements consistently, you change. Not just your answer — you. The way you think becomes who you are.",
     principles: [
       "Reflect on transformation",
       "See the new structure",
@@ -70,20 +70,14 @@ export default function FrameworkPage() {
       {/* Hero */}
       <section className="py-24 px-6 pt-32">
         <div className="max-w-4xl mx-auto text-center">
-          <p className="text-sm font-mono text-smoke uppercase tracking-widest mb-4">
-            Under the Hood
-          </p>
           <h1 className="font-display text-5xl md:text-6xl text-black mb-6">
-            The thinking behind DramaRama
+            The 5 Elements of Effective Thinking
           </h1>
           <p className="text-xl text-smoke max-w-2xl mx-auto leading-relaxed">
-            DramaRama uses five ways of thinking to guide your conversation. 
-            You don't need to know any of this to use it — but if you're curious, 
-            here's how it works under the hood.
+            Five ways of thinking that turn problems into puzzles. From Edward B. Burger&apos;s framework. Come back to this page often — these are the muscles you&apos;re training.
           </p>
           <p className="text-smoke text-sm mb-8 mt-6">
-            Based on the work of Edward B. Burger — 
-            <em>The 5 Elements of Effective Thinking</em> and <em>Making Up Your Own Mind</em>.
+            Based on the work of Edward B. Burger — <em>The 5 Elements of Effective Thinking</em> and <em>Making Up Your Own Mind</em>. With deep gratitude.
           </p>
         </div>
       </section>
@@ -130,9 +124,6 @@ export default function FrameworkPage() {
             <h2 className="font-display text-3xl text-black mb-4">
               How the elements work in DramaRama
             </h2>
-            <p className="text-lg text-smoke">
-              You don't need to think about which element to apply. The system does it for you.
-            </p>
           </div>
 
           <div className="space-y-8">
@@ -141,10 +132,7 @@ export default function FrameworkPage() {
                 1
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-black mb-2">You pick a puzzle</h3>
-                <p className="text-smoke">
-                  Choose a thinking puzzle. No special preparation required—just pick one that catches your eye.
-                </p>
+                <h3 className="text-lg font-semibold text-black mb-2">You tell us what you want to master</h3>
               </div>
             </div>
 
@@ -153,10 +141,7 @@ export default function FrameworkPage() {
                 2
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-black mb-2">The system selects the right element</h3>
-                <p className="text-smoke">
-                  Based on your conversation, DramaRama invisibly applies the most useful thinking lens at each moment.
-                </p>
+                <h3 className="text-lg font-semibold text-black mb-2">We build a course around the muscles you need</h3>
               </div>
             </div>
 
@@ -165,13 +150,14 @@ export default function FrameworkPage() {
                 3
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-black mb-2">Understanding builds naturally</h3>
-                <p className="text-smoke">
-                  As you chat, insights are extracted and organized into your scratch paper—a living record of your thinking.
-                </p>
+                <h3 className="text-lg font-semibold text-black mb-2">You apply all five elements as you think through each puzzle</h3>
               </div>
             </div>
           </div>
+
+          <p className="text-smoke text-center mt-12 text-base">
+            The elements are tools. The puzzles are the gym. Your goal is what gets stronger.
+          </p>
         </div>
       </section>
 
@@ -179,10 +165,10 @@ export default function FrameworkPage() {
       <section className="py-16 px-6 bg-mist">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="font-display text-2xl text-black mb-4">
-            Want to dig deeper?
+            Each element, in depth
           </h2>
           <p className="text-smoke mb-6">
-            Each element has its own principles and guiding questions.
+            When you&apos;re ready to go deeper into any one element, here&apos;s the long version.
           </p>
           <Link href="/elements">
             <Button 
@@ -199,17 +185,17 @@ export default function FrameworkPage() {
       <section className="py-24 px-6 bg-black text-white">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="font-display text-3xl mb-6">
-            Ready to try a puzzle?
+            Ready to put them to work?
           </h2>
           <p className="text-lg text-smoke mb-10">
-            It takes about 15 minutes. Pick one and see where your thinking goes.
+            Tell us what you want to be more effective at. We&apos;ll build the course.
           </p>
           <Link href="/workspace">
             <Button 
               className="bg-white text-black font-semibold px-10 py-6 text-lg hover:bg-mist"
               radius="none"
             >
-              Pick a Puzzle
+              Start Your Course
             </Button>
           </Link>
         </div>

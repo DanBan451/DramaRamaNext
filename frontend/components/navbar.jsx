@@ -34,8 +34,7 @@ export const Navbar = () => {
   // Base nav items (always visible)
   const baseNavItems = [
     { name: "Home", path: "/" },
-    { name: "Under the Hood", path: "/framework" },
-    { name: "Puzzles", path: "/puzzles" },
+    { name: "The Elements", path: "/framework" },
   ];
 
   // Auth-only nav items
@@ -47,15 +46,13 @@ export const Navbar = () => {
   // Mobile menu items for signed out users
   const signedOutMenuItems = [
     { name: "Home", path: "/" },
-    { name: "Under the Hood", path: "/framework" },
-    { name: "Puzzles", path: "/puzzles" },
+    { name: "The Elements", path: "/framework" },
   ];
 
   // Mobile menu items for signed in users
   const signedInMenuItems = [
     { name: "Home", path: "/" },
-    { name: "Under the Hood", path: "/framework" },
-    { name: "Puzzles", path: "/puzzles" },
+    { name: "The Elements", path: "/framework" },
     { name: "My Sessions", path: "/workspace" },
     { name: "Profile", path: "/profile" },
   ];
@@ -78,10 +75,10 @@ export const Navbar = () => {
           <Link href="/" className="flex items-center gap-3">
             <Image
               src="/images/icons8-drama-96.png"
-              className="w-[32px] tb:w-[40px] lp:w-[50px]"
+              className="w-[48px] tb:w-[60px] lp:w-[72px]"
               alt="DramaRama"
             />
-            <span className={`font-mono text-xs ${textColor} tracking-[0.3em] uppercase`}>
+            <span className={`font-mono text-sm lp:text-base ${textColor} tracking-[0.28em] uppercase font-medium`}>
               DramaRama
             </span>
           </Link>
@@ -149,7 +146,7 @@ export const Navbar = () => {
                 className="bg-primary text-white px-5 py-4 text-sm font-medium hover:bg-primary/90 transition-colors"
                 radius="none"
               >
-                Get Started
+                Start a Course
               </Button>
             </Link>
           </NavbarItem>

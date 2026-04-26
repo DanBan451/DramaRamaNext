@@ -199,7 +199,7 @@ export default function ProfilePage() {
 
           {/* Element Distribution - Using grayscale emojis */}
           <div className="mb-8">
-            <h3 className="text-xs uppercase tracking-widest text-smoke mb-4">Thinking Elements</h3>
+            <h3 className="text-xs uppercase tracking-widest text-smoke mb-4">The Elements You&apos;re Building</h3>
             <div className="space-y-3">
               {elementStrengths.map((el) => {
                 const pct = totalWords > 1 ? Math.round((el.words / totalWords) * 100) : 0;
@@ -227,7 +227,7 @@ export default function ProfilePage() {
           {/* Recent Sessions */}
           {sessions.length > 0 && (
             <div className="mb-8">
-              <h3 className="text-xs uppercase tracking-widest text-smoke mb-4">Recent Sessions</h3>
+              <h3 className="text-xs uppercase tracking-widest text-smoke mb-4">Recent Work</h3>
               <div className="space-y-2">
                 {sessions.slice(0, 4).map((session) => (
                   <Link
@@ -255,7 +255,7 @@ export default function ProfilePage() {
               className="bg-primary text-white font-medium px-6 hover:bg-primary/90"
               radius="none"
             >
-              New Session
+              Start Your Course
             </Button>
             <Button
               as={Link}
@@ -263,7 +263,7 @@ export default function ProfilePage() {
               className="bg-transparent border border-mist text-black px-6 hover:bg-mist"
               radius="none"
             >
-              All Sessions
+              All Work
             </Button>
           </div>
         </div>

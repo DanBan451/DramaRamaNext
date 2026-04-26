@@ -88,10 +88,10 @@ export default function SessionsPage() {
         <div className="flex flex-col tb:flex-row tb:items-center tb:justify-between gap-6 mb-12">
           <div>
             <h1 className="font-display text-4xl lp:text-5xl text-black mb-2">
-              Your Sessions
+              Your Work
             </h1>
             <p className="text-smoke">
-              {loading ? "Loading..." : `${sessions.length} total sessions`}
+              {loading ? "Loading..." : `${sessions.length} total — across all courses`}
             </p>
           </div>
           <Button
@@ -134,7 +134,7 @@ export default function SessionsPage() {
           </div>
         ) : error ? (
           <div className="text-center py-16 bg-primary/5 rounded-xl border border-primary/20">
-            <p className="text-primary font-medium mb-2">Error Loading Sessions</p>
+            <p className="text-primary font-medium mb-2">Error Loading Work</p>
             <p className="text-smoke text-sm">{error}</p>
             <Button
               onClick={fetchSessions}
@@ -272,12 +272,10 @@ export default function SessionsPage() {
         ) : (
           <div className="text-center py-16 bg-mist/30 rounded-xl">
             <h3 className="font-display text-xl text-black mb-2">
-              No {filter === "all" ? "" : filter.replace("_", " ")} sessions
+              No {filter === "all" ? "" : filter.replace("_", " ")} work yet.
             </h3>
             <p className="text-smoke mb-6">
-              {filter === "all"
-                ? "Start your first session in the workspace!"
-                : `You don't have any ${filter.replace("_", " ")} sessions.`}
+              Start your first course and your work will show up here.
             </p>
             <Button
               as={Link}
@@ -285,7 +283,7 @@ export default function SessionsPage() {
               className="bg-black text-white"
               radius="none"
             >
-              Start New Session
+              Start Your Course
             </Button>
           </div>
         )}

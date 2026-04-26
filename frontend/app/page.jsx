@@ -12,6 +12,7 @@ import { PUZZLES } from "@/lib/puzzles";
 
 export default function Home() {
   const [selectedPuzzle, setSelectedPuzzle] = useState(null);
+  const [puzzleReady, setPuzzleReady] = useState(false);
   const [activeSessions, setActiveSessions] = useState([]);
   const { getToken, isSignedIn } = useAuth();
   const heroRef = useRef(null);
@@ -92,21 +93,82 @@ export default function Home() {
           className="relative z-20 min-h-screen flex items-center"
           style={{ opacity: contentOpacity, y: contentY }}
         >
-          <div className="w-full py-24 tb:py-32 px-6 tb:px-0 tb:pl-[45%] lp:pl-[50%] tb:pr-6">
-              {/* Typewriter puzzle animation */}
-              <PuzzleTypewriter />
-
-              {/* CTA — Think Through It */}
-              <div className="mt-10">
-                <Link href="/workspace?puzzle=whos-who">
+          {/* LEFT: PRIMARY pitch — title + subtitle + primary CTA.
+              Anchored near the bottom but lifted a touch for breathing room. */}
+          <div className="hidden tb:flex absolute inset-0 z-30 items-end pointer-events-none pb-28 lp:pb-32">
+            <div className="w-full max-w-[1536px] mx-auto px-6">
+              <div className="max-w-[440px] lp:max-w-[520px] ml-[24%] lp:ml-[20%] pointer-events-auto">
+                {/* Primary headline — bigger, still italic-accented */}
+                <h1 className="font-display text-[56px] lp:text-[76px] xl:text-[88px] text-black leading-[0.96] tracking-[-0.015em] mb-7">
+                  Become a more<br />
+                  effective <em className="italic">thinker</em>.
+                </h1>
+                <p className="text-ash text-[19px] lp:text-[22px] leading-[1.5] mb-9 max-w-[440px]">
+                  Tell us what you want to master. We&apos;ll build you a course of puzzles that train you to get there.
+                </p>
+                <Link href="/workspace">
                   <Button
-                    className="bg-primary hover:bg-primary/90 text-white w-full tb:w-[240px] h-[60px] text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                    className="bg-primary hover:bg-primary/90 text-white w-full tb:w-[240px] h-[56px] text-base font-semibold tracking-wide shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
                     radius="none"
                   >
-                    Think Through It
+                    Start Your Course
                   </Button>
                 </Link>
               </div>
+            </div>
+          </div>
+
+          <div className="w-full max-w-[1536px] mx-auto py-20 tb:pt-20 tb:pb-24 px-6 tb:px-0 tb:pl-[45%] lp:pl-[50%] tb:pr-6">
+            {/* Mobile-only title block (left panel is hidden on mobile) */}
+            <div className="tb:hidden mb-10">
+              <h1 className="font-display text-4xl text-black leading-[1.1] tracking-tight mb-4">
+                Become a more effective thinker.
+              </h1>
+              <p className="text-ash text-base leading-relaxed">
+                Tell us what you want to master. We&apos;ll build you a course of puzzles that train you to get there.
+              </p>
+            </div>
+
+            <div className="lp:pl-[100px]">
+              {/* Supporting label — teal mono, takes the place of the old "One match." setting */}
+              <span
+                className="font-mono text-[13px] lp:text-[14px] font-medium tracking-[0.24em] uppercase block mb-8"
+                style={{ color: "#2D8FAD" }}
+              >
+                A quick story
+              </span>
+
+              {/* Typewriter puzzle animation */}
+              <PuzzleTypewriter onReady={() => setPuzzleReady(true)} />
+
+              {/* Editorial link — matches the typewriter's voice, scrolls to How-it-works */}
+              <AnimatePresence>
+                {puzzleReady && (
+                  <motion.div
+                    className="mt-8"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, ease: "easeOut" }}
+                  >
+                    <Link
+                      href="#how-it-works"
+                      className="group inline-flex items-center gap-3 font-display italic text-primary text-xl lp:text-2xl hover:text-primary/70 transition-colors"
+                    >
+                      <span className="relative">
+                        Find out why
+                        <span className="absolute left-0 -bottom-0.5 w-full h-px bg-primary/40 group-hover:bg-primary transition-colors" />
+                      </span>
+                      <span
+                        aria-hidden
+                        className="inline-block transition-transform duration-300 group-hover:translate-x-1"
+                      >
+                        →
+                      </span>
+                    </Link>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
           {/* Scroll indicator */}
@@ -123,7 +185,7 @@ export default function Home() {
       </section>
 
       {/* ── How It Works ── */}
-      <section className="py-12 tb:py-16 px-6 bg-gradient-to-b from-white to-mist/30">
+      <section id="how-it-works" className="py-12 tb:py-16 px-6 bg-gradient-to-b from-white to-mist/30 scroll-mt-24">
         <div className="max-w-[1536px] mx-auto">
           <motion.span 
             className="font-mono text-xs text-smoke tracking-[0.3em] uppercase block mb-6 tb:mb-8"
@@ -131,7 +193,7 @@ export default function Home() {
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
           >
-            The Process
+            How DramaRama works
           </motion.span>
 
           <div className="flex flex-col lp:flex-row lp:gap-20">
@@ -140,18 +202,18 @@ export default function Home() {
               {[
                 {
                   step: "01",
-                  title: "Pick a puzzle",
-                  desc: "Each one is trickier than it looks.",
+                  title: "You set the goal",
+                  desc: "Tell us what you want to become more effective at. Software engineering. Writing. Negotiation. Anything you want to think better about.",
                 },
                 {
                   step: "02",
-                  title: "Think through it",
-                  desc: "You talk. It asks questions. Your thinking goes deeper.",
+                  title: "We build your course",
+                  desc: "Eight puzzles tailored to your goal. Designed to train the thinking muscles you need.",
                 },
                 {
                   step: "03",
-                  title: "Watch your notes build",
-                  desc: "Your thinking, captured live.",
+                  title: "You think through them",
+                  desc: "One puzzle at a time. The puzzle is the gym. Your thinking is the workout. Your goal is what gets stronger.",
                 },
               ].map((item, i) => (
                 <motion.div
@@ -201,7 +263,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Puzzle Preview ── */}
+      {/* ── Puzzle Preview removed in Phase 1 ── */}
+      {false && (
       <section id="puzzles" className="py-24 tb:py-32 px-6 bg-white">
         <div className="max-w-[1536px] mx-auto">
           <span className="font-mono text-xs text-smoke tracking-[0.3em] uppercase block mb-12 tb:mb-16">
@@ -257,10 +320,11 @@ export default function Home() {
           </div>
         </div>
       </section>
+      )}
 
-      {/* ── Puzzle Modal ── */}
+      {/* ── Puzzle Modal (removed in Phase 1) ── */}
       <AnimatePresence>
-        {selectedPuzzle && (
+        {false && selectedPuzzle && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -352,28 +416,28 @@ export default function Home() {
           transition={{ duration: 0.8 }}
         >
           <h2 className="font-display text-3xl tb:text-4xl lp:text-5xl text-white mb-4 tb:mb-6 italic">
-            You already started thinking about that first one, didn&apos;t you?
+            Pick what you want to master.
           </h2>
           <p className="text-white/50 text-base tb:text-lg mb-8 tb:mb-10 max-w-lg mx-auto">
-            15 minutes. One puzzle. See what your brain does.
+            8 puzzles. One goal. See how your thinking changes.
           </p>
           <SignedIn>
-            <Link href="/puzzles">
+            <Link href="/workspace">
               <Button
                 className="bg-white text-black px-8 tb:px-10 h-12 tb:h-14 text-base font-medium hover:bg-white/90"
                 radius="none"
               >
-                Pick a Puzzle
+                Start Your Course
               </Button>
             </Link>
           </SignedIn>
           <SignedOut>
-            <Link href="/puzzles">
+            <Link href="/login">
               <Button
                 className="bg-white text-black px-8 tb:px-10 h-12 tb:h-14 text-base font-medium hover:bg-white/90"
                 radius="none"
               >
-                Pick a Puzzle
+                Start Your Course
               </Button>
             </Link>
           </SignedOut>
@@ -383,7 +447,7 @@ export default function Home() {
       {/* Attribution */}
       <div className="py-12 px-6 border-t border-mist">
         <p className="text-center text-smoke text-sm max-w-lg mx-auto leading-relaxed">
-          The puzzles and thinking framework behind DramaRama are inspired by Edward B. Burger&apos;s <em>The 5 Elements of Effective Thinking</em>{" "}and{" "}<em>Making Up Your Own Mind</em>.
+          DramaRama is built on the 5 Elements of Effective Thinking by Edward B. Burger, with deep gratitude to <em>Making Up Your Own Mind</em>.
         </p>
       </div>
 

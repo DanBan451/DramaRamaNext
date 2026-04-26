@@ -59,64 +59,54 @@ export default function PuzzleTypewriter({ onReady }) {
     }
   }, []);
 
+  // Typewriter: appends `addition` onto an existing `prefix` without re-typing the prefix
+  const typeAppend = useCallback(async (setter, prefix, addition, speed = 38) => {
+    for (let i = 1; i <= addition.length; i++) {
+      setter(prefix + addition.slice(0, i));
+      await wait(speed + (Math.random() * 14 - 7));
+    }
+  }, []);
+
   useEffect(() => {
     if (hasRun.current) return;
     hasRun.current = true;
 
     (async () => {
-      // 1. Setting label
-      await wait(600);
-      setCursorAt("setting");
-      await typeText(setSetting, "One afternoon. A college campus.", 55);
-      await wait(900);
+      // (Setting label removed — replaced by the "A quick story" eyebrow above the typewriter.)
+      await wait(400);
 
-      // 2. Narrative
+      // 2. Narrative — three lines, accumulating
+      const line1 = "A software engineer walks in. He says: \u201CI want to be a better debugger.\u201D";
+      const line2 = "We hand him eight puzzles about engineers, code, and broken systems.";
+      const line3 = "Two weeks later, he\u2019s a better debugger.";
+
       setCursorAt("narrative");
-      await typeText(setNarrative, "Two students crossed paths.", 42);
-      await wait(650);
-      await typeText(
-        setNarrative,
-        "Two students crossed paths.\nThey each had something to say about who they were.",
-        36
-      );
-      await wait(1100);
+      await typeText(setNarrative, line1, 14);
+      await wait(350);
+      await typeAppend(setNarrative, `${line1}\n`, line2, 12);
+      await wait(350);
+      await typeAppend(setNarrative, `${line1}\n${line2}\n`, line3, 12);
+      await wait(600);
 
-      // 3. Student 1
-      setCursorAt("none");
-      setShowStudents(true);
-      setS1Visible(true);
-      await wait(500);
-      setCursorAt("q1");
-      await typeText(setQuote1, "\u201CI\u2019m a math major.\u201D", 44);
-      await wait(900);
-
-      // 4. Student 2
-      setCursorAt("none");
-      setS2Visible(true);
-      await wait(500);
-      setCursorAt("q2");
-      await typeText(setQuote2, "\u201CI\u2019m a philosophy major.\u201D", 44);
-      await wait(1400);
-
-      // 5. Twist
+      // 3. Twist (red)
       setCursorAt("twist");
       setTwistVisible(true);
-      await wait(200);
-      await typeText(setTwist, "At least one of them is lying.", 48);
-      await wait(1600);
+      await wait(120);
+      await typeText(setTwist, "None of the puzzles were about HIS code.", 18);
+      await wait(600);
 
-      // 6. Question
+      // 4. Question (teal accent)
       setCursorAt("question");
-      const qText = "So \u2014 what color hair does the math major actually have?";
-      await typeText(setQuestion, qText, 40);
-      await wait(300);
+      const qText = "Why did it work?";
+      await typeText(setQuestion, qText, 16);
+      await wait(150);
       setQuestionDone(true);
 
       // Cursor stays permanently on the question
       setCursorAt("question");
       onReady && onReady();
     })();
-  }, [typeText, onReady]);
+  }, [typeText, typeAppend, onReady]);
 
   return (
     <>
@@ -129,23 +119,16 @@ export default function PuzzleTypewriter({ onReady }) {
       `}</style>
 
       <div className="w-full">
-        {/* Setting */}
-        <div
-          className="font-mono text-[11px] font-medium tracking-[0.22em] uppercase mb-7 min-h-[16px] transition-opacity duration-400"
-          style={{ color: "#5BCAE8", opacity: setting ? 1 : 0 }}
-        >
-          {setting}
-          <Cursor color="#5BCAE8" visible={cursorAt === "setting"} />
-        </div>
+        {/* Setting slot removed — the eyebrow label above the typewriter serves this role now. */}
 
-        {/* Narrative */}
-        <div className="font-display text-[clamp(1.55rem,4.5vw,2.1rem)] font-bold text-black leading-[1.45] tracking-tight mb-9 min-h-[3rem] whitespace-pre-wrap">
+        {/* Narrative — lighter tone so it recedes behind the left pitch, but sized so it’s still readable */}
+        <div className="font-display text-[clamp(1.6rem,4.2vw,2.1rem)] font-medium text-ash leading-[1.45] tracking-tight mb-8 min-h-[3rem] whitespace-pre-wrap">
           {narrative}
           <Cursor visible={cursorAt === "narrative"} />
         </div>
 
-        {/* Students */}
-        {showStudents && (
+        {/* Students (legacy slot — hidden in current sequence) */}
+        {false && showStudents && (
           <div className="mb-1 flex flex-col">
             {/* Student 1 — black hair */}
             <div
@@ -157,7 +140,7 @@ export default function PuzzleTypewriter({ onReady }) {
             >
               <div className="w-[11px] h-[11px] rounded-full bg-[#1c1c1c] flex-shrink-0" />
               <div>
-                <div className="font-mono text-[10px] font-medium tracking-[0.2em] uppercase text-[#bbb] mb-1">
+                <div className="font-mono text-[10px] font-medium tracking-[0.2em] uppercase text-[#888] mb-1">
                   Black hair
                 </div>
                 <div className="font-display text-[clamp(1rem,2.5vw,1.18rem)] italic text-black leading-[1.4] min-h-[1.4em]">
@@ -177,7 +160,7 @@ export default function PuzzleTypewriter({ onReady }) {
             >
               <div className="w-[11px] h-[11px] rounded-full bg-[#E5393C] flex-shrink-0" />
               <div>
-                <div className="font-mono text-[10px] font-medium tracking-[0.2em] uppercase text-[#bbb] mb-1">
+                <div className="font-mono text-[10px] font-medium tracking-[0.2em] uppercase text-[#888] mb-1">
                   Red hair
                 </div>
                 <div className="font-display text-[clamp(1rem,2.5vw,1.18rem)] italic text-black leading-[1.4] min-h-[1.4em]">
@@ -189,27 +172,25 @@ export default function PuzzleTypewriter({ onReady }) {
           </div>
         )}
 
-        {/* Twist */}
+        {/* Twist — red accent (emotional hook), medium weight to sit under the headline */}
         <div
-          className="font-display text-[clamp(1.1rem,3vw,1.4rem)] font-bold leading-[1.5] mt-8 mb-7 min-h-[1.5em] transition-opacity duration-500"
+          className="font-display text-[clamp(1.2rem,3vw,1.5rem)] font-medium leading-[1.5] mt-6 mb-6 min-h-[1.5em] transition-opacity duration-500"
           style={{ color: "#E5393C", opacity: twistVisible ? 1 : 0 }}
         >
           {twist}
           <Cursor color="#E5393C" visible={cursorAt === "twist"} />
         </div>
 
-        {/* Question */}
-        <div className="font-display text-[clamp(1.25rem,3.8vw,1.75rem)] font-bold text-black leading-[1.45] tracking-tight min-h-[3rem]">
+        {/* Question — softened from pure black so it reads as supporting, but clearly legible */}
+        <div className="font-display text-[clamp(1.35rem,3.6vw,1.75rem)] font-medium text-ash leading-[1.4] tracking-tight min-h-[2.5rem]">
           {questionDone ? (
             <>
-              So &mdash; what color hair does{" "}
-              <span style={{ color: "#5BCAE8" }}>the math major</span> actually
-              have?
+              Why did <span style={{ color: "#2D8FAD" }}>it</span> work?
             </>
           ) : (
             question
           )}
-          <Cursor color="#5BCAE8" visible={cursorAt === "question"} />
+          <Cursor color="#2D8FAD" visible={cursorAt === "question"} />
         </div>
       </div>
     </>

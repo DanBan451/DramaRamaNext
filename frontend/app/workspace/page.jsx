@@ -66,24 +66,25 @@ function SessionDashboard() {
       <div className="flex-1 pt-24 tb:pt-28 pb-16 px-6">
         <div className="max-w-[1536px] mx-auto">
           <span className="font-mono text-xs text-smoke tracking-[0.3em] uppercase block mb-4">
-            My Sessions
+            Your work
           </span>
           <h1 className="font-display text-2xl tb:text-3xl lp:text-4xl text-black mb-3">
             Pick up where you left off.
           </h1>
           <p className="text-smoke text-sm tb:text-base mb-12 tb:mb-16 max-w-lg">
-            Resume an active session or start a new puzzle.
+            Resume an active course or start a new one.
           </p>
 
           {activeSessions.length === 0 ? (
             <div className="text-center py-16">
-              <p className="text-ash text-base mb-6">No active sessions.</p>
-              <Link href="/puzzles">
+              <h2 className="font-display text-xl tb:text-2xl text-black mb-2">No courses yet.</h2>
+              <p className="text-ash text-base mb-6">Start your first one — pick something you want to master.</p>
+              <Link href="/workspace">
                 <Button
                   className="bg-black text-white hover:bg-ash"
                   radius="none"
                 >
-                  Pick a Puzzle
+                  Start Your Course
                 </Button>
               </Link>
             </div>
@@ -190,10 +191,10 @@ function StartPuzzle({ puzzleId, onReady }) {
   if (!puzzle) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 gap-4">
-        <p className="text-ash text-sm">Puzzle not found.</p>
+        <p className="text-ash text-sm">Course not found.</p>
         <Link href="/workspace">
           <Button className="bg-black text-white hover:bg-ash" radius="none">
-            Back to Sessions
+            Back to Your Work
           </Button>
         </Link>
       </div>
@@ -219,7 +220,7 @@ function StartPuzzle({ puzzleId, onReady }) {
       <div className="flex flex-col items-center gap-4">
         <Spinner size="md" color="default" />
         <p className="font-mono text-[11px] tracking-[0.3em] uppercase text-smoke">
-          Preparing your puzzle…
+          Setting up your course…
         </p>
       </div>
     </div>
@@ -270,7 +271,7 @@ function ResumeSession({ sessionId, onReady }) {
         <p className="text-primary text-sm text-center max-w-sm">{err}</p>
         <Link href="/workspace">
           <Button className="bg-black text-white hover:bg-ash" radius="none">
-            Back to Sessions
+            Back to Your Work
           </Button>
         </Link>
       </div>
@@ -282,7 +283,7 @@ function ResumeSession({ sessionId, onReady }) {
       <div className="flex flex-col items-center gap-4">
         <Spinner size="md" color="default" />
         <p className="font-mono text-[11px] tracking-[0.3em] uppercase text-smoke">
-          Resuming session…
+          Picking up where you left off…
         </p>
       </div>
     </div>
@@ -312,10 +313,10 @@ function WorkspaceInner() {
       <div className="min-h-screen bg-white flex items-center justify-center px-4 tb:px-6">
         <div className="max-w-sm w-full text-center p-6 tb:p-8">
           <h2 className="font-display text-xl tb:text-2xl text-black mb-3">
-            Sign in to start.
+            Sign in to start a course.
           </h2>
           <p className="text-smoke text-sm mb-6">
-            Pick a puzzle, think through it, watch your understanding grow.
+            Pick something you want to master. We&apos;ll build the course.
           </p>
           <Link href="/login">
             <Button

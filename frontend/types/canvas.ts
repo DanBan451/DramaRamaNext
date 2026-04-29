@@ -17,6 +17,9 @@ export interface Thought {
   // transition. Behaves identically to a normal thought (drag/connect/
   // delete/edit) but renders with a distinctive treatment.
   is_nudge?: boolean;
+  // Stage 3 adds 'reflection' kind. 'thought' = Stage 1, 'nudge' = Stage 2,
+  // 'reflection' = Stage 3 user reflection.
+  kind?: "thought" | "nudge" | "reflection";
   created_at: string;
   updated_at?: string;
 }

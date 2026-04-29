@@ -623,6 +623,9 @@ class SupabaseCoursePuzzleRepository(CoursePuzzleRepository):
             status=row.get("status", "pending"),
             completed_at=self._parse_dt(row.get("completed_at")),
             current_stage=int(row.get("current_stage") or 1),
+            synthesis=row.get("synthesis"),
+            synthesis_generated_at=self._parse_dt(row.get("synthesis_generated_at")),
+            stage3_phase=row.get("stage3_phase"),
             created_at=self._parse_dt(row.get("created_at")),
             updated_at=self._parse_dt(row.get("updated_at")),
         )
@@ -724,6 +727,48 @@ class SupabaseCoursePuzzleRepository(CoursePuzzleRepository):
             raise ValueError(f"Puzzle {puzzle_id} not found")
         return self._row_to_course_puzzle(result.data[0])
 
+    async def update_stage3_phase(
+        self,
+        puzzle_id: str,
+        phase: str,
+    ) -> CoursePuzzle:
+        if phase not in ("reflect", "bridge"):
+            raise ValueError(f"stage3_phase must be 'reflect' or 'bridge', got {phase}")
+        result = (
+            self.client.table("course_puzzles")
+            .update({
+                "stage3_phase": phase,
+                "updated_at": datetime.utcnow().isoformat(),
+            })
+            .eq("id", puzzle_id)
+            .execute()
+        )
+        if not result.data:
+            raise ValueError(f"Puzzle {puzzle_id} not found")
+        return self._row_to_course_puzzle(result.data[0])
+
+    async def save_synthesis_and_complete(
+        self,
+        course_puzzle_id: str,
+        synthesis: str,
+    ) -> CoursePuzzle:
+        now_iso = datetime.utcnow().isoformat()
+        result = (
+            self.client.table("course_puzzles")
+            .update({
+                "synthesis": synthesis,
+                "synthesis_generated_at": now_iso,
+                "status": "completed",
+                "completed_at": now_iso,
+                "updated_at": now_iso,
+            })
+            .eq("id", course_puzzle_id)
+            .execute()
+        )
+        if not result.data:
+            raise ValueError(f"Puzzle {course_puzzle_id} not found")
+        return self._row_to_course_puzzle(result.data[0])
+
     async def get_with_course(self, course_puzzle_id: str):
         """Return (CoursePuzzle, course_user_id) tuple, or None.
         Uses PostgREST FK-join syntax `courses(user_id)` to fetch the owner
@@ -775,6 +820,7 @@ class SupabaseThoughtRepository(ThoughtRepository):
             pos_x=row.get("pos_x", 0) or 0,
             pos_y=row.get("pos_y", 0) or 0,
             is_nudge=bool(row.get("is_nudge", False)),
+            kind=row.get("kind", "thought"),
             created_at=self._parse_dt(row.get("created_at")),
             updated_at=self._parse_dt(row.get("updated_at")),
         )
@@ -807,6 +853,8 @@ class SupabaseThoughtRepository(ThoughtRepository):
             max_order = existing.data[0].get("flow_order") or 0
         next_order = max_order + 1
 
+        # Derive kind from is_nudge for backwards compat
+        kind = "nudge" if is_nudge else "thought"
         data = {
             "course_puzzle_id": course_puzzle_id,
             "user_id": user_id,
@@ -818,6 +866,7 @@ class SupabaseThoughtRepository(ThoughtRepository):
             "pos_x": pos_x,
             "pos_y": pos_y,
             "is_nudge": is_nudge,
+            "kind": kind,
         }
         result = self.client.table("thoughts").insert(data).execute()
         return self._row_to_thought(result.data[0])
@@ -853,6 +902,77 @@ class SupabaseThoughtRepository(ThoughtRepository):
             self.client.table("thoughts")
             .select("*")
             .eq("course_puzzle_id", course_puzzle_id)
+            .order("flow_order")
+            .execute()
+        )
+        return [self._row_to_thought(r) for r in result.data]
+
+    async def create_reflection(
+        self,
+        course_puzzle_id: str,
+        user_id: str,
+        content: str,
+        element: Optional[str],
+        sub_element: Optional[str],
+        pos_x: float,
+        pos_y: float,
+    ) -> Thought:
+        """Create a reflection thought (Stage 3). Sets kind='reflection'."""
+        existing = (
+            self.client.table("thoughts")
+            .select("flow_order")
+            .eq("course_puzzle_id", course_puzzle_id)
+            .order("flow_order", desc=True)
+            .limit(1)
+            .execute()
+        )
+        max_order = 0
+        if existing.data:
+            max_order = existing.data[0].get("flow_order") or 0
+        next_order = max_order + 1
+
+        data = {
+            "course_puzzle_id": course_puzzle_id,
+            "user_id": user_id,
+            "element": element,
+            "sub_element": sub_element,
+            "content": content,
+            "flow_order": next_order,
+            "time_spent_seconds": None,
+            "pos_x": pos_x,
+            "pos_y": pos_y,
+            "is_nudge": False,
+            "kind": "reflection",
+        }
+        result = self.client.table("thoughts").insert(data).execute()
+        return self._row_to_thought(result.data[0])
+
+    async def get_by_kind(
+        self,
+        course_puzzle_id: str,
+        kind: str,
+    ) -> List[Thought]:
+        """Return thoughts of a given kind for a course_puzzle."""
+        result = (
+            self.client.table("thoughts")
+            .select("*")
+            .eq("course_puzzle_id", course_puzzle_id)
+            .eq("kind", kind)
+            .order("flow_order")
+            .execute()
+        )
+        return [self._row_to_thought(r) for r in result.data]
+
+    async def get_user_thoughts_by_course_puzzle(
+        self,
+        course_puzzle_id: str,
+    ) -> List[Thought]:
+        """Return user-authored thoughts only (is_nudge=false), ordered by flow_order ASC."""
+        result = (
+            self.client.table("thoughts")
+            .select("*")
+            .eq("course_puzzle_id", course_puzzle_id)
+            .eq("is_nudge", False)
             .order("flow_order")
             .execute()
         )

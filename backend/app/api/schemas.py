@@ -160,6 +160,7 @@ class CourseDetailResponse(BaseModel):
 
 class CoursePuzzleResponse(BaseModel):
     id: str
+    course_id: Optional[str] = None
     position: int
     title: str
     puzzle_text: str
@@ -173,6 +174,8 @@ class CoursePuzzleResponse(BaseModel):
     # on the puzzle list and restore the user back to their stage when
     # they re-open the canvas.
     current_stage: int = 1
+    stage3_phase: Optional[str] = None  # 'reflect' | 'bridge' | None
+    synthesis: Optional[str] = None
 
 
 class CoursePuzzlesResponse(BaseModel):
@@ -220,6 +223,7 @@ class ThoughtResponse(BaseModel):
     pos_x: float
     pos_y: float
     is_nudge: bool = False
+    kind: str = "thought"  # 'thought' | 'nudge' | 'reflection'
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -290,3 +294,27 @@ class CanvasNudgesRequest(BaseModel):
 
 class CanvasNudgesResponse(BaseModel):
     nudges: List[ThoughtResponse]
+    connections: List[ConnectionResponse] = []
+    chat_message: Optional[str] = None
+    decision: Optional[str] = None  # "branch" or "redirect"
+    branch_from_thought_id: Optional[str] = None
+
+
+# ============ Stage 3: Reflection + Bridge + Synthesis ============
+
+class CreateReflectionRequest(BaseModel):
+    content: str
+    element: Optional[str] = None
+    sub_element: Optional[str] = None
+    pos_x: float = 0
+    pos_y: float = 0
+
+
+class Stage3ChatRequest(BaseModel):
+    history: List[CanvasChatMessage] = []
+    user_message: str
+
+
+class CompletePuzzleResponse(BaseModel):
+    status: str  # "completed"
+    completed_at: Optional[datetime] = None

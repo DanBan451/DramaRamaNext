@@ -22,6 +22,8 @@ export interface CoursePuzzleSummary {
   completed_at: string | null;
   current_stage?: number;
   course_id?: string;
+  stage3_phase?: "reflect" | "bridge" | null;
+  synthesis?: string | null;
 }
 
 export interface CanvasState {
@@ -172,12 +174,20 @@ export async function deleteConnection(
   if (!res.ok) throw new Error(`deleteConnection: ${res.status}`);
 }
 
+export interface Stage2NudgesResponse {
+  nudges: Thought[];
+  connections: Connection[];
+  chat_message: string | null;
+  decision: "branch" | "redirect" | null;
+  branch_from_thought_id: string | null;
+}
+
 export async function generateStage2Nudges(
   coursePuzzleId: string,
   existingThoughts: string[],
   positions: Array<[number, number]>,
   getToken: TokenGetter,
-): Promise<{ nudges: Thought[] }> {
+): Promise<Stage2NudgesResponse> {
   const res = await authedFetch(
     `/canvas/${coursePuzzleId}/stage2/nudges`,
     {
@@ -189,7 +199,7 @@ export async function generateStage2Nudges(
     },
     getToken,
   );
-  return asJson<{ nudges: Thought[] }>(res, "generateStage2Nudges");
+  return asJson<Stage2NudgesResponse>(res, "generateStage2Nudges");
 }
 
 export async function updateCurrentStage(
@@ -206,6 +216,51 @@ export async function updateCurrentStage(
     getToken,
   );
   return asJson<CoursePuzzleSummary>(res, "updateCurrentStage");
+}
+
+// ============ Stage 3: Reflection + Bridge + Synthesis ============
+
+export async function createReflection(
+  coursePuzzleId: string,
+  body: {
+    content: string;
+    element: string | null;
+    sub_element: string | null;
+    pos_x: number;
+    pos_y: number;
+  },
+  getToken: TokenGetter,
+): Promise<Thought> {
+  const res = await authedFetch(
+    `/canvas/${coursePuzzleId}/reflections`,
+    { method: "POST", body: JSON.stringify(body) },
+    getToken,
+  );
+  return asJson<Thought>(res, "createReflection");
+}
+
+export async function advanceToBridge(
+  coursePuzzleId: string,
+  getToken: TokenGetter,
+): Promise<CoursePuzzleSummary> {
+  const res = await authedFetch(
+    `/canvas/${coursePuzzleId}/stage3/advance-to-bridge`,
+    { method: "POST" },
+    getToken,
+  );
+  return asJson<CoursePuzzleSummary>(res, "advanceToBridge");
+}
+
+export async function completePuzzle(
+  coursePuzzleId: string,
+  getToken: TokenGetter,
+): Promise<{ status: string; completed_at: string | null }> {
+  const res = await authedFetch(
+    `/canvas/${coursePuzzleId}/stage3/complete`,
+    { method: "POST" },
+    getToken,
+  );
+  return asJson<{ status: string; completed_at: string | null }>(res, "completePuzzle");
 }
 
 export async function getDevRedirectTarget(

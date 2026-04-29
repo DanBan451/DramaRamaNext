@@ -26,6 +26,7 @@ from app.api.schemas import (
     CanvasChatRequest,
     CanvasNudgesRequest, CanvasNudgesResponse,
     CanvasStageUpdateRequest,
+    CreateReflectionRequest, Stage3ChatRequest, CompletePuzzleResponse,
 )
 from app.domain.entities import (
     Response, Hint, Element, SessionStatus,
@@ -1079,6 +1080,7 @@ def _cp_to_response(cp) -> CoursePuzzleResponse:
     """Shared CoursePuzzle -> response mapper (answer is never exposed)."""
     return CoursePuzzleResponse(
         id=cp.id,
+        course_id=getattr(cp, "course_id", None),
         position=cp.position,
         title=cp.title,
         puzzle_text=cp.puzzle_text,
@@ -1089,6 +1091,8 @@ def _cp_to_response(cp) -> CoursePuzzleResponse:
         status=cp.status,
         completed_at=cp.completed_at,
         current_stage=getattr(cp, "current_stage", 1) or 1,
+        stage3_phase=getattr(cp, "stage3_phase", None),
+        synthesis=getattr(cp, "synthesis", None),
     )
 
 
@@ -1104,6 +1108,7 @@ def _thought_to_response(t) -> ThoughtResponse:
         pos_x=t.pos_x,
         pos_y=t.pos_y,
         is_nudge=getattr(t, "is_nudge", False),
+        kind=getattr(t, "kind", "thought"),
         created_at=t.created_at,
         updated_at=t.updated_at,
     )
@@ -1182,6 +1187,9 @@ async def update_canvas_stage(
         )
 
     updated = await puzzle_repo.update_current_stage(course_puzzle_id, new_stage)
+    # Initialize stage3_phase when entering Stage 3
+    if new_stage == 3 and not getattr(updated, "stage3_phase", None):
+        updated = await puzzle_repo.update_stage3_phase(course_puzzle_id, "reflect")
     return _cp_to_response(updated)
 
 
@@ -1515,77 +1523,213 @@ _VALID_SUB_ELEMENTS = {
 }
 
 
-def _build_nudges_prompt(cp, existing_thoughts: List[str]) -> str:
-    """Prompt to generate Stage 2 nudge thoughts.
-
-    The model is asked to return a strict JSON array of nudge objects.
-    We keep the schema small so JSON validation is easy server-side. We
-    DO include the puzzle text but NOT the solution; the model is
-    explicitly forbidden from giving the answer.
+def _build_nudges_prompt(cp, existing_thoughts: list[dict]) -> str:
+    """
+    Stage 2 diagnostic nudge prompt.
+    
+    cp: the CoursePuzzle entity.
+    existing_thoughts: list of {id, content, element, sub_element, flow_order}
+        for thoughts the user wrote in Stage 1.
     """
     primary = cp.primary_element or "synthesis"
     valid_subs = _VALID_SUB_ELEMENTS.get(primary, _VALID_SUB_ELEMENTS["synthesis"])
     valid_subs_str = ", ".join(f'"{s}"' for s in valid_subs)
-
-    user_block = ""
+    
     if existing_thoughts:
-        items = "\n".join(f"  - {t.strip()}" for t in existing_thoughts if t.strip())
-        user_block = (
-            "\nThe user has already written these thoughts on the canvas — your "
-            "nudges should EXTEND their flow, not duplicate it:\n" + items + "\n"
+        thoughts_block = "\n".join(
+            f'  [{t["id"]}] (flow_order={t["flow_order"]}, element={t.get("element") or "untagged"}, sub_element={t.get("sub_element") or "none"}): {t["content"].strip()}'
+            for t in existing_thoughts
         )
+        thoughts_section = (
+            "THE USER'S EXISTING THOUGHTS ON THIS PUZZLE (Stage 1):\n"
+            f"{thoughts_block}\n\n"
+            "Each thought has an id (use these to reference if you decide to branch from one). "
+            "The flow_order is the sequence the user wrote them in.\n"
+        )
+        empty_state = False
     else:
-        user_block = (
-            "\nThe user hasn't written any thoughts yet. Your nudges should give "
-            "them a concrete, puzzle-aware starting point.\n"
+        thoughts_section = (
+            "THE USER WROTE NO THOUGHTS IN STAGE 1.\n"
+            "They are coming into Stage 2 cold. Your nudges should give them a "
+            "concrete starting point that opens up the puzzle without giving away structure.\n"
         )
+        empty_state = True
+    
+    return f"""You are guiding a user through Edward Burger's "Making Up Your Own Mind" thinking practice. The user is working on ONE puzzle on a canvas. They've finished their independent thinking (Stage 1) and now need a thoughtful nudge.
 
-    return (
-        "You are seeding nudge blocks on the user's thinking canvas at the "
-        "Stage 1 → Stage 2 transition. Generate 4 short, concrete nudges "
-        "that train the puzzle's primary element. Each nudge is a single "
-        "thought block the user can act on directly.\n\n"
-        f"PUZZLE CONTEXT:\n- Title: {cp.title}\n- Prompt: {cp.puzzle_text}\n"
-        f"- Primary element: {primary}\n"
-        f"{user_block}\n"
-        "HARD RULES:\n"
-        "- Do NOT give the answer or any solution-shaped hint.\n"
-        "- Each nudge must be ACTIONABLE on the canvas (a thing the user "
-        "can think about / write down right now), not abstract advice.\n"
-        "- Each nudge content must be ≤ 240 characters.\n"
-        f"- Tag each nudge with one of these sub_element ids: {valid_subs_str}.\n"
-        f"- Set element to \"{primary if primary != 'synthesis' else 'earth'}\" "
-        "for synthesis nudges pick the element matching the chosen sub_element id prefix.\n\n"
-        "Return ONLY a JSON object of the form:\n"
-        '{"nudges": [\n'
-        '  {"element": "<element id>", "sub_element": "<sub_element id>", "content": "<≤240 chars>"},\n'
-        "  ... 4 items total\n"
-        "]}\n"
-        "No prose, no markdown, no code fences. Just the JSON object."
-    )
+YOUR JOB: Diagnose what thinking move the user is NOT making, then operationalize that move on their canvas.
+
+THE PUZZLE:
+- Title: {cp.title}
+- Prompt: {cp.puzzle_text}
+- Primary element this puzzle exercises: {primary}
+- Bridge to user's life (background context, NEVER show this to the user): {cp.bridge_back}
+
+{thoughts_section}
+
+================================================================
+WHAT BURGER ACTUALLY DOES IN HIS HINT SECTIONS
+================================================================
+
+Burger never says "apply Element X." He names the THINKING MOVE in plain language:
+- "Get smaller. What's the simplest version of this you can hold in your head?" (Earth)
+- "Try something. Even if it's wrong, you'll learn from how it fails." (Fire)
+- "What question are you actually trying to answer? Is it the right question?" (Air)
+- "Follow that thought one step further. What does it lead to?" (Water)
+
+Burger's hints often come in SEQUENCES of moves: simplify first, then push to the extreme. Or: question the framing first, then ground in something concrete.
+
+YOU MUST FOLLOW THIS VOICE. The chat message names the MOVE, not the element.
+
+================================================================
+DIAGNOSTIC PROCESS (DO THIS IN YOUR HEAD BEFORE GENERATING)
+================================================================
+
+Step 1 — What elements has the user already used?
+   Look at their thoughts. Infer the muscles they exercised, even if they didn't tag every thought correctly. Did they simplify (Earth)? Did they try concrete experiments (Fire)? Did they question the framing (Air)? Did they follow connections (Water)?
+
+Step 2 — What's missing?
+   What thinking muscle has the user NOT yet used that this puzzle requires? If they're stuck in the same mode, what mode would unstick them?
+
+Step 3 — Branch or redirect?
+   - If the user is on a productive path but missing the next move: BRANCH from their most relevant thought. (e.g., they questioned the framing well; now they need to ground it.)
+   - If the user is spinning, stuck, or way off: REDIRECT with a fresh starting point. (e.g., they've been abstract for 10 thoughts; redirect with a concrete simplest-case nudge.)
+   - If the user has NO thoughts: REDIRECT (no thought to branch from).
+
+Step 4 — Compose 2 or 3 nudges (NOT 4) that operationalize the missing move.
+   Each nudge is a SHORT prompt the user can act on directly. Not a question for them to passively read — a thinking task they can write down a response to.
+
+Step 5 — Write a chat message that introduces the move.
+   Tone: a curious friend at a coffee shop. NEVER mention element names (Earth/Fire/Air/Water/Synthesis). Reference what the user wrote (if there are existing thoughts) or the puzzle directly (if empty state). Name the move in plain language. End by gently pointing to the canvas.
+
+================================================================
+HARD RULES
+================================================================
+
+1. Generate exactly 2 OR 3 nudges. Never 1, never 4+.
+2. Each nudge content is ≤ 240 characters.
+3. Each nudge MUST be tagged with one of these sub_element ids: {valid_subs_str}
+4. NEVER reveal the puzzle's answer or any solution-shaped hint.
+5. NEVER use the words "Earth", "Fire", "Air", "Water", "Synthesis", "Change", or "element" in the chat_message field.
+6. Each nudge must be ACTIONABLE — a thinking task, not a question for passive reading.
+7. The chat_message is 2-4 sentences max. No paragraphs. No motivational filler.
+8. If you decide to BRANCH, include the source thought id in branch_from_thought_id. If you decide to REDIRECT, leave that field null.
+9. If branching: ALL nudges connect to the same source thought (a small fan from that one node).
+10. If redirecting: the nudges form a small cluster, not connected to anything.
+
+================================================================
+OUTPUT FORMAT
+================================================================
+
+Output ONLY a JSON object. No preamble, no code fences, no commentary:
+
+{{
+  "diagnosis": "1-2 sentences explaining what muscle the user is missing and why. INTERNAL ONLY — never shown to the user. Used for debugging.",
+  "decision": "branch" or "redirect",
+  "branch_from_thought_id": "<thought id>" or null,
+  "chat_message": "2-4 sentence message in Burger's voice. Names the move. References the user's thoughts naturally if there are any. Points to the canvas at the end. NO element names.",
+  "nudges": [
+    {{
+      "content": "Short actionable nudge. ≤240 chars.",
+      "sub_element": "one of {valid_subs_str}"
+    }},
+    ...
+  ]
+}}
+
+Generate the diagnosis, decision, chat message, and 2-3 nudges now. Output ONLY the JSON object.
+"""
 
 
-def _parse_nudges_json(raw: str) -> list:
-    """Best-effort parse of the model's nudges payload. Strips common
-    wrappers (markdown fences, leading/trailing prose) before parsing."""
+def _parse_nudge_response(raw: str) -> dict:
+    """Parse the LLM's JSON response. Strip code fences if present."""
     text = (raw or "").strip()
-    # Strip ```json ... ``` fences if the model adds them despite instructions.
     if text.startswith("```"):
-        text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
-        text = re.sub(r"\n?```\s*$", "", text)
-    # If there's leading prose, isolate the first '{' ... last '}' block.
-    first = text.find("{")
-    last = text.rfind("}")
-    if first != -1 and last != -1 and last > first:
-        text = text[first : last + 1]
+        lines = text.split("\n")[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        text = "\n".join(lines)
     try:
-        obj = json.loads(text)
-    except Exception as e:
-        raise ValueError(f"Model did not return valid JSON: {e}")
-    nudges = obj.get("nudges") if isinstance(obj, dict) else None
-    if not isinstance(nudges, list):
-        raise ValueError("Missing 'nudges' array in model output")
-    return nudges
+        return json.loads(text)
+    except json.JSONDecodeError:
+        # Try to recover from extra text
+        start = text.find("{")
+        end = text.rfind("}")
+        if start >= 0 and end > start:
+            return json.loads(text[start:end + 1])
+        raise
+
+
+def _validate_nudge_response(parsed: dict, valid_thought_ids: set[str], valid_subs: set[str]) -> None:
+    """Validate the LLM response structure and content."""
+    if "nudges" not in parsed or not isinstance(parsed["nudges"], list):
+        raise ValueError("Missing 'nudges' array")
+    if not 2 <= len(parsed["nudges"]) <= 3:
+        raise ValueError(f"Got {len(parsed['nudges'])} nudges, must be 2 or 3")
+    if parsed.get("decision") not in ("branch", "redirect"):
+        raise ValueError("decision must be 'branch' or 'redirect'")
+    if parsed["decision"] == "branch":
+        bid = parsed.get("branch_from_thought_id")
+        if not bid or bid not in valid_thought_ids:
+            raise ValueError("branch decision but invalid branch_from_thought_id")
+    if not parsed.get("chat_message"):
+        raise ValueError("Missing chat_message")
+    # Reject element names in chat_message (whole-word match)
+    forbidden = ["earth", "fire", "air", "water", "synthesis", "change"]
+    cm_lower = parsed["chat_message"].lower()
+    # Split on word boundaries for whole-word matching
+    words = set(re.findall(r'\b[a-z]+\b', cm_lower))
+    for word in forbidden:
+        if word in words:
+            raise ValueError(f"chat_message contains forbidden element name: {word}")
+    for n in parsed["nudges"]:
+        if not n.get("content") or len(n["content"]) > 240:
+            raise ValueError("Invalid nudge content")
+        if not n.get("sub_element") or n["sub_element"] not in valid_subs:
+            raise ValueError(f"Invalid or missing sub_element: {n.get('sub_element')}")
+
+
+def _compute_nudge_positions(
+    decision: str,
+    branch_from_thought_id: str | None,
+    existing_thoughts: list,
+    nudge_count: int,
+) -> list[dict]:
+    """
+    For 'branch': fan nudges to the right of the source thought, evenly spaced vertically.
+    For 'redirect': cluster nudges in a fresh area, either to the right of all thoughts (if any) 
+                    or in the canvas center (if no thoughts).
+    """
+    NUDGE_OFFSET_X = 320  # roughly one block width
+    NUDGE_VERTICAL_SPACING = 180
+    
+    if decision == "branch" and branch_from_thought_id:
+        source = next((t for t in existing_thoughts if str(t.id) == branch_from_thought_id), None)
+        if source:
+            source_x, source_y = source.pos_x, source.pos_y
+            base_x = source_x + NUDGE_OFFSET_X
+            # Center vertically around source
+            total_height = (nudge_count - 1) * NUDGE_VERTICAL_SPACING
+            start_y = source_y - total_height / 2
+            return [
+                {"x": base_x, "y": start_y + i * NUDGE_VERTICAL_SPACING}
+                for i in range(nudge_count)
+            ]
+    
+    # Redirect or fallback: place to the right of rightmost thought, or canvas center
+    if existing_thoughts:
+        rightmost_x = max(t.pos_x for t in existing_thoughts)
+        avg_y = sum(t.pos_y for t in existing_thoughts) / len(existing_thoughts)
+        base_x = rightmost_x + NUDGE_OFFSET_X * 2
+        start_y = avg_y - ((nudge_count - 1) * NUDGE_VERTICAL_SPACING) / 2
+    else:
+        base_x = 4000  # canvas center
+        start_y = 4000 - ((nudge_count - 1) * NUDGE_VERTICAL_SPACING) / 2
+    
+    return [
+        {"x": base_x, "y": start_y + i * NUDGE_VERTICAL_SPACING}
+        for i in range(nudge_count)
+    ]
 
 
 @router.post(
@@ -1604,13 +1748,24 @@ async def generate_stage2_nudges(
     user = current_user["db_user"]
     cp = await _verify_puzzle_ownership(course_puzzle_id, user)
 
-    # Idempotency: already seeded? Return existing.
+    # Idempotency: already seeded? Return existing nudges + connections.
     existing_count = await thought_repo.count_nudges(course_puzzle_id)
     if existing_count > 0:
         all_thoughts = await thought_repo.get_by_course_puzzle(course_puzzle_id)
         existing = [t for t in all_thoughts if getattr(t, "is_nudge", False)]
+        all_connections = await connection_repo.get_by_course_puzzle(course_puzzle_id)
+        # Filter connections to only those involving nudges
+        nudge_ids = {str(t.id) for t in existing}
+        nudge_connections = [
+            c for c in all_connections
+            if c.to_thought_id in nudge_ids
+        ]
         return CanvasNudgesResponse(
             nudges=[_thought_to_response(t) for t in existing],
+            connections=[_connection_to_response(c) for c in nudge_connections],
+            chat_message=None,
+            decision=None,
+            branch_from_thought_id=None,
         )
 
     if not rate_limit_user(user.id, "canvas_chat"):
@@ -1619,68 +1774,85 @@ async def generate_stage2_nudges(
             detail="Slow down — give it a few seconds before generating again.",
         )
 
-    # 1. Ask the model for 4 nudges as JSON.
-    prompt = _build_nudges_prompt(cp, request.existing_thoughts)
-    try:
-        raw = await llm_client.generate_text(
-            prompt=prompt,
-            system=(
-                "You generate short, structured JSON for an internal API. "
-                "Never include prose outside the JSON object."
-            ),
-            max_tokens=900,
-        )
-        items = _parse_nudges_json(raw)
-    except Exception as e:
-        logger.error("Nudge generation failed for puzzle %s: %s", course_puzzle_id, e)
+    # Load existing user thoughts (NOT including any prior nudges)
+    user_thoughts = await thought_repo.get_user_thoughts_by_course_puzzle(course_puzzle_id)
+    
+    # Build thought dicts for the prompt
+    thought_dicts = [
+        {
+            "id": str(t.id),
+            "content": t.content,
+            "element": t.element,
+            "sub_element": t.sub_element,
+            "flow_order": t.flow_order,
+        }
+        for t in user_thoughts
+    ]
+    valid_thought_ids = {t["id"] for t in thought_dicts}
+    
+    primary = cp.primary_element or "synthesis"
+    valid_subs = set(_VALID_SUB_ELEMENTS.get(primary, _VALID_SUB_ELEMENTS["synthesis"]))
+    
+    # Build prompt and generate
+    prompt = _build_nudges_prompt(cp, thought_dicts)
+    
+    # Try up to 2 times (initial + 1 retry) if validation fails
+    parsed = None
+    last_error = None
+    for attempt in range(2):
+        try:
+            raw = await llm_client.generate_text(
+                prompt=prompt,
+                system=(
+                    "You generate short, structured JSON for an internal API. "
+                    "Never include prose outside the JSON object."
+                ),
+                max_tokens=1200,
+            )
+            parsed = _parse_nudge_response(raw)
+            _validate_nudge_response(parsed, valid_thought_ids, valid_subs)
+            break  # Success
+        except Exception as e:
+            last_error = e
+            logger.warning(
+                "Nudge generation attempt %d failed for puzzle %s: %s",
+                attempt + 1, course_puzzle_id, e
+            )
+            if attempt == 0:
+                continue  # Retry once
+            # Final attempt failed
+            logger.error("Nudge generation failed for puzzle %s after retry: %s", course_puzzle_id, e)
+            raise HTTPException(
+                status_code=502,
+                detail="Couldn't generate nudges right now. Try again in a moment.",
+            )
+    
+    if not parsed:
         raise HTTPException(
             status_code=502,
             detail="Couldn't generate nudges right now. Try again in a moment.",
         )
-
-    # 2. Validate + persist. We're forgiving on extra keys / wrong types,
-    #    but require content + valid sub_element.
-    primary = cp.primary_element or "synthesis"
-    valid_subs = set(_VALID_SUB_ELEMENTS.get(primary, _VALID_SUB_ELEMENTS["synthesis"]))
-
-    # Use frontend-supplied positions when present (they know the canvas
-    # geometry / where the user's existing thoughts live). Fall back to a
-    # 2x2 grid for clients that don't send any.
-    fallback_positions = [
-        (520, 100),
-        (520, 260),
-        (820, 100),
-        (820, 260),
-    ]
-    grid_positions: list = []
-    for p in (request.positions or [])[:4]:
-        if isinstance(p, (list, tuple)) and len(p) >= 2:
-            try:
-                grid_positions.append((float(p[0]), float(p[1])))
-            except (TypeError, ValueError):
-                pass
-    while len(grid_positions) < 4:
-        grid_positions.append(fallback_positions[len(grid_positions)])
-
+    
+    # Compute positions based on decision
+    positions = _compute_nudge_positions(
+        decision=parsed["decision"],
+        branch_from_thought_id=parsed.get("branch_from_thought_id"),
+        existing_thoughts=user_thoughts,
+        nudge_count=len(parsed["nudges"]),
+    )
+    
+    # Persist nudges
     created: list = []
-    for i, item in enumerate(items[:4]):
-        if not isinstance(item, dict):
-            continue
-        content = (item.get("content") or "").strip()
+    for i, (nudge_data, pos) in enumerate(zip(parsed["nudges"], positions)):
+        content = (nudge_data.get("content") or "").strip()
         if not content:
             continue
         if len(content) > 280:
             content = content[:277] + "…"
-        sub_element = item.get("sub_element")
-        if sub_element not in valid_subs:
-            # Pick a default sub-element for the primary so we never drop
-            # an untagged nudge — defeats the point of the feature.
-            sub_element = next(iter(valid_subs))
-        # Derive element from sub_element id prefix so synthesis puzzles
-        # tag correctly across the 4 base elements.
+        sub_element = nudge_data["sub_element"]
+        # Derive element from sub_element id prefix
         element = sub_element.split("-")[0]
-
-        pos_x, pos_y = grid_positions[i] if i < len(grid_positions) else (520 + i * 100, 420)
+        
         try:
             t = await thought_repo.create(
                 course_puzzle_id=course_puzzle_id,
@@ -1688,24 +1860,296 @@ async def generate_stage2_nudges(
                 content=content,
                 element=element,
                 sub_element=sub_element,
-                pos_x=pos_x,
-                pos_y=pos_y,
+                pos_x=pos["x"],
+                pos_y=pos["y"],
                 time_spent_seconds=None,
                 is_nudge=True,
             )
             created.append(t)
         except Exception as e:
             logger.error("Failed to persist nudge for puzzle %s: %s", course_puzzle_id, e)
-            # Continue — partial success is still useful.
-
+    
     if not created:
         raise HTTPException(
             status_code=502,
             detail="Couldn't generate nudges right now. Try again in a moment.",
         )
-
+    
+    # Persist branch connections if we're branching
+    connections_created = []
+    if parsed["decision"] == "branch" and parsed.get("branch_from_thought_id"):
+        for nudge_thought in created:
+            try:
+                conn = await connection_repo.create(
+                    course_puzzle_id=course_puzzle_id,
+                    user_id=user.id,
+                    from_thought_id=parsed["branch_from_thought_id"],
+                    to_thought_id=str(nudge_thought.id),
+                )
+                connections_created.append(conn)
+            except Exception as e:
+                logger.error("Failed to create branch connection: %s", e)
+    
     return CanvasNudgesResponse(
         nudges=[_thought_to_response(t) for t in created],
+        connections=[_connection_to_response(c) for c in connections_created],
+        chat_message=parsed["chat_message"],
+        decision=parsed["decision"],
+        branch_from_thought_id=parsed.get("branch_from_thought_id"),
+    )
+
+
+# ============ Canvas: Stage 3 — Reflection + Bridge + Synthesis ============
+#
+# Stage 3 is broken into two sub-phases:
+#   A) Reflect — the user reflects on the puzzle ("what did you discover?")
+#   B) Bridge — the user connects the puzzle to their real-life goal
+# After both, the user triggers completion which generates a hidden
+# synthesis paragraph and marks the puzzle as completed.
+
+
+def _build_stage3_chat_system_prompt(cp, course, phase: str) -> str:
+    """System prompt for the Stage 3 chatbot.
+
+    Voice: warm, curious friend who just did the puzzle with you. Short
+    paragraphs. No element names (earth/fire/air/water). No coaching
+    tone. No forbidden words (element, synthesis, change).
+    """
+    forbidden = (
+        "FORBIDDEN WORDS — never use these in your response: "
+        "earth, fire, air, water, element, synthesis, change, Change, "
+        "quintessence, coaching, coach."
+    )
+
+    base = (
+        "You are a curious friend talking to someone who just worked "
+        "through a thinking puzzle. Be warm, direct, and concise (2–4 "
+        "short paragraphs max). Use light Markdown with **bold** for "
+        "emphasis. Never include code fences.\n\n"
+        f"PUZZLE CONTEXT:\n"
+        f"- Title: {cp.title}\n"
+        f"- Prompt: {cp.puzzle_text}\n\n"
+        f"{forbidden}\n\n"
+        "HARD RULES:\n"
+        "- NEVER give the puzzle's answer or any solution-shaped hint.\n"
+        "- NEVER summarize the user's work for them.\n"
+        "- Ask reflective questions; let the user do the thinking.\n"
+    )
+
+    if phase == "reflect":
+        return base + (
+            "\nPHASE: REFLECT\n"
+            "Help the user reflect on what just happened. Ask about:\n"
+            "- What surprised them\n"
+            "- Where they got stuck and what unstuck them\n"
+            "- What they'd do differently next time\n"
+            "Keep it personal and puzzle-specific. Reference their actual "
+            "work if they mention it."
+        )
+
+    # phase == "bridge"
+    user_goal = course.crisp_statement or "their goal"
+    domain = course.domain or "their domain"
+    return base + (
+        f"\nPHASE: BRIDGE\n"
+        f"The user's real-world goal: \"{user_goal}\" (domain: {domain}).\n"
+        f"Help them connect what they just practiced to that goal. Ask:\n"
+        f"- How does this kind of thinking show up in {domain}?\n"
+        f"- What's one situation where they could apply what they just did?\n"
+        f"- What would change if they brought this approach to their work?\n"
+        f"Do NOT mention element names. Keep it grounded in their life."
+    )
+
+
+def _build_synthesis_prompt(cp, course, thoughts, reflections) -> str:
+    """Prompt for generating the hidden synthesis paragraph.
+
+    The synthesis is a 3–5 sentence paragraph capturing what the user
+    practiced and how it connects to their goal. It's stored but never
+    shown to the user directly (used internally for course-level
+    insights later).
+    """
+    thought_summaries = "\n".join(
+        f"  - {t.content[:200]}" for t in thoughts[:20] if t.content
+    )
+    reflection_summaries = "\n".join(
+        f"  - {r.content[:200]}" for r in reflections[:10] if r.content
+    )
+
+    return (
+        "Write a 3–5 sentence synthesis paragraph about this user's "
+        "work on a thinking puzzle. This is for internal records, not "
+        "shown to the user.\n\n"
+        f"PUZZLE: {cp.title}\n"
+        f"Puzzle prompt: {cp.puzzle_text}\n"
+        f"User's real-world goal: {course.crisp_statement or 'N/A'}\n"
+        f"Domain: {course.domain or 'N/A'}\n\n"
+        f"USER'S THOUGHTS ON THE CANVAS:\n{thought_summaries or '(none)'}\n\n"
+        f"USER'S REFLECTIONS:\n{reflection_summaries or '(none)'}\n\n"
+        "Capture: (1) what thinking approaches the user practiced, "
+        "(2) key insights they surfaced, (3) how this connects to their "
+        "real-world goal. Be specific and grounded in their actual work. "
+        "Do NOT use the words: earth, fire, air, water, element, synthesis, "
+        "change, quintessence.\n\n"
+        "Return ONLY the paragraph, no heading, no bullet points."
+    )
+
+
+@router.post("/canvas/{course_puzzle_id}/reflections", response_model=ThoughtResponse)
+async def create_reflection_thought(
+    course_puzzle_id: str,
+    request: CreateReflectionRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Create a reflection thought on the canvas (Stage 3).
+    Same as a regular thought but kind='reflection'."""
+    user = current_user["db_user"]
+    await _verify_puzzle_ownership(course_puzzle_id, user)
+
+    content = (request.content or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="content is required")
+
+    t = await thought_repo.create_reflection(
+        course_puzzle_id=course_puzzle_id,
+        user_id=user.id,
+        content=content,
+        element=request.element,
+        sub_element=request.sub_element,
+        pos_x=request.pos_x,
+        pos_y=request.pos_y,
+    )
+    return _thought_to_response(t)
+
+
+@router.post("/canvas/{course_puzzle_id}/stage3/chat")
+async def stage3_chat_stream(
+    course_puzzle_id: str,
+    request: Stage3ChatRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Stream a Stage 3 chat reply via SSE. Phase-aware: uses the puzzle's
+    current stage3_phase ('reflect' or 'bridge') to select the prompt."""
+    user = current_user["db_user"]
+    cp = await _verify_puzzle_ownership(course_puzzle_id, user)
+
+    user_message = (request.user_message or "").strip()
+    if not user_message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    if not rate_limit_user(user.id, "canvas_chat"):
+        raise HTTPException(
+            status_code=429,
+            detail="You're chatting fast — give it a few seconds and try again.",
+        )
+
+    # Determine phase (default to 'reflect' if not set yet)
+    phase = cp.stage3_phase or "reflect"
+
+    # We need the parent course for bridge-phase prompts
+    course = await course_repo.get_by_id(cp.course_id)
+    if not course:
+        raise HTTPException(status_code=500, detail="Parent course not found")
+
+    system_prompt = _build_stage3_chat_system_prompt(cp, course, phase)
+
+    # Build message history for Claude structured messages API
+    messages = []
+    for m in request.history:
+        role = "user" if (m.role or "").lower() == "user" else "assistant"
+        messages.append({"role": role, "content": m.content.strip()})
+    messages.append({"role": "user", "content": user_message})
+
+    async def gen():
+        async for ev in sse_stream(
+            llm_client.generate_stream_with_messages(
+                messages=messages,
+                system=system_prompt,
+                max_tokens=600,
+            )
+        ):
+            yield ev
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+@router.post(
+    "/canvas/{course_puzzle_id}/stage3/advance-to-bridge",
+    response_model=CoursePuzzleResponse,
+)
+async def advance_to_bridge(
+    course_puzzle_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Transition from the reflect sub-phase to the bridge sub-phase.
+    Sets stage3_phase='bridge' on the course_puzzle. Idempotent."""
+    user = current_user["db_user"]
+    cp = await _verify_puzzle_ownership(course_puzzle_id, user)
+
+    if cp.stage3_phase == "bridge":
+        # Already in bridge phase — return as-is
+        return _cp_to_response(cp)
+
+    updated = await puzzle_repo.update_stage3_phase(course_puzzle_id, "bridge")
+    return _cp_to_response(updated)
+
+
+@router.post(
+    "/canvas/{course_puzzle_id}/stage3/complete",
+    response_model=CompletePuzzleResponse,
+)
+async def complete_puzzle(
+    course_puzzle_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Finalize the puzzle: generate synthesis, mark completed.
+
+    The synthesis is stored but never shown to the user. The frontend
+    routes back to the course list on success."""
+    user = current_user["db_user"]
+    cp = await _verify_puzzle_ownership(course_puzzle_id, user)
+
+    # Idempotent: already completed
+    if cp.status == "completed":
+        return CompletePuzzleResponse(
+            status="completed",
+            completed_at=cp.completed_at,
+        )
+
+    # Load course for synthesis prompt
+    course = await course_repo.get_by_id(cp.course_id)
+    if not course:
+        raise HTTPException(status_code=500, detail="Parent course not found")
+
+    # Load thoughts and reflections
+    all_thoughts = await thought_repo.get_by_course_puzzle(course_puzzle_id)
+    thoughts = [t for t in all_thoughts if t.kind in ("thought", "nudge")]
+    reflections = [t for t in all_thoughts if t.kind == "reflection"]
+
+    # Generate synthesis (non-streaming, hidden from user)
+    synthesis = ""
+    try:
+        prompt = _build_synthesis_prompt(cp, course, thoughts, reflections)
+        synthesis = await llm_client.generate_text(
+            prompt=prompt,
+            system=(
+                "You write concise internal summaries for a learning platform. "
+                "No element names, no coaching jargon. Just clear prose."
+            ),
+            max_tokens=400,
+        )
+    except Exception as e:
+        logger.error("Synthesis generation failed for puzzle %s: %s", course_puzzle_id, e)
+        synthesis = "(synthesis generation failed)"
+
+    # Save synthesis and mark completed
+    updated = await puzzle_repo.save_synthesis_and_complete(
+        course_puzzle_id, synthesis.strip()
+    )
+
+    return CompletePuzzleResponse(
+        status="completed",
+        completed_at=updated.completed_at,
     )
 
 

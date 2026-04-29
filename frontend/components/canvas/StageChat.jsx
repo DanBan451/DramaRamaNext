@@ -133,11 +133,19 @@ Synthesis isn't a fifth element — it's what happens when the other four show u
 
 const STAGE_2_FLOW_DEFAULT = STAGE_2_FLOWS.synthesis;
 
-const STAGE_3_PLACEHOLDER = `**Stage 3 — Quintessence.**
+const STAGE_3_REFLECT_WELCOME = `**Time to reflect.**
 
-This is where you tie this small puzzle back to the larger puzzle you came in with — the one that prompted this whole course. We'll look at how your thinking moved here, which elements actually did the work, and how that maps onto your real problem.
+You've done real work on this puzzle. Before we move on, let's think about what actually happened.
 
-This stage's full chat is still being designed. For now: scroll back through your blocks and ask yourself, *"how does what I just did apply to the bigger thing?"*`;
+What surprised you? Where did you get stuck — and what got you unstuck? Drop your reflections as blocks on the canvas (they'll show up with a warm gold border) or talk through them here.
+
+When you're ready to connect this back to your real-world goal, hit **"Now bridge to my goal"** below.`;
+
+const STAGE_3_BRIDGE_WELCOME = `**Let's bridge to your goal.**
+
+Now the interesting part: how does what you just practiced connect to the thing you actually care about?
+
+Think about where this kind of thinking shows up in your real work. What's one situation where you could use what you just did?`;
 
 // Streams a chat reply from the backend SSE endpoint. Calls `onChunk(text)`
 // for each delta as it arrives, then resolves with the full text. Throws on
@@ -152,20 +160,25 @@ async function streamCanvasChat({
   onChunk,
   signal,
 }) {
+  // Stage 3 uses its own endpoint (phase-aware prompt)
+  const endpoint = stage === 3
+    ? `/api/backend-api/canvas/${coursePuzzleId}/stage3/chat`
+    : `/api/backend-api/canvas/${coursePuzzleId}/chat/stream`;
+
+  const payload = stage === 3
+    ? { history, user_message: userMessage }
+    : { stage, history, user_message: userMessage };
+
   const token = await getToken();
   const res = await fetch(
-    `/api/backend-api/canvas/${coursePuzzleId}/chat/stream`,
+    endpoint,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        stage,
-        history,
-        user_message: userMessage,
-      }),
+      body: JSON.stringify(payload),
       signal,
     },
   );
@@ -216,18 +229,35 @@ async function streamCanvasChat({
   return full;
 }
 
-export default function StageChat({ stage, primaryElement, coursePuzzleId, onClose }) {
+export default function StageChat({
+  stage,
+  primaryElement,
+  coursePuzzleId,
+  onClose,
+  stage2WelcomeMessage,
+  stage3Phase,
+  onAdvanceToBridge,
+  onCompletePuzzle,
+  isCompleted = false,
+}) {
   const { getToken } = useAuth();
   const welcome = useMemo(() => {
     if (stage === 1) return STAGE_1_WELCOME;
     if (stage === 2) {
+      if (stage2WelcomeMessage) {
+        return stage2WelcomeMessage;
+      }
       return (
         STAGE_2_FLOWS[primaryElement] || STAGE_2_FLOW_DEFAULT
       );
     }
-    if (stage === 3) return STAGE_3_PLACEHOLDER;
+    if (stage === 3) {
+      return stage3Phase === "bridge"
+        ? STAGE_3_BRIDGE_WELCOME
+        : STAGE_3_REFLECT_WELCOME;
+    }
     return "";
-  }, [stage, primaryElement]);
+  }, [stage, primaryElement, stage2WelcomeMessage, stage3Phase]);
 
   const [messages, setMessages] = useState(() => [
     { role: "assistant", content: welcome },
@@ -270,23 +300,6 @@ export default function StageChat({ stage, primaryElement, coursePuzzleId, onClo
     if (streaming) return;
     const trimmed = draft.trim();
     if (!trimmed) return;
-
-    // Stage 3 is still a placeholder — no LLM call yet. The welcome
-    // message contains the reflective prompt; treat any send as a no-op
-    // that drops a friendly nudge.
-    if (stage === 3) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "user", content: trimmed },
-        {
-          role: "assistant",
-          content:
-            "Stage 3 chat is still being designed. Use the prompt in the welcome message above for now.",
-        },
-      ]);
-      setDraft("");
-      return;
-    }
 
     if (!coursePuzzleId) {
       setMessages((prev) => [
@@ -453,21 +466,45 @@ export default function StageChat({ stage, primaryElement, coursePuzzleId, onClo
               ? "Ask about an element or this stage…"
               : stage === 2
                 ? "Ask away — I'll just nudge you back to the flow."
-                : "Stage 3 chat coming soon…"
+                : stage3Phase === "bridge"
+                  ? "How does this connect to your goal?"
+                  : "What did you notice? What surprised you?"
           }
           className="flex-1 resize-none scrollbar-hide border border-mist rounded-md px-3 py-2 text-sm focus:outline-none focus:border-change/60 leading-relaxed"
-          disabled={stage === 3 || streaming}
+          disabled={streaming || isCompleted}
           ref={textareaRef}
           style={{ maxHeight: TEXTAREA_MAX_PX, minHeight: TEXTAREA_MIN_PX }}
         />
         <button
           type="submit"
-          disabled={stage === 3 || streaming || !draft.trim()}
+          disabled={streaming || !draft.trim() || isCompleted}
           className="px-3 py-2 bg-primary text-white text-sm rounded-md font-medium hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors self-end"
         >
           {streaming ? "…" : "Send"}
         </button>
       </form>
+
+      {/* Stage 3 action buttons — hidden when puzzle is completed */}
+      {!isCompleted && stage === 3 && stage3Phase !== "bridge" && onAdvanceToBridge && (
+        <div className="px-3 pb-3">
+          <button
+            onClick={onAdvanceToBridge}
+            className="w-full px-3 py-2 text-sm font-medium rounded-md bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors"
+          >
+            Now bridge to my goal →
+          </button>
+        </div>
+      )}
+      {!isCompleted && stage === 3 && stage3Phase === "bridge" && onCompletePuzzle && (
+        <div className="px-3 pb-3">
+          <button
+            onClick={onCompletePuzzle}
+            className="w-full px-3 py-2 text-sm font-medium rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+          >
+            I'm done with this puzzle ✓
+          </button>
+        </div>
+      )}
     </div>
   );
 }

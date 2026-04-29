@@ -49,32 +49,32 @@ interface CanvasProps {
   selectedElement: string | null;
   selectedSubElement: string | null;
 
-  onCreateThought: (body: {
+  onCreateThought: ((body: {
     content: string;
     element: string | null;
     sub_element: string | null;
     pos_x: number;
     pos_y: number;
     time_spent_seconds: number | null;
-  }) => Promise<Thought>;
-  onUpdateThoughtPosition: (
+  }) => Promise<Thought>) | null;
+  onUpdateThoughtPosition: ((
     thoughtId: string,
     pos_x: number,
     pos_y: number,
-  ) => Promise<void>;
-  onUpdateThoughtContent: (thoughtId: string, content: string) => Promise<void>;
-  onUpdateThoughtTagging: (
+  ) => Promise<void>) | null;
+  onUpdateThoughtContent: ((thoughtId: string, content: string) => Promise<void>) | null;
+  onUpdateThoughtTagging: ((
     thoughtId: string,
     element: string | null,
     sub_element: string | null,
-  ) => Promise<void>;
-  onDeleteThought: (thoughtId: string) => Promise<void>;
+  ) => Promise<void>) | null;
+  onDeleteThought: ((thoughtId: string) => Promise<void>) | null;
 
-  onCreateConnection: (
+  onCreateConnection: ((
     from_thought_id: string,
     to_thought_id: string,
-  ) => Promise<Connection>;
-  onDeleteConnection: (connectionId: string) => Promise<void>;
+  ) => Promise<Connection>) | null;
+  onDeleteConnection: ((connectionId: string) => Promise<void>) | null;
 }
 
 interface DraftBlock {
@@ -252,6 +252,8 @@ export default function Canvas({
 
   function handleCanvasClick(e: React.MouseEvent) {
     if (e.detail > 1) return;
+    // Read-only mode: no creating via click
+    if (!onCreateThought) return;
 
     if (connectingFrom) {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -290,6 +292,9 @@ export default function Canvas({
   }
 
   function handleCanvasDoubleClick(e: React.MouseEvent) {
+    // Read-only mode: no new thoughts allowed
+    if (!onCreateThought) return;
+
     if (draft && draftContent.trim()) {
       handleSaveDraft();
     } else if (draft) {
@@ -338,10 +343,11 @@ export default function Canvas({
     setTimerReset((r) => r + 1);
 
     try {
+      if (!onCreateThought) return;
       const newThought = await onCreateThought(body);
       if (pendingFrom) {
         // Fire-and-forget the connection; the parent handles rollback.
-        onCreateConnection(pendingFrom, newThought.id).catch(() => {
+        onCreateConnection?.(pendingFrom, newThought.id).catch(() => {
           /* parent shows error toast */
         });
       }
@@ -411,12 +417,13 @@ export default function Canvas({
     ) {
       return;
     }
-    onCreateConnection(fromId, toId).catch(() => {
+    onCreateConnection?.(fromId, toId).catch(() => {
       /* parent handles rollback + toast */
     });
   }
 
   function deleteThought(thoughtId: string) {
+    if (!onDeleteThought) return;
     // Parent optimistically removes thought + its edges; backend CASCADEs.
     onDeleteThought(thoughtId).catch(() => {
       /* parent rolls back */
@@ -430,7 +437,7 @@ export default function Canvas({
   }
 
   function deleteConnectionLocal(connId: string) {
-    onDeleteConnection(connId).catch(() => {
+    onDeleteConnection?.(connId).catch(() => {
       /* parent rolls back */
     });
   }
@@ -441,7 +448,7 @@ export default function Canvas({
     // Fire a delete per thought. The backend cascades edges automatically.
     // Phase 4b accepts N serial-ish requests; bulk endpoint can come later.
     for (const id of ids) {
-      onDeleteThought(id).catch(() => {
+      onDeleteThought?.(id).catch(() => {
         /* parent rolls back each failure individually */
       });
     }
@@ -620,7 +627,7 @@ export default function Canvas({
       // Fire the position PATCH. Parent does optimistic update + rollback.
       // We keep the localPositions entry so the rendered position stays
       // smooth across the round-trip — parent will reconcile via its state.
-      onUpdateThoughtPosition(draggedId, pos.x, pos.y).catch(() => {
+      onUpdateThoughtPosition?.(draggedId, pos.x, pos.y).catch(() => {
         /* parent rolls back; we clear our local override so we re-read props */
         setLocalPositions((prev) => {
           const next = { ...prev };
@@ -1101,6 +1108,7 @@ export default function Canvas({
             // remain fully draggable / connectable / deletable — the user
             // owns them once they're on the canvas.
             const isNudge = !!thought.is_nudge;
+            const isReflection = thought.kind === "reflection";
 
             return (
               <div
@@ -1112,7 +1120,7 @@ export default function Canvas({
                 // visibly trailing its connection arrows. Only animate cosmetic
                 // properties (shadow, ring, border, bg).
                 className={`absolute rounded-xl border shadow-sm transition-[box-shadow,border-color,background-color,transform] duration-300 select-none ${
-                  isNudge ? "border-dashed border-2" : ""
+                  isNudge ? "border-dashed border-2" : isReflection ? "border-2" : ""
                 } ${
                   bulkSelectMode ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"
                 } ${
@@ -1136,9 +1144,11 @@ export default function Canvas({
                     ? "#fefce8"
                     : isNudge
                       ? "#f5f3ff" // soft purple wash (mirrors AI_GUIDE_COLOR.bg-ish)
-                      : elColor
-                        ? elColor.bg
-                        : "#ffffff",
+                      : isReflection
+                        ? "#fffbeb" // warm amber-50 wash
+                        : elColor
+                          ? elColor.bg
+                          : "#ffffff",
                   borderColor: isBulkSelected
                     ? "#f87171"
                     : isTraced
@@ -1149,9 +1159,11 @@ export default function Canvas({
                           ? "var(--blue-light)"
                           : isNudge
                             ? "#a855f7" // purple-500 — distinct from any element color
-                            : elColor
-                              ? elColor.border
-                              : "var(--wireframe)",
+                            : isReflection
+                              ? "#d97706" // amber-600 — warm gold
+                              : elColor
+                                ? elColor.border
+                                : "var(--wireframe)",
                 }}
                 onClick={(e) => handleBlockClick(e, thought.id)}
                 onMouseDown={(e) => handleBlockMouseDown(e, thought.id)}
@@ -1188,6 +1200,14 @@ export default function Canvas({
                         title="AI-generated nudge — drag, edit, or delete it like your own thoughts."
                       >
                         AI Nudge
+                      </span>
+                    )}
+                    {isReflection && (
+                      <span
+                        className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 shrink-0"
+                        title="Reflection thought from Stage 3."
+                      >
+                        Reflection
                       </span>
                     )}
                   </div>

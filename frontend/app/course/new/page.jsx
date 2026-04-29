@@ -197,8 +197,12 @@ export default function NewCourseIntakePage() {
       setMessages((prev) => [...prev, { role: "assistant", content: visible }]);
       setStreamBuffer("");
 
-      // Confirm with backend whether intake committed
+      // The <<INTAKE_COMPLETE>> marker means the model decided to wrap
+      // up. Snap the UI to "complete" immediately so the progress bar
+      // hits 100 % and the input disables — don't wait for the backend
+      // poll, which races with async post-stream processing.
       if (completeFlag) {
+        setIntakeComplete(true);
         await pollAndRedirect(cid);
       }
     } catch (e) {
@@ -217,22 +221,35 @@ export default function NewCourseIntakePage() {
   }
 
   async function pollAndRedirect(cid) {
-    try {
-      const token = await getToken();
-      const res = await fetch(`/api/backend-api/course/${cid}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data?.course?.intake_status === "complete") {
-        setIntakeComplete(true);
-        setTimeout(() => {
-          router.push(`/courses/${cid}/ready`);
-        }, 2000);
+    // The backend commits the intake AFTER the SSE stream generator
+    // finishes, so the first poll often races and sees
+    // intake_status='in_progress'. Retry a few times with a delay.
+    const MAX_ATTEMPTS = 8;
+    const DELAY_MS = 1500;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      try {
+        const token = await getToken();
+        const res = await fetch(`/api/backend-api/course/${cid}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.course?.intake_status === "complete") {
+            setTimeout(() => {
+              router.push(`/courses/${cid}/ready`);
+            }, 2000);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("Poll attempt failed", attempt, e);
       }
-    } catch (e) {
-      console.warn("Failed to confirm intake completion", e);
+      // Wait before retrying
+      await new Promise((r) => setTimeout(r, DELAY_MS));
     }
+    // All retries exhausted — the user already saw the marker so
+    // redirect anyway; the ready page will poll for generation status.
+    router.push(`/courses/${cid}/ready`);
   }
 
   function onSubmit(e) {

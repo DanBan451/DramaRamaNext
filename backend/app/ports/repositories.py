@@ -249,6 +249,25 @@ class CoursePuzzleRepository(ABC):
         Returns None if the puzzle doesn't exist."""
         ...
 
+    @abstractmethod
+    async def update_stage3_phase(
+        self,
+        puzzle_id: str,
+        phase: str,
+    ) -> CoursePuzzle:
+        """Set stage3_phase to 'reflect' or 'bridge'."""
+        ...
+
+    @abstractmethod
+    async def save_synthesis_and_complete(
+        self,
+        course_puzzle_id: str,
+        synthesis: str,
+    ) -> CoursePuzzle:
+        """Save synthesis text, set status='completed', set completed_at=now().
+        Single transaction."""
+        ...
+
 
 class ThoughtRepository(ABC):
     @abstractmethod
@@ -285,6 +304,38 @@ class ThoughtRepository(ABC):
         course_puzzle_id: str,
     ) -> List[Thought]:
         """Return thoughts for a puzzle, ordered by flow_order ASC."""
+        ...
+
+    @abstractmethod
+    async def get_user_thoughts_by_course_puzzle(
+        self,
+        course_puzzle_id: str,
+    ) -> List[Thought]:
+        """Return user-authored thoughts only (is_nudge=false), ordered by flow_order ASC.
+        Used for Stage 2 diagnostic input — excludes AI nudges."""
+        ...
+
+    @abstractmethod
+    async def create_reflection(
+        self,
+        course_puzzle_id: str,
+        user_id: str,
+        content: str,
+        element: Optional[str],
+        sub_element: Optional[str],
+        pos_x: float,
+        pos_y: float,
+    ) -> Thought:
+        """Create a reflection thought (Stage 3). Sets kind='reflection'."""
+        ...
+
+    @abstractmethod
+    async def get_by_kind(
+        self,
+        course_puzzle_id: str,
+        kind: str,
+    ) -> List[Thought]:
+        """Return thoughts of a given kind for a course_puzzle."""
         ...
 
     @abstractmethod

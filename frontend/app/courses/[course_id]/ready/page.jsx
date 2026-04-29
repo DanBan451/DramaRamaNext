@@ -332,14 +332,26 @@ function PuzzleCard({ puzzle }) {
   // puzzle — show "Resume" instead of "Begin" and surface the stage so
   // they know where they're picking up.
   const stage = Number(puzzle.current_stage) || 1;
-  const inProgress = stage > 1;
+  const isCompleted = puzzle.status === "completed";
+  const inProgress = stage > 1 && !isCompleted;
   const stageLabel = stage === 2 ? "Stage 2 — Redirect" : stage === 3 ? "Stage 3 — Quintessence" : null;
   return (
-    <div className="relative bg-white border border-mist border-l-4 border-l-smoke/60 p-6 rounded-r-lg shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col">
+    <div className={`relative bg-white border border-mist border-l-4 p-6 rounded-r-lg shadow-sm transition-all flex flex-col ${
+      isCompleted
+        ? "border-l-emerald-400 opacity-80"
+        : "border-l-smoke/60 hover:shadow-md hover:-translate-y-0.5"
+    }`}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="font-mono text-[11px] tracking-[0.2em] uppercase text-smoke">
           Puzzle {roman}
         </p>
+        {isCompleted && (
+          <span
+            className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200"
+          >
+            Completed ✓
+          </span>
+        )}
         {inProgress && (
           <span
             className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-change/10 text-change border border-change/20"
@@ -356,14 +368,25 @@ function PuzzleCard({ puzzle }) {
         {puzzle.puzzle_text}
       </p>
       <div className="flex items-center gap-3">
-        <Link href={`/canvas/${puzzle.id}`}>
-          <Button
-            className="bg-primary text-white hover:bg-primary/90 font-medium"
-            radius="none"
-          >
-            {inProgress ? "Resume →" : "Begin →"}
-          </Button>
-        </Link>
+        {isCompleted ? (
+          <Link href={`/canvas/${puzzle.id}`}>
+            <Button
+              className="bg-mist text-smoke hover:bg-mist/80 font-medium"
+              radius="none"
+            >
+              Review →
+            </Button>
+          </Link>
+        ) : (
+          <Link href={`/canvas/${puzzle.id}`}>
+            <Button
+              className="bg-primary text-white hover:bg-primary/90 font-medium"
+              radius="none"
+            >
+              {inProgress ? "Resume →" : "Begin →"}
+            </Button>
+          </Link>
+        )}
       </div>
     </div>
   );

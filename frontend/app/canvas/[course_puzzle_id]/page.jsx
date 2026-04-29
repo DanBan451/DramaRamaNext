@@ -17,6 +17,7 @@ import CanvasSkeleton from "@/components/canvas/CanvasSkeleton";
 import {
   getCanvasState,
   createThought,
+  createReflection,
   updateThoughtPosition,
   updateThoughtContent,
   updateThoughtTagging,
@@ -25,6 +26,8 @@ import {
   deleteConnection as apiDeleteConnection,
   generateStage2Nudges,
   updateCurrentStage,
+  advanceToBridge as apiAdvanceToBridge,
+  completePuzzle as apiCompletePuzzle,
 } from "@/lib/canvas-api";
 
 // Block geometry — must match Canvas.tsx constants. Used to lay nudges
@@ -147,6 +150,18 @@ export default function CanvasPage() {
   // level — re-calling returns the existing nudges — so this flag is
   // mostly UX (prevents spinners flickering on re-renders).
   const [seedingNudges, setSeedingNudges] = useState(false);
+  
+  // Stage 2 chat welcome message from the diagnostic nudge engine.
+  // This replaces the per-element template system.
+  const [stage2WelcomeMessage, setStage2WelcomeMessage] = useState(null);
+
+  // Stage 3 sub-phase tracking. Set from server on load, updated locally
+  // on advance. Null means not in Stage 3 yet.
+  const [stage3Phase, setStage3Phase] = useState(null);
+  // Confirmation modals for Stage 3 actions.
+  const [confirmBridge, setConfirmBridge] = useState(false);
+  const [confirmComplete, setConfirmComplete] = useState(false);
+  const [completing, setCompleting] = useState(false);
 
   // Collapsible side panels. Hidden state is local UI only — no need to
   // persist between sessions yet.
@@ -198,6 +213,12 @@ export default function CanvasPage() {
         // Stage 1 every refresh).
         const persistedStage = Number(state.course_puzzle?.current_stage) || 1;
         setStage(Math.min(3, Math.max(1, persistedStage)));
+        // Restore Stage 3 sub-phase from server
+        if (persistedStage === 3 && state.course_puzzle?.stage3_phase) {
+          setStage3Phase(state.course_puzzle.stage3_phase);
+        } else if (persistedStage === 3) {
+          setStage3Phase("reflect");
+        }
       } catch (e) {
         if (!cancelled) setError(e?.message || "Failed to load canvas");
       } finally {
@@ -214,6 +235,7 @@ export default function CanvasPage() {
   const handleCreateThought = useCallback(
     async (body) => {
       const tempId = makeTempId();
+      const isReflection = stage === 3;
       const tempThought = {
         id: tempId,
         course_puzzle_id: coursePuzzleId,
@@ -224,11 +246,15 @@ export default function CanvasPage() {
         time_spent_seconds: body.time_spent_seconds ?? null,
         pos_x: body.pos_x,
         pos_y: body.pos_y,
+        kind: isReflection ? "reflection" : "thought",
         created_at: new Date().toISOString(),
       };
       setThoughts((prev) => [...prev, tempThought]);
       try {
-        const real = await createThought(coursePuzzleId, body, getToken);
+        // Stage 3 thoughts are reflections — different endpoint, kind='reflection'
+        const real = isReflection
+          ? await createReflection(coursePuzzleId, body, getToken)
+          : await createThought(coursePuzzleId, body, getToken);
         setThoughts((prev) => prev.map((t) => (t.id === tempId ? real : t)));
         return real;
       } catch (e) {
@@ -237,7 +263,7 @@ export default function CanvasPage() {
         throw e;
       }
     },
-    [coursePuzzleId, getToken, notifyError],
+    [coursePuzzleId, getToken, notifyError, stage],
   );
 
   const handleUpdateThoughtPosition = useCallback(
@@ -442,6 +468,11 @@ export default function CanvasPage() {
     setStage(nextStage);
     setConfirmAdvance(false);
 
+    // Stage 2 → 3: initialize the reflect sub-phase
+    if (nextStage === 3) {
+      setStage3Phase("reflect");
+    }
+
     // Persist stage to the server so leaving the canvas and coming back
     // restores the same stage. Fire-and-forget — UI already reflects the
     // new stage; we just don't want to drop back on next load.
@@ -468,12 +499,14 @@ export default function CanvasPage() {
       const userThoughts = userOnly.map((t) => t.content).filter(Boolean);
       const positions = computeNudgePositions(userOnly);
       try {
-        const { nudges } = await generateStage2Nudges(
+        const response = await generateStage2Nudges(
           coursePuzzleId,
           userThoughts,
           positions,
           getToken,
         );
+        const { nudges, connections: newConnections, chat_message } = response;
+        
         if (nudges?.length) {
           // Merge in: skip any duplicates (defense against double-clicks).
           setThoughts((prev) => {
@@ -482,6 +515,20 @@ export default function CanvasPage() {
             return [...prev, ...fresh];
           });
         }
+        
+        // Merge connections (for branch decisions)
+        if (newConnections?.length) {
+          setConnections((prev) => {
+            const have = new Set(prev.map((c) => c.id));
+            const fresh = newConnections.filter((c) => !have.has(c.id));
+            return [...prev, ...fresh];
+          });
+        }
+        
+        // Store the chat message for StageChat to use
+        if (chat_message) {
+          setStage2WelcomeMessage(chat_message);
+        }
       } catch (e) {
         notifyError(
           e?.message || "Couldn't drop AI nudges on your canvas — try again later.",
@@ -489,6 +536,36 @@ export default function CanvasPage() {
       } finally {
         setSeedingNudges(false);
       }
+    }
+  }
+
+  // ---------- Stage 3 handlers ----------
+
+  async function handleAdvanceToBridge() {
+    setConfirmBridge(false);
+    setStage3Phase("bridge");
+    try {
+      await apiAdvanceToBridge(coursePuzzleId, getToken);
+    } catch (e) {
+      notifyError(e?.message || "Couldn't save bridge phase — try again.");
+    }
+  }
+
+  async function handleCompletePuzzle() {
+    setConfirmComplete(false);
+    setCompleting(true);
+    try {
+      await apiCompletePuzzle(coursePuzzleId, getToken);
+      // Navigate back to the course's puzzle list
+      if (coursePuzzle?.course_id) {
+        router.push(`/courses/${coursePuzzle.course_id}/ready`);
+      } else {
+        router.push("/courses");
+      }
+    } catch (e) {
+      notifyError(e?.message || "Couldn't complete puzzle — try again.");
+    } finally {
+      setCompleting(false);
     }
   }
 
@@ -513,6 +590,8 @@ export default function CanvasPage() {
   if (!coursePuzzle) {
     return <div className="p-8 text-sm text-gray-500">Puzzle not found.</div>;
   }
+
+  const isCompleted = coursePuzzle.status === "completed";
 
   return (
     <div className="flex h-screen bg-white overflow-hidden">
@@ -584,7 +663,11 @@ export default function CanvasPage() {
           {/* Stage indicator + Next Stage button */}
           <div className="flex items-center gap-3 flex-shrink-0">
             <StageIndicator current={stage} />
-            {stage < 3 ? (
+            {isCompleted ? (
+              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Completed ✓
+              </span>
+            ) : stage < 3 ? (
               <button
                 onClick={() => setConfirmAdvance(true)}
                 className="text-sm font-medium px-3 py-1.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
@@ -605,6 +688,21 @@ export default function CanvasPage() {
             placeholder welcome inside the chat itself; no banner needed. */}
 
         <div className="flex-1 relative overflow-hidden">
+          {/* Completed summary banner. Shows the AI-generated synthesis
+              so the user can review their puzzle's conclusion. */}
+          {isCompleted && coursePuzzle.synthesis && (
+            <div className="absolute top-0 left-0 right-0 z-20 bg-emerald-50/95 border-b border-emerald-200 px-6 py-4 backdrop-blur-sm">
+              <div className="max-w-2xl">
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-700 mb-2">
+                  Puzzle Summary
+                </p>
+                <p className="text-sm text-emerald-900 leading-relaxed whitespace-pre-wrap">
+                  {coursePuzzle.synthesis}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Nudge-seeding banner. Shown while the Stage 2 nudge endpoint
               is in flight so the user has clear feedback that something
               is happening on the canvas (the network round-trip + LLM
@@ -630,13 +728,13 @@ export default function CanvasPage() {
             connections={connections}
             selectedElement={selectedElement}
             selectedSubElement={selectedSubElement}
-            onCreateThought={handleCreateThought}
-            onUpdateThoughtPosition={handleUpdateThoughtPosition}
-            onUpdateThoughtContent={handleUpdateThoughtContent}
-            onUpdateThoughtTagging={handleUpdateThoughtTagging}
-            onDeleteThought={handleDeleteThought}
-            onCreateConnection={handleCreateConnection}
-            onDeleteConnection={handleDeleteConnection}
+            onCreateThought={isCompleted ? null : handleCreateThought}
+            onUpdateThoughtPosition={isCompleted ? null : handleUpdateThoughtPosition}
+            onUpdateThoughtContent={isCompleted ? null : handleUpdateThoughtContent}
+            onUpdateThoughtTagging={isCompleted ? null : handleUpdateThoughtTagging}
+            onDeleteThought={isCompleted ? null : handleDeleteThought}
+            onCreateConnection={isCompleted ? null : handleCreateConnection}
+            onDeleteConnection={isCompleted ? null : handleDeleteConnection}
           />
         </div>
       </div>
@@ -649,6 +747,11 @@ export default function CanvasPage() {
             primaryElement={coursePuzzle.primary_element}
             coursePuzzleId={coursePuzzleId}
             onClose={() => setChatOpen(false)}
+            stage2WelcomeMessage={stage2WelcomeMessage}
+            stage3Phase={stage3Phase}
+            onAdvanceToBridge={() => setConfirmBridge(true)}
+            onCompletePuzzle={() => setConfirmComplete(true)}
+            isCompleted={isCompleted}
           />
         </aside>
       ) : (
@@ -697,6 +800,67 @@ export default function CanvasPage() {
                 {seedingNudges
                   ? "Dropping nudges…"
                   : `Advance to Stage ${stage + 1}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Confirm bridge modal ────────────────────────────────────── */}
+      {confirmBridge && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="font-display text-2xl text-black mb-2">
+              Bridge to your goal?
+            </h2>
+            <p className="text-sm text-smoke mb-6 leading-relaxed">
+              You'll move from reflecting on the puzzle to connecting it back to
+              your real-world goal. You can still chat and add blocks — this just
+              shifts the conversation's focus.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setConfirmBridge(false)}
+                className="px-4 py-2 text-sm text-smoke hover:text-black"
+              >
+                Not yet
+              </button>
+              <button
+                onClick={handleAdvanceToBridge}
+                className="px-4 py-2 text-sm bg-amber-600 text-white rounded-md font-medium hover:bg-amber-700 transition-colors"
+              >
+                Bridge to my goal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Confirm complete modal ──────────────────────────────────── */}
+      {confirmComplete && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="font-display text-2xl text-black mb-2">
+              Finish this puzzle?
+            </h2>
+            <p className="text-sm text-smoke mb-6 leading-relaxed">
+              This will mark the puzzle as complete and take you back to your
+              course. You won't be able to add more blocks after this.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setConfirmComplete(false)}
+                disabled={completing}
+                className="px-4 py-2 text-sm text-smoke hover:text-black disabled:opacity-40"
+              >
+                Keep working
+              </button>
+              <button
+                onClick={handleCompletePuzzle}
+                disabled={completing}
+                className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-md font-medium hover:bg-emerald-700 transition-colors disabled:opacity-60"
+              >
+                {completing ? "Finishing…" : "I'm done ✓"}
               </button>
             </div>
           </div>

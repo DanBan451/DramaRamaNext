@@ -232,6 +232,15 @@ class CoursePuzzleRepository(ABC):
         ...
 
     @abstractmethod
+    async def update_current_stage(
+        self,
+        puzzle_id: str,
+        current_stage: int,
+    ) -> CoursePuzzle:
+        """Persist the user's current stage (1..3) for resume-on-return."""
+        ...
+
+    @abstractmethod
     async def get_with_course(
         self,
         course_puzzle_id: str,
@@ -253,9 +262,17 @@ class ThoughtRepository(ABC):
         pos_x: float,
         pos_y: float,
         time_spent_seconds: Optional[int],
+        is_nudge: bool = False,
     ) -> Thought:
         """Create a thought. Server assigns flow_order = max(flow_order)+1
-        for the (course_puzzle_id) group."""
+        for the (course_puzzle_id) group. Set is_nudge=True for
+        AI-generated nudge thoughts seeded at Stage 2 transition."""
+        ...
+
+    @abstractmethod
+    async def count_nudges(self, course_puzzle_id: str) -> int:
+        """How many is_nudge=true thoughts already exist on this canvas.
+        Used to gate the one-shot Stage 2 nudge seeding."""
         ...
 
     @abstractmethod

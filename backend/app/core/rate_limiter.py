@@ -53,9 +53,15 @@ RATE_LIMITS = {
     "llm_calls": {"max_requests": 15, "window_seconds": 60},        # 15/min LLM calls
     "image_generation": {"max_requests": 5, "window_seconds": 3600}, # 5/hour image gen
     "session_start": {"max_requests": 10, "window_seconds": 3600},  # 10 sessions/hour
-    "course_intake_start": {"max_requests": 5, "window_seconds": 3600},  # 5 new courses/hour
-    "course_intake": {"max_requests": 30, "window_seconds": 3600},       # 30 intake messages/hour
+    "course_intake_start": {"max_requests": 10, "window_seconds": 3600},  # 10 new courses/hour
+    # Intake is a chat — users naturally fire off 6–10 messages per intake
+    # and may run multiple intakes back-to-back during testing or while
+    # exploring the product. The previous 30/hour bucket tripped on normal
+    # usage and surfaced a confusing "rate limit exceeded" toast. Keep a
+    # ceiling to deter abuse but well above realistic conversation volume.
+    "course_intake": {"max_requests": 200, "window_seconds": 3600},      # 200 intake messages/hour
     "retry_generation": {"max_requests": 5, "window_seconds": 3600},     # 5 retries/hour
+    "canvas_chat": {"max_requests": 60, "window_seconds": 3600},         # 60 canvas chat msgs/hour
 }
 
 def check_rate_limit(

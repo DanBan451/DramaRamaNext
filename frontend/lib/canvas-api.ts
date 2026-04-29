@@ -20,6 +20,7 @@ export interface CoursePuzzleSummary {
   bridge_back: string;
   status: string;
   completed_at: string | null;
+  current_stage?: number;
   course_id?: string;
 }
 
@@ -169,6 +170,42 @@ export async function deleteConnection(
     getToken,
   );
   if (!res.ok) throw new Error(`deleteConnection: ${res.status}`);
+}
+
+export async function generateStage2Nudges(
+  coursePuzzleId: string,
+  existingThoughts: string[],
+  positions: Array<[number, number]>,
+  getToken: TokenGetter,
+): Promise<{ nudges: Thought[] }> {
+  const res = await authedFetch(
+    `/canvas/${coursePuzzleId}/stage2/nudges`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        existing_thoughts: existingThoughts,
+        positions,
+      }),
+    },
+    getToken,
+  );
+  return asJson<{ nudges: Thought[] }>(res, "generateStage2Nudges");
+}
+
+export async function updateCurrentStage(
+  coursePuzzleId: string,
+  currentStage: number,
+  getToken: TokenGetter,
+): Promise<CoursePuzzleSummary> {
+  const res = await authedFetch(
+    `/canvas/${coursePuzzleId}/stage`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ current_stage: currentStage }),
+    },
+    getToken,
+  );
+  return asJson<CoursePuzzleSummary>(res, "updateCurrentStage");
 }
 
 export async function getDevRedirectTarget(

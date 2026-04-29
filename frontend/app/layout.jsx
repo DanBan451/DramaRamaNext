@@ -17,10 +17,11 @@ export const metadata = {
 };
 
 export const viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "white" },
-    { media: "(prefers-color-scheme: dark)", color: "black" },
-  ],
+  // Always white. Previously we let dark-mode users see a black theme-color,
+  // which caused a brief black flash in macOS Safari when navigating between
+  // routes (especially Begin → /canvas/[id]) before our white body painted.
+  // The product is a light-mode-only UI; theme-color should reflect that.
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({ children }) {

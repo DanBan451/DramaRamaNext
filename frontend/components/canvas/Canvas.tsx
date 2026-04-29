@@ -381,6 +381,20 @@ export default function Canvas({
 
   function startConnection(e: React.MouseEvent, thoughtId: string) {
     e.stopPropagation();
+    // If a connection is already in flight (user clicked another connector
+    // first), treat THIS click as the destination — connector→connector
+    // should complete the connection, not silently re-anchor it. Direction
+    // is always source→destination based on click order.
+    if (connectingFrom && connectingFrom !== thoughtId) {
+      createConnectionLocal(connectingFrom, thoughtId);
+      setConnectingFrom(null);
+      return;
+    }
+    // Click the same connector twice to cancel the in-flight connection.
+    if (connectingFrom === thoughtId) {
+      setConnectingFrom(null);
+      return;
+    }
     setConnectingFrom(thoughtId);
     setSelectedThought(null);
   }
@@ -975,14 +989,26 @@ export default function Canvas({
               // center) so the arrow visibly "touches" the block.
               const toAnchor = getBlockLeftAnchor(to);
               const dx = toAnchor.x - fromPos.x;
-              const cx1 = fromPos.x + dx * 0.4;
+              const dy = toAnchor.y - fromPos.y;
+              // Force horizontal tangents at BOTH endpoints. Without a
+              // minimum handle length, when a thought is dragged so the
+              // target is roughly directly below the source the curve
+              // collapses into a near-vertical line and the arrow marker —
+              // which gets oriented to the path's tangent — ends up at a
+              // weird angle that doesn't visually connect to the curve's
+              // approach. Clamping the handle length guarantees the last
+              // segment of the bezier is horizontal-ish, so the arrow head
+              // always sits flush with the line.
+              const handle = Math.max(80, Math.abs(dx) * 0.5, Math.abs(dy) * 0.4);
+              const cx1 = fromPos.x + handle;
               const cy1 = fromPos.y;
-              const cx2 = toAnchor.x - dx * 0.4;
+              const cx2 = toAnchor.x - handle;
               const cy2 = toAnchor.y;
               const d = `M ${fromPos.x} ${fromPos.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${toAnchor.x} ${toAnchor.y}`;
               const isTraced = tracedConnections.has(conn.id);
               return (
                 <g key={conn.id}>
+                  {/* Soft glow underneath. */}
                   <path
                     d={d}
                     stroke={isTraced ? "#facc15" : "#4db6ac"}
@@ -991,6 +1017,24 @@ export default function Canvas({
                     opacity={isTraced ? 0.4 : 0.15}
                     strokeLinecap="round"
                   />
+                  {/* SOLID base line that owns the arrowhead marker. This
+                      MUST stay fully opaque — the dashed overlay below has
+                      gaps that, if visible at the endpoint, make the arrow
+                      tip look detached from the line. Keeping the base
+                      solid + opaque guarantees a continuous visual stroke
+                      from source to arrow tip regardless of dash phase. */}
+                  <path
+                    d={d}
+                    stroke={isTraced ? "#f59e0b" : "#8ab4f8"}
+                    strokeWidth={isTraced ? 3 : 2}
+                    fill="none"
+                    strokeLinecap="butt"
+                    markerEnd={isTraced ? "url(#arrowhead-trace)" : "url(#arrowhead)"}
+                    opacity={1}
+                  />
+                  {/* Animated dashed overlay — purely decorative shimmer.
+                      No marker (the base owns it) and trimmed opacity so
+                      the solid base remains the dominant visual line. */}
                   <path
                     d={d}
                     stroke={isTraced ? "url(#trace-gradient)" : "url(#flow-gradient)"}
@@ -998,8 +1042,7 @@ export default function Canvas({
                     fill="none"
                     strokeDasharray="12 12"
                     strokeLinecap="round"
-                    markerEnd={isTraced ? "url(#arrowhead-trace)" : "url(#arrowhead)"}
-                    opacity={isTraced ? 1 : 0.7}
+                    opacity={isTraced ? 0.7 : 0.4}
                     className="flow-line"
                   />
                 </g>
@@ -1012,12 +1055,16 @@ export default function Canvas({
                 const sourceThought = thoughtMap.get(pendingConnectionFrom);
                 if (!sourceThought) return null;
                 const fromPos = getConnectorPos(sourceThought);
-                const toX = draft.x + BLOCK_WIDTH / 2;
+                // Target the LEFT edge of the draft block (like completed connections)
+                // so the arrow tip is visible and not hidden behind the card.
+                const toX = draft.x - ARROW_TIP_INSET;
                 const toY = draft.y + BLOCK_MIN_HEIGHT / 2;
                 const dx = toX - fromPos.x;
-                const cx1 = fromPos.x + dx * 0.4;
+                const dy = toY - fromPos.y;
+                const handle = Math.max(80, Math.abs(dx) * 0.5, Math.abs(dy) * 0.4);
+                const cx1 = fromPos.x + handle;
                 const cy1 = fromPos.y;
-                const cx2 = toX - dx * 0.4;
+                const cx2 = toX - handle;
                 const cy2 = toY;
                 const d = `M ${fromPos.x} ${fromPos.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${toX} ${toY}`;
                 return (
@@ -1049,6 +1096,11 @@ export default function Canvas({
             const elColor = thought.element ? getElementColor(thought.element) : null;
             const isBulkSelected = bulkSelected.has(thought.id);
             const isTraced = tracedPath.has(thought.id);
+            // Stage 2 nudges are visually distinct: dashed border, subtle
+            // purple wash, and an "AI Nudge" badge in the header. They
+            // remain fully draggable / connectable / deletable — the user
+            // owns them once they're on the canvas.
+            const isNudge = !!thought.is_nudge;
 
             return (
               <div
@@ -1060,6 +1112,8 @@ export default function Canvas({
                 // visibly trailing its connection arrows. Only animate cosmetic
                 // properties (shadow, ring, border, bg).
                 className={`absolute rounded-xl border shadow-sm transition-[box-shadow,border-color,background-color,transform] duration-300 select-none ${
+                  isNudge ? "border-dashed border-2" : ""
+                } ${
                   bulkSelectMode ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"
                 } ${
                   isBulkSelected
@@ -1078,7 +1132,13 @@ export default function Canvas({
                   width: BLOCK_WIDTH,
                   minHeight: BLOCK_MIN_HEIGHT,
                   zIndex: isSelected || dragging === thought.id ? 10 : isTraced ? 6 : 2,
-                  backgroundColor: isTraced ? "#fefce8" : elColor ? elColor.bg : "#ffffff",
+                  backgroundColor: isTraced
+                    ? "#fefce8"
+                    : isNudge
+                      ? "#f5f3ff" // soft purple wash (mirrors AI_GUIDE_COLOR.bg-ish)
+                      : elColor
+                        ? elColor.bg
+                        : "#ffffff",
                   borderColor: isBulkSelected
                     ? "#f87171"
                     : isTraced
@@ -1087,9 +1147,11 @@ export default function Canvas({
                         ? "var(--red)"
                         : isConnectSource
                           ? "var(--blue-light)"
-                          : elColor
-                            ? elColor.border
-                            : "var(--wireframe)",
+                          : isNudge
+                            ? "#a855f7" // purple-500 — distinct from any element color
+                            : elColor
+                              ? elColor.border
+                              : "var(--wireframe)",
                 }}
                 onClick={(e) => handleBlockClick(e, thought.id)}
                 onMouseDown={(e) => handleBlockMouseDown(e, thought.id)}
@@ -1097,10 +1159,10 @@ export default function Canvas({
                 <div className="p-3">
                   {/* Header */}
                   <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       {subEl && elColor ? (
                         <span
-                          className="w-6 h-6 rounded-md flex items-center justify-center text-sm font-bold"
+                          className="w-6 h-6 rounded-md flex items-center justify-center text-sm font-bold shrink-0"
                           style={{ backgroundColor: elColor.light, color: elColor.text }}
                         >
                           {subEl.symbol}
@@ -1110,7 +1172,7 @@ export default function Canvas({
                       ) : null}
                       {subEl && (
                         <span
-                          className="text-xs font-medium"
+                          className="text-xs font-medium truncate"
                           style={{ color: elColor?.text || "var(--text-secondary)" }}
                         >
                           {subEl.name}
@@ -1120,6 +1182,14 @@ export default function Canvas({
                         <span className="text-xs text-[var(--text-muted)] italic">untagged</span>
                       )}
                     </div>
+                    {isNudge && (
+                      <span
+                        className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200 shrink-0"
+                        title="AI-generated nudge — drag, edit, or delete it like your own thoughts."
+                      >
+                        AI Nudge
+                      </span>
+                    )}
                   </div>
                   {/* Content */}
                   <p className="text-xs text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed line-clamp-6">

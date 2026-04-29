@@ -1017,27 +1017,24 @@ Output ONLY the JSON object. No markdown fences. No explanation."""
 
 # ============ Phase 2: Course intake chatbot ============
 
-def build_intake_chatbot_prompt(intake_messages: List[dict]) -> str:
+def build_intake_chatbot_system_prompt() -> str:
+    """Build the SYSTEM prompt for the intake chatbot.
+
+    The conversation history itself is passed to Claude as proper
+    `{role: user|assistant}` messages — NOT inlined as text in this
+    prompt. Inlining the conversation caused the model to hallucinate
+    role-prefixed turns ("User: ...") inside its own replies because the
+    interleaved transcript looked like a continuation pattern.
+
+    The system prompt instructs Claude to probe until the user has
+    articulated a sharp 'effective at X' statement covering WHAT, WHY,
+    BLOCKER, and EFFECTIVE_LOOKS_LIKE. Once Claude has all four, it
+    outputs a special marker: <<INTAKE_COMPLETE>> followed by a JSON
+    object with the structured fields. The route layer detects this
+    marker and triggers the complete_intake repository call.
     """
-    Build the system prompt for the intake chatbot.
 
-    intake_messages is the conversation history so far, each entry being
-    {"role": "user" | "assistant", "content": str}.
-
-    The prompt instructs Claude to probe until the user has articulated a
-    sharp 'effective at X' statement covering WHAT, WHY, BLOCKER, and
-    EFFECTIVE_LOOKS_LIKE. Once Claude has all four, Claude outputs a
-    special marker: <<INTAKE_COMPLETE>> followed by a JSON object with
-    the structured fields. The route layer detects this marker and
-    triggers the complete_intake repository call.
-    """
-
-    history_text = "\n".join(
-        f"{(m.get('role') or 'user').capitalize()}: {m.get('content', '')}"
-        for m in (intake_messages or [])
-    ) or "(no messages yet)"
-
-    return f"""You are an intake interviewer for DramaRama, a tool that creates personalized thinking-training courses.
+    return """You are an intake interviewer for DramaRama, a tool that creates personalized thinking-training courses.
 
 Your single job: get the user to articulate, with precision, what they want to become more effective at.
 
@@ -1086,22 +1083,22 @@ Got it. You want to become a more effective thinker in: <one to two sentences, s
 Building your course now.
 
 <<INTAKE_COMPLETE>>
-{{"crisp_statement": "the statement above, verbatim",
+{"crisp_statement": "the statement above, verbatim",
 "domain": "1-3 word domain label",
 "what": "what they actually do or face, in their words",
 "why": "what's pulling them toward this",
 "blocker": "what's specifically hard for them",
 "effective_looks_like": "what changes if they succeed",
-"raw_quotes": ["3-5 short verbatim phrases the user said that capture their voice and stakes"]}}
+"raw_quotes": ["3-5 short verbatim phrases the user said that capture their voice and stakes"]}
 
 The marker <<INTAKE_COMPLETE>> on its own line, followed by ONLY a JSON object. No code fences. Nothing after the JSON. The frontend will hide everything from the marker onward.
 
-Until you have all four pieces clearly, just keep probing. ONE question per turn. Don't rush to <<INTAKE_COMPLETE>>.
+PACING:
+- One question per turn. Don't stack.
+- Don't rush <<INTAKE_COMPLETE>>, but also don't artificially extend. If after 5–7 user turns you have all four pieces, finalize. Dragging it out further frustrates the user.
+- If the user explicitly says they're ready (e.g. "I'm ready", "build it now", "let's go", "that's enough"), and you have a workable statement, finalize on the NEXT turn. Take their last turn as the final clarification, infer any missing pieces from context, and emit the marker.
 
-CONVERSATION SO FAR:
-{history_text}
-
-Now generate your next response."""
+NEVER include "User:" or "Assistant:" prefixes in your output. You are the assistant; just speak directly. The conversation history is given to you via proper message turns."""
 
 
 # ============ Phase 3: Puzzle generation ============

@@ -13,6 +13,10 @@ export interface Thought {
   time_spent_seconds: number | null;
   pos_x: number;
   pos_y: number;
+  // True for AI-generated nudge thoughts seeded at the Stage 1 → Stage 2
+  // transition. Behaves identically to a normal thought (drag/connect/
+  // delete/edit) but renders with a distinctive treatment.
+  is_nudge?: boolean;
   created_at: string;
   updated_at?: string;
 }

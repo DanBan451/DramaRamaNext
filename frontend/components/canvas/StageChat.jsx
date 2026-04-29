@@ -1,28 +1,40 @@
 "use client";
 
 // Right-side chat panel for the canvas. The panel is *always* visible (the
-// user can collapse it via the page-level toggle). Three stage-specific
-// behaviors:
+// user can collapse it via the page-level toggle). Three stages:
 //
-//   Stage 1 — guide-only. The bot welcomes the user, explains the objective
-//             (apply the 5 elements), and refuses to give puzzle answers or
-//             extend the user's flow. Any user message gets a reply that
-//             stays inside this scope.
+//   Stage 1 — Think. Guide-only. The bot welcomes the user, explains the
+//             objective (apply the 5 elements), and refuses to give puzzle
+//             answers or extend the user's flow.
 //
-//   Stage 2 — synthesis nudge. A single auto-generated AI proposal sits at
-//             the top of the canvas (NOT in this chat). The chat itself
-//             stays available for clarifying questions about the proposal,
-//             but never re-runs the proposal.
+//   Stage 2 — Redirect. The bot posts ONE flow tuned to the puzzle's
+//             primary element — a sequence of nudges that, if followed,
+//             develops the mental muscle this puzzle was generated to
+//             train. After that, every user message gets the same
+//             scripted deflection: "I can't give you more, keep going,
+//             the goal isn't the answer — it's to actually practice the
+//             5 elements." We never give the answer and we never extend
+//             the flow we already proposed.
 //
-//   Stage 3 — reflection chat. Free-form dialogue; bot asks reflective
-//             questions tying this puzzle back to the user's larger goal.
+//   Stage 3 — Quintessence. (still placeholder — needs more design)
 //
-// Backend endpoints for stage 2 / stage 3 don't exist yet (Phase 5+), so
-// those stages currently render a placeholder. Stage 1 uses a deterministic
-// client-side responder for now: enough to teach the user the rules without
-// blocking on infra.
+// Stage 1 and Stage 2 chat replies are streamed from the backend via the
+// `/canvas/:cp_id/chat/stream` SSE endpoint, which calls Claude with a
+// stage-specific system prompt. The puzzle's solution is never sent to the
+// model. Stage 3 is still a static placeholder.
+//
+// The Stage 2 *welcome* message (the per-element "flow") is still rendered
+// client-side from a constant — it's a deterministic, generic flow that
+// trains the puzzle's primary element. The LLM only handles follow-up
+// questions, where it must refuse to extend the flow.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
+
+// Composer textarea size bounds. Min ~one line; max ~10 lines so the
+// composer never eats the message list.
+const TEXTAREA_MIN_PX = 38;
+const TEXTAREA_MAX_PX = 200;
 
 const STAGE_1_WELCOME = `Welcome. This is **Stage 1 — Think**.
 
@@ -36,74 +48,195 @@ Your job here is to actually think through the puzzle on the canvas. Drop blocks
 
 I'm here to remind you what each element means and how to approach this stage. I won't help you solve the puzzle and I won't extend your ideas — that's *your* work. When you feel ready, hit **Next Stage** at the top.`;
 
-const STAGE_2_PLACEHOLDER = `**Stage 2 — Extend** (coming in Phase 5).
+// Stage 2 chat welcome. One per primary element. Stage 2 is the moment
+// the AI extends the user's flow: when the user advanced from Stage 1,
+// the canvas page already called the backend nudge endpoint and dropped
+// 4 concrete "AI Nudge" blocks on the canvas. So the chat shouldn't tell
+// the user to drop blocks — that work is done. Instead the welcome
+// message reveals the puzzle's primary element, points at the nudges
+// they can now see, and tells them HOW to use the nudges (read each
+// one, react to it on a new block of their own, connect, delete what
+// doesn't help).
+const STAGE_2_FLOWS = {
+  earth: `**Stage 2 — Redirect.** Your puzzle leans on 🌳 **Earth** — *understand the basics deeply*.
 
-In Stage 2 the AI will read your Stage 1 flow and post a one-time proposal at the top of the canvas: extra blocks and connections that build on what you wrote, marked with a purple AI border. You decide whether to keep them.
+I just dropped four **AI Nudge** blocks on your canvas (look for the dashed purple borders). Each one is a concrete, Earth-flavored prompt tailored to this puzzle. They're yours now — drag them, edit them, or delete the ones that don't help.
 
-The chat stays open for clarifying questions, but it won't generate another proposal — Stage 2 is one-shot.`;
+Here's how to work them:
 
-const STAGE_3_PLACEHOLDER = `**Stage 3 — Synthesize** (coming in Phase 5).
+1. Read each nudge. **Pick one** to start with — usually the simplest.
+2. **React to it** on a new block of your own. Tag your reply with whichever 🌳 Earth sub-element fits (*Start with Simple*, *Spotlight the Specific*, or *Add the Adjective*).
+3. **Connect** your reply to the nudge that prompted it.
+4. Repeat for the other nudges. Delete any that feel off-target.
+5. When the picture clarifies, drop one final block summarizing **the simplest version of the puzzle that still has its real structure**.
 
-In Stage 3 we'll have a short reflective conversation: which elements you actually exercised, and how this puzzle connects back to the larger goal you came in with.`;
+Ask me if you want me to clarify what an Earth sub-element is asking for — but I won't extend the nudges or solve the puzzle.`,
 
-// Stage 1 is the only stage with real logic right now. The responder routes
-// any user message into one of a small set of allowed answers: it can teach
-// the elements, restate the stage objective, and politely refuse to help
-// with the puzzle itself. It will not look at, comment on, or extend the
-// user's flow under any circumstance.
-function stage1Reply(message) {
-  const m = message.trim().toLowerCase();
-  if (!m) return null;
+  fire: `**Stage 2 — Redirect.** Your puzzle leans on 🔥 **Fire** — *fail effectively*.
 
-  // Detect "give me the answer" style prompts. Pattern is intentionally
-  // wide; false positives just yield the same safe answer.
-  const asksForAnswer =
-    /(answer|solve|solution|hint|tell me|what is the|figure out|cheat|work it out|what should i)/.test(
-      m,
+I just dropped four **AI Nudge** blocks on your canvas (dashed purple borders). Each one is a concrete, Fire-flavored prompt — a guess to make, a failure to inspect, an extreme case to push to. They're yours now — drag, edit, or delete freely.
+
+Here's how to work them:
+
+1. Read each nudge. **Pick one** and write your honest first attempt at it on a new block of your own. Tag it 🔥 Fire (*Fail Fast*, *Fail Again*, or *Fail Intentionally* — whichever fits).
+2. **Connect** your attempt to the nudge that prompted it.
+3. On another new block, write **exactly why your attempt might be wrong**. Tag it 🔥 Fire → *Fail Again*.
+4. Repeat for the other nudges. Delete the ones that feel off-target.
+5. When you've worked at least three nudges, drop a block describing **what edge of the puzzle you've now mapped** — the place between "definitely yes" and "definitely no".
+
+Failing here is not losing. It's the cheap way to find the boundary of an idea. Ask me if a nudge is unclear — but I won't extend them or hand you the answer.`,
+
+  air: `**Stage 2 — Redirect.** Your puzzle leans on 💨 **Air** — *create questions*.
+
+I just dropped four **AI Nudge** blocks on your canvas (dashed purple borders). Each one is a sharp, Air-flavored question about this puzzle — meta-questions, basic questions, sideways questions. They're yours now — drag, edit, or delete freely.
+
+Here's how to work them:
+
+1. Read each nudge. **Pick one** that feels uncomfortable — that's usually the right one.
+2. **Answer it** on a new block of your own. Tag your answer 🌳 Earth → *Start with Simple* (giving an answer is an Earth move; the question itself was Air).
+3. **Connect** your answer to the nudge that prompted it.
+4. On a new block, write a **better question** than the nudge itself. Tag it 💨 Air → *Ask Another Question*.
+5. Repeat for the other nudges. Delete any that don't help.
+
+The right question opens doors no answer can. Ask me if a nudge is unclear — but I won't extend them or solve the puzzle.`,
+
+  water: `**Stage 2 — Redirect.** Your puzzle leans on 🌊 **Water** — *flow with ideas*.
+
+I just dropped four **AI Nudge** blocks on your canvas (dashed purple borders). Each is a Water-flavored prompt — a path to run down, an obvious idea to doubt, a step beyond the first insight. They're yours now — drag, edit, or delete freely.
+
+Here's how to work them:
+
+1. Read each nudge. **Pick one** path and follow it on a new block of your own. Tag 🌊 Water (*Run Down All Paths*, *Embrace Doubt*, or *Never Stop*).
+2. **Connect** your block to the nudge that prompted it.
+3. When you hit a dead end, write a block **explaining why** it's a dead end. Tag 🌊 Water → *Embrace Doubt*.
+4. Repeat with another nudge so multiple paths run in parallel.
+5. **Connect** the surviving paths to each other. The shape of the connections IS the structure of the puzzle.
+
+Don't commit too early. Ask me if a nudge is unclear — but I won't extend them or solve the puzzle.`,
+
+  // Synthesis-tagged puzzles draw on all four elements at once. Nudges
+  // for these are spread across the four elements; the welcome reflects
+  // that and asks the user to react with whichever sub-element matches.
+  synthesis: `**Stage 2 — Redirect.** Your puzzle is a 🪨 **Change** puzzle — it leans on all four elements together.
+
+I just dropped four **AI Nudge** blocks on your canvas (dashed purple borders). Each one is tagged with a different element — one Earth, one Fire, one Air, one Water — so you can rep all of them on the same puzzle. They're yours now — drag, edit, or delete freely.
+
+Here's how to work them:
+
+1. Read each nudge. Notice which element it's tagged with.
+2. **React** to each on a new block of your own. Tag your reply with a sub-element from the SAME family (e.g. respond to a Fire nudge with another Fire move).
+3. **Connect** each of your replies to the nudge that prompted it.
+4. Once you've worked all four, drop one final block titled "**What changed in my thinking?**" Tag it 🪨 Change.
+
+Synthesis isn't a fifth element — it's what happens when the other four show up at the same table. Ask me if a nudge is unclear — but I won't extend them or solve the puzzle.`,
+};
+
+const STAGE_2_FLOW_DEFAULT = STAGE_2_FLOWS.synthesis;
+
+const STAGE_3_PLACEHOLDER = `**Stage 3 — Quintessence.**
+
+This is where you tie this small puzzle back to the larger puzzle you came in with — the one that prompted this whole course. We'll look at how your thinking moved here, which elements actually did the work, and how that maps onto your real problem.
+
+This stage's full chat is still being designed. For now: scroll back through your blocks and ask yourself, *"how does what I just did apply to the bigger thing?"*`;
+
+// Streams a chat reply from the backend SSE endpoint. Calls `onChunk(text)`
+// for each delta as it arrives, then resolves with the full text. Throws on
+// transport errors. Aborting the AbortController will stop the stream and
+// resolve with whatever was received so far.
+async function streamCanvasChat({
+  coursePuzzleId,
+  stage,
+  history,
+  userMessage,
+  getToken,
+  onChunk,
+  signal,
+}) {
+  const token = await getToken();
+  const res = await fetch(
+    `/api/backend-api/canvas/${coursePuzzleId}/chat/stream`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        stage,
+        history,
+        user_message: userMessage,
+      }),
+      signal,
+    },
+  );
+  if (!res.ok || !res.body) {
+    let detail = "";
+    try {
+      detail = await res.text();
+    } catch {
+      /* ignore */
+    }
+    throw new Error(
+      `Chat request failed (${res.status})${detail ? `: ${detail.slice(0, 200)}` : ""}`,
     );
-  if (asksForAnswer) {
-    return `I can't give you the answer or steer you toward one — that's the whole point of Stage 1. My job is to make sure you understand **what you're supposed to be doing**, not to do it for you.\n\nIf you're stuck, try: pick one element (Earth, Fire, Air, Water) and ask yourself the question that element wants you to ask. The element list on the left has the descriptions.`;
   }
 
-  if (/(earth|understand)/.test(m)) {
-    return `🌳 **Earth — Understand Deeply.** Don't reach for clever moves until you've nailed the basics. Re-read the puzzle. State, in your own words, what's actually being asked. Spotlight the specific. Add detail.`;
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let leftover = "";
+  let full = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    const text = leftover + decoder.decode(value, { stream: true });
+    const events = text.split("\n\n");
+    leftover = events.pop() || "";
+    for (const evt of events) {
+      const line = evt.trim();
+      if (!line.startsWith("data:")) continue;
+      const payload = line.slice(5).trim();
+      if (payload === "[DONE]") return full;
+      try {
+        const obj = JSON.parse(payload);
+        if (typeof obj.text === "string") {
+          full += obj.text;
+          onChunk(obj.text);
+        } else if (obj.error) {
+          throw new Error(obj.error);
+        }
+      } catch (e) {
+        if (e instanceof SyntaxError) {
+          /* ignore non-JSON keep-alive lines */
+        } else {
+          throw e;
+        }
+      }
+    }
   }
-  if (/(fire|fail|try|attempt)/.test(m)) {
-    return `🔥 **Fire — Fail Effectively.** Try something. Be willing to be wrong. A failed attempt narrows the search space. Aim to fail fast, fail again, and then fail intentionally to find the edges of an idea.`;
-  }
-  if (/(air|question|ask)/.test(m)) {
-    return `💨 **Air — Create Questions.** The right question opens doors no answer can. Be your own Socrates. Ask basic questions. When you're stuck, change the question entirely.`;
-  }
-  if (/(water|flow|connect|connection)/.test(m)) {
-    return `🌊 **Water — Flow with Ideas.** Don't commit to one path early. Run multiple paths in parallel. Doubt what feels obvious. Connect ideas with the arrows on the canvas — the point is to *see* the structure of your thinking.`;
-  }
-  if (/(change|transform|reflect)/.test(m)) {
-    return `🪨 **Change** is what comes from applying the other four. You'll get to it explicitly in Stage 3. For now, focus on doing real Earth/Fire/Air/Water work in this stage.`;
-  }
-  if (/(stage|next|done|finish|move on)/.test(m)) {
-    return `When you feel like you've genuinely applied all four elements (Earth/Fire/Air/Water) on the canvas, hit **Next Stage** at the top. You can't come back to Stage 1 once you advance — make sure your thinking here is real before you move on.`;
-  }
-  if (/(what|how|help|stuck|hi|hello|hey)/.test(m)) {
-    return `In Stage 1, you do the thinking. Here's the loop:\n\n1. Pick a sub-element on the left.\n2. Click the canvas to drop a thought tagged with it.\n3. Drag the dot on a thought to another thought to draw an arrow — that's a connection.\n4. Repeat. Use all four primary elements at least once.\n\nAsk me about any specific element if you want to know what it wants from you.`;
-  }
-
-  // Default: stay in scope, gently redirect.
-  return `I'm only here to explain the **5 Elements of Effective Thinking** and what you should be doing in Stage 1. I can't comment on your flow or push it forward. Ask me about Earth, Fire, Air, Water, or what this stage is for.`;
+  return full;
 }
 
-export default function StageChat({ stage, onClose }) {
+export default function StageChat({ stage, primaryElement, coursePuzzleId, onClose }) {
+  const { getToken } = useAuth();
   const welcome = useMemo(() => {
     if (stage === 1) return STAGE_1_WELCOME;
-    if (stage === 2) return STAGE_2_PLACEHOLDER;
+    if (stage === 2) {
+      return (
+        STAGE_2_FLOWS[primaryElement] || STAGE_2_FLOW_DEFAULT
+      );
+    }
     if (stage === 3) return STAGE_3_PLACEHOLDER;
     return "";
-  }, [stage]);
+  }, [stage, primaryElement]);
 
   const [messages, setMessages] = useState(() => [
     { role: "assistant", content: welcome },
   ]);
   const [draft, setDraft] = useState("");
+  const [streaming, setStreaming] = useState(false);
   const scrollRef = useRef(null);
+  const textareaRef = useRef(null);
+  const abortRef = useRef(null);
 
   // Reset the conversation when the stage changes — each stage starts fresh
   // with its own welcome message.
@@ -118,36 +251,160 @@ export default function StageChat({ stage, onClose }) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  function handleSend(e) {
+  // Auto-grow the textarea up to TEXTAREA_MAX_PX. Reset to auto first so
+  // the height shrinks when the user deletes lines, then re-measure
+  // scrollHeight and clamp. useLayoutEffect avoids a flash before paint.
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const next = Math.min(
+      Math.max(el.scrollHeight, TEXTAREA_MIN_PX),
+      TEXTAREA_MAX_PX,
+    );
+    el.style.height = `${next}px`;
+  }, [draft]);
+
+  async function handleSend(e) {
     e.preventDefault();
+    if (streaming) return;
     const trimmed = draft.trim();
     if (!trimmed) return;
 
-    const next = [...messages, { role: "user", content: trimmed }];
-
-    if (stage === 1) {
-      const reply = stage1Reply(trimmed);
-      if (reply) next.push({ role: "assistant", content: reply });
-    } else {
-      next.push({
-        role: "assistant",
-        content:
-          "Stage 2 and Stage 3 chat aren't wired up yet — they'll arrive in a later phase.",
-      });
+    // Stage 3 is still a placeholder — no LLM call yet. The welcome
+    // message contains the reflective prompt; treat any send as a no-op
+    // that drops a friendly nudge.
+    if (stage === 3) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: trimmed },
+        {
+          role: "assistant",
+          content:
+            "Stage 3 chat is still being designed. Use the prompt in the welcome message above for now.",
+        },
+      ]);
+      setDraft("");
+      return;
     }
 
-    setMessages(next);
+    if (!coursePuzzleId) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: trimmed },
+        {
+          role: "assistant",
+          content: "Chat unavailable — missing puzzle context.",
+        },
+      ]);
+      setDraft("");
+      return;
+    }
+
+    // Snapshot history that the model should see (everything BEFORE the
+    // new user message). Map to the wire format expected by the backend.
+    const historyForApi = messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: trimmed },
+      { role: "assistant", content: "", streaming: true },
+    ]);
     setDraft("");
+    setStreaming(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const appendChunk = (chunk) => {
+      setMessages((prev) => {
+        // Append into the last message if it's still the streaming
+        // assistant placeholder we just inserted.
+        const last = prev[prev.length - 1];
+        if (!last || last.role !== "assistant" || !last.streaming) return prev;
+        const updated = {
+          ...last,
+          content: (last.content || "") + chunk,
+        };
+        return [...prev.slice(0, -1), updated];
+      });
+    };
+
+    try {
+      await streamCanvasChat({
+        coursePuzzleId,
+        stage,
+        history: historyForApi,
+        userMessage: trimmed,
+        getToken,
+        onChunk: appendChunk,
+        signal: controller.signal,
+      });
+      // Mark the final assistant message as no-longer-streaming.
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (!last || last.role !== "assistant") return prev;
+        return [
+          ...prev.slice(0, -1),
+          { ...last, streaming: false },
+        ];
+      });
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        // User cancelled; just clear the streaming flag.
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (!last || last.role !== "assistant") return prev;
+          return [
+            ...prev.slice(0, -1),
+            { ...last, streaming: false },
+          ];
+        });
+      } else {
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === "assistant" && last.streaming) {
+            return [
+              ...prev.slice(0, -1),
+              {
+                role: "assistant",
+                content: `⚠️ I couldn't reach the guide just now. ${err?.message || "Try again in a moment."}`,
+                streaming: false,
+              },
+            ];
+          }
+          return prev;
+        });
+      }
+    } finally {
+      abortRef.current = null;
+      setStreaming(false);
+    }
   }
+
+  // Cancel any in-flight stream on unmount or stage change.
+  useEffect(() => {
+    return () => {
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, [stage]);
 
   return (
     <div className="h-full flex flex-col bg-white border-l border-mist">
-      {/* Header */}
+      {/* Header. Deliberately neutral (smoke, not purple). The puzzle
+          eyebrow in the canvas header is the one place that gets the
+          purple treatment; duplicating it here created two competing
+          "primary" labels. The stage indicator at the top of the page
+          already tells you which stage you're on, so we don't repeat it
+          here either. */}
       <div className="px-4 py-3 border-b border-mist flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-change animate-pulse" />
-          <h3 className="text-[11px] font-mono tracking-[0.2em] uppercase text-change">
-            Guide · Stage {stage}
+          <span className="w-2 h-2 rounded-full bg-smoke" />
+          <h3 className="text-[11px] font-mono tracking-[0.2em] uppercase text-smoke">
+            Guide
           </h3>
         </div>
         {onClose && (
@@ -162,9 +419,17 @@ export default function StageChat({ stage, onClose }) {
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4 space-y-4"
+      >
         {messages.map((m, i) => (
-          <ChatBubble key={i} role={m.role} content={m.content} />
+          <ChatBubble
+            key={i}
+            role={m.role}
+            content={m.content}
+            streaming={m.streaming}
+          />
         ))}
       </div>
 
@@ -186,33 +451,95 @@ export default function StageChat({ stage, onClose }) {
           placeholder={
             stage === 1
               ? "Ask about an element or this stage…"
-              : "Stage 2 / 3 chat coming soon…"
+              : stage === 2
+                ? "Ask away — I'll just nudge you back to the flow."
+                : "Stage 3 chat coming soon…"
           }
-          className="flex-1 resize-none border border-mist rounded-md px-3 py-2 text-sm focus:outline-none focus:border-change/60"
-          disabled={stage !== 1}
+          className="flex-1 resize-none scrollbar-hide border border-mist rounded-md px-3 py-2 text-sm focus:outline-none focus:border-change/60 leading-relaxed"
+          disabled={stage === 3 || streaming}
+          ref={textareaRef}
+          style={{ maxHeight: TEXTAREA_MAX_PX, minHeight: TEXTAREA_MIN_PX }}
         />
         <button
           type="submit"
-          disabled={stage !== 1 || !draft.trim()}
-          className="px-3 py-2 bg-change text-white text-sm rounded-md font-medium hover:bg-change/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          disabled={stage === 3 || streaming || !draft.trim()}
+          className="px-3 py-2 bg-primary text-white text-sm rounded-md font-medium hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors self-end"
         >
-          Send
+          {streaming ? "…" : "Send"}
         </button>
       </form>
     </div>
   );
 }
 
-function ChatBubble({ role, content }) {
+// Typewriter hook — gradually reveals `target` while `streaming` is true.
+// When `streaming` flips false we snap to the full target so the user
+// never sees a half-rendered final message. Reveal rate is intentionally
+// fast enough to keep up with Claude (~2 chars per 16ms tick ≈ 125 cps)
+// so we don't lag behind the model on long replies, but slow enough that
+// short replies actually look like they're being typed.
+function useTypewriter(target, streaming) {
+  const [shown, setShown] = useState(target || "");
+  const targetRef = useRef(target || "");
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    targetRef.current = target || "";
+    if (!streaming) {
+      // Stream done — show everything immediately.
+      if (rafRef.current) {
+        clearInterval(rafRef.current);
+        rafRef.current = null;
+      }
+      setShown(targetRef.current);
+      return;
+    }
+    if (rafRef.current) return; // already ticking
+    rafRef.current = setInterval(() => {
+      setShown((prev) => {
+        const t = targetRef.current;
+        if (prev.length >= t.length) return prev;
+        // Reveal more chars per tick the further behind we are, so we
+        // never let the visible text fall too far behind the model.
+        const behind = t.length - prev.length;
+        const step = Math.max(2, Math.ceil(behind / 24));
+        return t.slice(0, prev.length + step);
+      });
+    }, 16);
+    return () => {
+      if (rafRef.current) {
+        clearInterval(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [target, streaming]);
+
+  return shown;
+}
+
+function ChatBubble({ role, content, streaming }) {
+  const visible = useTypewriter(content, !!streaming);
   if (role === "assistant") {
+    // Light-purple container, no avatar tag. Drops the "AI" badge per
+    // user feedback ("obviously it's AI, why tag it?").
+    const showThinking = streaming && !visible;
     return (
-      <div className="flex gap-2.5">
-        <span className="w-7 h-7 rounded-full bg-change/15 text-change flex items-center justify-center text-xs font-bold flex-shrink-0">
-          AI
-        </span>
-        <div className="flex-1 text-sm text-black leading-relaxed whitespace-pre-wrap break-words">
-          {renderMarkdownish(content)}
-        </div>
+      <div className="bg-change/10 border border-change/20 rounded-lg px-3.5 py-3 text-sm text-black leading-relaxed whitespace-pre-wrap break-words">
+        {showThinking ? (
+          <span className="inline-flex items-center gap-1 text-smoke italic">
+            <span className="animate-pulse">Thinking</span>
+            <span className="animate-pulse [animation-delay:120ms]">.</span>
+            <span className="animate-pulse [animation-delay:240ms]">.</span>
+            <span className="animate-pulse [animation-delay:360ms]">.</span>
+          </span>
+        ) : (
+          <>
+            {renderMarkdownish(visible)}
+            {streaming && (
+              <span className="inline-block w-1.5 h-4 align-text-bottom ml-0.5 bg-change/70 animate-pulse" />
+            )}
+          </>
+        )}
       </div>
     );
   }
@@ -225,12 +552,15 @@ function ChatBubble({ role, content }) {
   );
 }
 
-// Tiny inline-bold renderer. Splits on **bold** and renders the bold segments
-// as <strong>. Anything else stays plain text. Keeps us off a markdown lib
-// for what is currently a handful of static replies.
+// Tiny inline-markdown renderer. Splits on **bold** and *italic* and renders
+// them. Anything else stays plain text. Keeps us off a full markdown lib —
+// the model only emits these two inline emphasis patterns. We split on bold
+// FIRST so that *italic* inside **bold** doesn't try to re-match. Single
+// asterisk italics are non-greedy and don't span newlines so a stray
+// asterisk in user content can't run away with the rest of the message.
 function renderMarkdownish(text) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((p, i) => {
+  const boldParts = text.split(/(\*\*[^*]+\*\*)/g);
+  return boldParts.map((p, i) => {
     if (/^\*\*[^*]+\*\*$/.test(p)) {
       return (
         <strong key={i} className="font-semibold">
@@ -238,6 +568,20 @@ function renderMarkdownish(text) {
         </strong>
       );
     }
-    return <span key={i}>{p}</span>;
+    const italicParts = p.split(/(\*[^*\n]+\*)/g);
+    return (
+      <span key={i}>
+        {italicParts.map((q, j) => {
+          if (/^\*[^*\n]+\*$/.test(q)) {
+            return (
+              <em key={j} className="italic">
+                {q.slice(1, -1)}
+              </em>
+            );
+          }
+          return <span key={j}>{q}</span>;
+        })}
+      </span>
+    );
   });
 }

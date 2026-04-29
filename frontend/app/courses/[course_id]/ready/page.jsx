@@ -15,53 +15,12 @@ const ROTATING_PHRASES = [
   "Almost there.",
 ];
 
-// Per-element color tokens. The `label` is the human-readable name shown
-// as a chip on each card so the color tinting has a clear, explicit meaning
-// (instead of users wondering whether the color encodes difficulty).
-const ELEMENT_CARD = {
-  earth: {
-    side: "border-l-earth",
-    tint: "bg-earth/[0.04]",
-    text: "text-earth",
-    chip: "bg-earth/15 text-earth",
-    label: "🌳 Earth · Understand Deeply",
-  },
-  fire: {
-    side: "border-l-fire",
-    tint: "bg-fire/[0.04]",
-    text: "text-fire",
-    chip: "bg-fire/15 text-fire",
-    label: "🔥 Fire · Fail Effectively",
-  },
-  air: {
-    side: "border-l-air",
-    tint: "bg-air/[0.04]",
-    text: "text-air",
-    chip: "bg-air/15 text-air",
-    label: "💨 Air · Create Questions",
-  },
-  water: {
-    side: "border-l-water",
-    tint: "bg-water/[0.04]",
-    text: "text-water",
-    chip: "bg-water/15 text-water",
-    label: "🌊 Water · Flow with Ideas",
-  },
-  synthesis: {
-    side: "border-l-change",
-    tint: "bg-change/[0.04]",
-    text: "text-change",
-    chip: "bg-change/15 text-change",
-    label: "🪨 Change · Synthesis",
-  },
-};
-const ELEMENT_CARD_FALLBACK = {
-  side: "border-l-smoke",
-  tint: "bg-mist/30",
-  text: "text-smoke",
-  chip: "bg-mist text-smoke",
-  label: "Mixed",
-};
+// Puzzle cards on the Ready screen are intentionally generic. Earlier we
+// tinted each card by its `primary_element` (earth/fire/air/water/synthesis),
+// but that leaked which element the puzzle was designed to train — the user
+// is supposed to discover that themselves on the canvas. The element identity
+// is only revealed inside Stage 2 (Redirect). So: no per-element color, no
+// per-element chip, no element-specific copy.
 
 const TERMINAL_STATUSES = new Set([
   "ready",
@@ -293,18 +252,30 @@ export default function CourseReadyPage() {
 
 function LoadingView({ title, phrase }) {
   return (
-    <div className="min-h-screen bg-white pt-24 pb-16">
-      <div className="max-w-[640px] mx-auto px-6">
-        <p className="font-mono text-[11px] tracking-[0.2em] text-smoke uppercase mb-4">
+    <div className="min-h-screen bg-white pt-40 pb-16">
+      <div className="max-w-[1536px] mx-auto px-6">
+        <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase mb-4">
           Generating Your Course
         </p>
-        <h1 className="font-display text-4xl tb:text-5xl text-black leading-[1.1] tracking-tight mb-10">
+        <h1 className="font-display text-4xl tb:text-5xl text-black leading-[1.1] tracking-tight mb-10 max-w-3xl">
+          <span className="text-smoke">Becoming a more effective thinker <em className="italic">in</em></span>{" "}
           {title}
         </h1>
+
+        {/* Indeterminate progress bar — visibly moving so the user knows
+            something is actually happening. Backend status stream still
+            drives transitions; this is purely the "I'm working" signal. */}
+        <div className="relative max-w-2xl h-1.5 bg-mist rounded-full overflow-hidden mb-6">
+          <div
+            className="absolute top-0 h-full w-1/3 bg-change rounded-full"
+            style={{ animation: "course-build-slide 1.6s ease-in-out infinite" }}
+          />
+        </div>
+
         <div className="flex items-center gap-3 mb-8">
           <span className="relative flex h-3 w-3">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-black opacity-50 animate-ping" />
-            <span className="relative inline-flex h-3 w-3 rounded-full bg-black" />
+            <span className="absolute inline-flex h-full w-full rounded-full bg-change opacity-50 animate-ping" />
+            <span className="relative inline-flex h-3 w-3 rounded-full bg-change" />
           </span>
           <p className="font-serif italic text-ash text-lg leading-relaxed transition-opacity duration-700">
             {phrase}
@@ -327,25 +298,15 @@ function ReadyView({ title, puzzles }) {
             Your Course
           </p>
           <h1 className="font-display text-4xl tb:text-5xl text-black leading-[1.1] tracking-tight">
+            <span className="text-smoke">Becoming a more effective thinker <em className="italic">in</em></span>{" "}
             {title}
           </h1>
         </div>
 
-        {/* Element legend — explains what the puzzle-card colors mean. */}
-        <div className="mb-8 flex flex-wrap items-center gap-2 text-[11px] font-mono">
-          <span className="text-smoke uppercase tracking-[0.2em] mr-2">
-            Element key:
-          </span>
-          {Object.values(ELEMENT_CARD).map((c) => (
-            <span
-              key={c.label}
-              className={`px-2 py-1 rounded ${c.chip}`}
-            >
-              {c.label}
-            </span>
-          ))}
-        </div>
-
+        {/* Puzzle cards are deliberately generic — no element coloring or
+            labeling here. The user discovers each puzzle's primary element
+            through their own work on the canvas; the element identity is
+            only revealed in Stage 2 (Redirect). */}
         <div className="grid grid-cols-1 tb:grid-cols-2 lp:grid-cols-3 gap-6">
           {puzzles.map((p) => (
             <PuzzleCard key={p.id} puzzle={p} />
@@ -366,25 +327,27 @@ function ReadyView({ title, puzzles }) {
 }
 
 function PuzzleCard({ puzzle }) {
-  const card =
-    ELEMENT_CARD[puzzle.primary_element] || ELEMENT_CARD_FALLBACK;
   const roman = toRoman(puzzle.position);
+  // Stage > 1 means the user has already advanced past Think on this
+  // puzzle — show "Resume" instead of "Begin" and surface the stage so
+  // they know where they're picking up.
+  const stage = Number(puzzle.current_stage) || 1;
+  const inProgress = stage > 1;
+  const stageLabel = stage === 2 ? "Stage 2 — Redirect" : stage === 3 ? "Stage 3 — Quintessence" : null;
   return (
-    <div
-      className={`relative bg-white border border-mist border-l-4 ${card.side} ${card.tint} p-6 rounded-r-lg shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col`}
-    >
-      <div className="flex items-center justify-between mb-3 gap-3">
-        <p
-          className={`font-mono text-[11px] tracking-[0.2em] uppercase ${card.text}`}
-        >
+    <div className="relative bg-white border border-mist border-l-4 border-l-smoke/60 p-6 rounded-r-lg shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="font-mono text-[11px] tracking-[0.2em] uppercase text-smoke">
           Puzzle {roman}
         </p>
-        <span
-          className={`text-[10px] font-mono px-2 py-1 rounded ${card.chip}`}
-          title="Primary element this puzzle trains"
-        >
-          {card.label}
-        </span>
+        {inProgress && (
+          <span
+            className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-change/10 text-change border border-change/20"
+            title={stageLabel || undefined}
+          >
+            In progress · Stage {stage}
+          </span>
+        )}
       </div>
       <h3 className="font-display text-2xl text-black leading-snug mb-3">
         {puzzle.title}
@@ -395,10 +358,10 @@ function PuzzleCard({ puzzle }) {
       <div className="flex items-center gap-3">
         <Link href={`/canvas/${puzzle.id}`}>
           <Button
-            className="bg-change text-white hover:bg-change/90 font-medium"
+            className="bg-primary text-white hover:bg-primary/90 font-medium"
             radius="none"
           >
-            Begin →
+            {inProgress ? "Resume →" : "Begin →"}
           </Button>
         </Link>
       </div>

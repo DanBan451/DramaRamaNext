@@ -91,13 +91,13 @@ export default function CoursesPage() {
                 Your Courses
               </p>
               <h1 className="font-display text-4xl lp:text-5xl text-black tracking-tight">
-                What you&apos;re training for.
+                Becoming a more effective thinker <em className="italic">in</em>
               </h1>
             </div>
             <Button
               as={Link}
               href="/course/new"
-              className="bg-change text-white hover:bg-change/90 font-medium"
+              className="bg-primary text-white hover:bg-primary/90 font-medium"
               radius="none"
             >
               + New Course
@@ -122,7 +122,7 @@ export default function CoursesPage() {
               <Button
                 as={Link}
                 href="/course/new"
-                className="bg-change text-white hover:bg-change/90 font-medium"
+                className="bg-primary text-white hover:bg-primary/90 font-medium"
                 radius="none"
               >
                 Start Your First Course

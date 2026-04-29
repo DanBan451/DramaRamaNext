@@ -288,6 +288,11 @@ class CoursePuzzle(BaseModel):
     status: _Literal["pending", "in_progress", "completed", "skipped"] = "pending"
     completed_at: Optional[datetime] = None
 
+    # Which stage the user is currently on (1=Think, 2=Redirect,
+    # 3=Quintessence). Defaults to 1 for fresh puzzles. The canvas page
+    # restores this on mount so leaving and returning preserves progress.
+    current_stage: int = 1
+
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -308,6 +313,11 @@ class Thought(BaseModel):
 
     pos_x: float = 0
     pos_y: float = 0
+
+    # AI-generated nudge thoughts dropped on the canvas at the Stage 1 →
+    # Stage 2 transition. Default False; set True only by the nudge
+    # generation endpoint.
+    is_nudge: bool = False
 
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

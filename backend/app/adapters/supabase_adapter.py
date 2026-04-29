@@ -622,9 +622,32 @@ class SupabaseCoursePuzzleRepository(CoursePuzzleRepository):
             bridge_back=row["bridge_back"],
             status=row.get("status", "pending"),
             completed_at=self._parse_dt(row.get("completed_at")),
+            current_stage=int(row.get("current_stage") or 1),
             created_at=self._parse_dt(row.get("created_at")),
             updated_at=self._parse_dt(row.get("updated_at")),
         )
+
+    async def update_current_stage(
+        self, puzzle_id: str, current_stage: int
+    ) -> CoursePuzzle:
+        if current_stage < 1 or current_stage > 3:
+            raise ValueError(
+                f"current_stage must be 1..3, got {current_stage}"
+            )
+        result = (
+            self.client.table("course_puzzles")
+            .update(
+                {
+                    "current_stage": current_stage,
+                    "updated_at": datetime.utcnow().isoformat(),
+                }
+            )
+            .eq("id", puzzle_id)
+            .execute()
+        )
+        if not result.data:
+            raise ValueError(f"Puzzle {puzzle_id} not found")
+        return self._row_to_course_puzzle(result.data[0])
 
     async def create_many(
         self,
@@ -751,6 +774,7 @@ class SupabaseThoughtRepository(ThoughtRepository):
             time_spent_seconds=row.get("time_spent_seconds"),
             pos_x=row.get("pos_x", 0) or 0,
             pos_y=row.get("pos_y", 0) or 0,
+            is_nudge=bool(row.get("is_nudge", False)),
             created_at=self._parse_dt(row.get("created_at")),
             updated_at=self._parse_dt(row.get("updated_at")),
         )
@@ -765,6 +789,7 @@ class SupabaseThoughtRepository(ThoughtRepository):
         pos_x: float,
         pos_y: float,
         time_spent_seconds: Optional[int],
+        is_nudge: bool = False,
     ) -> Thought:
         # Assign flow_order = max(flow_order) + 1 for this puzzle.
         # Race-condition tolerant per phase 4b design note — duplicate
@@ -792,9 +817,22 @@ class SupabaseThoughtRepository(ThoughtRepository):
             "time_spent_seconds": time_spent_seconds,
             "pos_x": pos_x,
             "pos_y": pos_y,
+            "is_nudge": is_nudge,
         }
         result = self.client.table("thoughts").insert(data).execute()
         return self._row_to_thought(result.data[0])
+
+    async def count_nudges(self, course_puzzle_id: str) -> int:
+        result = (
+            self.client.table("thoughts")
+            .select("id", count="exact")
+            .eq("course_puzzle_id", course_puzzle_id)
+            .eq("is_nudge", True)
+            .execute()
+        )
+        # Supabase Python client exposes the exact count via .count when
+        # count="exact" is requested; fall back to len(data) defensively.
+        return getattr(result, "count", None) or len(result.data or [])
 
     async def get_by_id(self, thought_id: str) -> Optional[Thought]:
         result = (

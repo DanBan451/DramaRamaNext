@@ -23,7 +23,96 @@ import {
   deleteThought as apiDeleteThought,
   createConnection as apiCreateConnection,
   deleteConnection as apiDeleteConnection,
+  generateStage2Nudges,
+  updateCurrentStage,
 } from "@/lib/canvas-api";
+
+// Block geometry — must match Canvas.tsx constants. Used to lay nudges
+// out without overlapping existing thoughts. If you change these in
+// Canvas.tsx, update them here too.
+const BLOCK_WIDTH = 280;
+const BLOCK_MIN_HEIGHT = 100;
+const BLOCK_GAP_X = 80;
+const BLOCK_GAP_Y = 60;
+// Canvas.tsx mounts centered on (CANVAS_INITIAL/2, CANVAS_INITIAL/2).
+// When the user has no thoughts yet and advances to Stage 2 immediately,
+// we drop nudges near that center so they're inside the viewport instead
+// of all the way at (200, 200).
+const CANVAS_VIEWPORT_CENTER = 4000;
+
+// Compute 4 nudge positions that EXTEND the user's existing flow rather
+// than landing far away. Strategy:
+//   1. If the user has thoughts: place nudges in a 2x2 grid to the RIGHT
+//      of the rightmost existing thought, vertically centered around the
+//      vertical centroid of the existing thoughts. Avoid overlap with
+//      any existing block by nudging Y if a candidate intersects.
+//   2. If the user has no thoughts: drop them in a 2x2 grid near origin.
+function computeNudgePositions(thoughts) {
+  const cols = 2;
+  const rows = 2;
+  const stepX = BLOCK_WIDTH + BLOCK_GAP_X; // 360
+  const stepY = BLOCK_MIN_HEIGHT + BLOCK_GAP_Y; // 160
+
+  if (!thoughts || thoughts.length === 0) {
+    // Center the 2x2 grid roughly on the initial canvas viewport so the
+    // nudges land in front of the user's eyes the moment they appear.
+    const totalW = cols * stepX - BLOCK_GAP_X;
+    const totalH = rows * stepY - BLOCK_GAP_Y;
+    const startX = CANVAS_VIEWPORT_CENTER - totalW / 2;
+    const startY = CANVAS_VIEWPORT_CENTER - totalH / 2;
+    const out = [];
+    for (let r = 0; r < rows; r += 1) {
+      for (let c = 0; c < cols; c += 1) {
+        out.push([startX + c * stepX, startY + r * stepY]);
+      }
+    }
+    return out;
+  }
+
+  // Bounding box of existing thoughts.
+  let minY = Infinity;
+  let maxY = -Infinity;
+  let maxRight = -Infinity;
+  for (const t of thoughts) {
+    minY = Math.min(minY, t.pos_y);
+    maxY = Math.max(maxY, t.pos_y + BLOCK_MIN_HEIGHT);
+    maxRight = Math.max(maxRight, t.pos_x + BLOCK_WIDTH);
+  }
+  const startX = maxRight + BLOCK_GAP_X;
+  const blockHeight = rows * stepY - BLOCK_GAP_Y;
+  const centerY = (minY + maxY) / 2;
+  const startY = Math.max(0, centerY - blockHeight / 2);
+
+  // Lay out 2x2 grid to the right.
+  const candidates = [];
+  for (let r = 0; r < rows; r += 1) {
+    for (let c = 0; c < cols; c += 1) {
+      candidates.push([startX + c * stepX, startY + r * stepY]);
+    }
+  }
+
+  // Avoid overlap with any existing thought (cheap rectangular check).
+  // If a candidate overlaps, shift it down by stepY until it doesn't.
+  const overlaps = (x, y) => {
+    for (const t of thoughts) {
+      const ox = t.pos_x;
+      const oy = t.pos_y;
+      const xOverlap = x < ox + BLOCK_WIDTH && x + BLOCK_WIDTH > ox;
+      const yOverlap = y < oy + BLOCK_MIN_HEIGHT && y + BLOCK_MIN_HEIGHT > oy;
+      if (xOverlap && yOverlap) return true;
+    }
+    return false;
+  };
+  return candidates.map(([x, y]) => {
+    let cy = y;
+    let safety = 20;
+    while (overlaps(x, cy) && safety > 0) {
+      cy += stepY;
+      safety -= 1;
+    }
+    return [x, cy];
+  });
+}
 
 function makeTempId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -52,6 +141,12 @@ export default function CanvasPage() {
   // Once you advance you can't go back: that's the intended UX.
   const [stage, setStage] = useState(1);
   const [confirmAdvance, setConfirmAdvance] = useState(false);
+  // Stage 2 seeds AI "nudge" thoughts onto the canvas. We track an
+  // in-flight flag so the user can't double-trigger generation while the
+  // model is thinking. The endpoint itself is idempotent at the puzzle
+  // level — re-calling returns the existing nudges — so this flag is
+  // mostly UX (prevents spinners flickering on re-renders).
+  const [seedingNudges, setSeedingNudges] = useState(false);
 
   // Collapsible side panels. Hidden state is local UI only — no need to
   // persist between sessions yet.
@@ -98,6 +193,11 @@ export default function CanvasPage() {
         setCoursePuzzle(state.course_puzzle);
         setThoughts(state.thoughts || []);
         setConnections(state.connections || []);
+        // Restore persisted stage so leaving the canvas and returning
+        // resumes where the user left off (instead of dropping back to
+        // Stage 1 every refresh).
+        const persistedStage = Number(state.course_puzzle?.current_stage) || 1;
+        setStage(Math.min(3, Math.max(1, persistedStage)));
       } catch (e) {
         if (!cancelled) setError(e?.message || "Failed to load canvas");
       } finally {
@@ -333,13 +433,63 @@ export default function CanvasPage() {
     setSelectedSubElement(null);
   }
 
-  function advanceStage() {
+  async function advanceStage() {
     if (stage >= 3) return;
     // Once you advance, you can't go back. The big confirm dialog drives
     // this point home; user explicitly asked for the commitment to be
     // visible.
-    setStage((s) => s + 1);
+    const nextStage = stage + 1;
+    setStage(nextStage);
     setConfirmAdvance(false);
+
+    // Persist stage to the server so leaving the canvas and coming back
+    // restores the same stage. Fire-and-forget — UI already reflects the
+    // new stage; we just don't want to drop back on next load.
+    updateCurrentStage(coursePuzzleId, nextStage, getToken).catch((e) => {
+      // Surface but don't roll back — the user clearly intended to advance.
+      // Worst case: refresh shows the old stage and they advance again.
+      notifyError(
+        e?.message || "Stage saved locally, but couldn't sync to server.",
+      );
+    });
+
+    // Stage 1 → 2 seeds AI nudge blocks on the canvas. Only nudges if
+    // none already exist (the backend is idempotent on this anyway, but
+    // we still gate locally to avoid an unnecessary network call). We
+    // pass the user's current thought contents so the model can extend
+    // their flow rather than start from scratch, and explicit positions
+    // so nudges land NEXT TO the existing flow rather than far off-screen.
+    if (nextStage === 2 && !seedingNudges) {
+      const alreadyHasNudges = thoughts.some((t) => t.is_nudge);
+      if (alreadyHasNudges) return;
+
+      setSeedingNudges(true);
+      const userOnly = thoughts.filter((t) => !t.is_nudge);
+      const userThoughts = userOnly.map((t) => t.content).filter(Boolean);
+      const positions = computeNudgePositions(userOnly);
+      try {
+        const { nudges } = await generateStage2Nudges(
+          coursePuzzleId,
+          userThoughts,
+          positions,
+          getToken,
+        );
+        if (nudges?.length) {
+          // Merge in: skip any duplicates (defense against double-clicks).
+          setThoughts((prev) => {
+            const have = new Set(prev.map((t) => t.id));
+            const fresh = nudges.filter((n) => !have.has(n.id));
+            return [...prev, ...fresh];
+          });
+        }
+      } catch (e) {
+        notifyError(
+          e?.message || "Couldn't drop AI nudges on your canvas — try again later.",
+        );
+      } finally {
+        setSeedingNudges(false);
+      }
+    }
   }
 
   // ---------- Render ----------
@@ -421,7 +571,7 @@ export default function CanvasPage() {
         <header className="border-b border-mist px-4 py-3 flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <div className="text-[11px] uppercase tracking-[0.2em] text-change mb-1 font-mono">
-              Puzzle {coursePuzzle.position} · {coursePuzzle.primary_element}
+              Puzzle {coursePuzzle.position}
             </div>
             <h1 className="text-lg font-serif text-black break-words leading-tight">
               {coursePuzzle.title}
@@ -437,7 +587,7 @@ export default function CanvasPage() {
             {stage < 3 ? (
               <button
                 onClick={() => setConfirmAdvance(true)}
-                className="text-sm font-medium px-3 py-1.5 bg-change text-white rounded-md hover:bg-change/90 transition-colors"
+                className="text-sm font-medium px-3 py-1.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
                 title="Advance to the next stage (no going back)"
               >
                 Next Stage →
@@ -450,19 +600,30 @@ export default function CanvasPage() {
           </div>
         </header>
 
-        {/* Stage 2/3 placeholders are rendered as a banner above the canvas
-            since their backends don't exist yet. The canvas itself remains
-            interactive in all stages — the user can keep editing thoughts. */}
-        {stage > 1 && (
-          <div className="border-b border-mist bg-change/[0.04] px-4 py-3 text-sm text-ash">
-            <strong className="text-change">Stage {stage}</strong> isn&apos;t
-            wired to the AI backend yet. The canvas stays editable and the
-            chat panel on the right has a placeholder describing what this
-            stage will do once Phase 5 ships.
-          </div>
-        )}
+        {/* No more "coming in Phase X" banners. Stage 2 is real (canned
+            per-element flow + scripted deflection). Stage 3 still has a
+            placeholder welcome inside the chat itself; no banner needed. */}
 
         <div className="flex-1 relative overflow-hidden">
+          {/* Nudge-seeding banner. Shown while the Stage 2 nudge endpoint
+              is in flight so the user has clear feedback that something
+              is happening on the canvas (the network round-trip + LLM
+              call can take several seconds). Sits above the canvas as a
+              non-blocking overlay so the user can still pan/zoom while
+              waiting. Disappears the instant nudges are appended. */}
+          {seedingNudges && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-white/95 border border-change/30 shadow-md backdrop-blur">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-change opacity-60 animate-ping" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-change" />
+                </span>
+                <span className="text-xs font-medium text-change">
+                  Dropping AI nudges on your canvas…
+                </span>
+              </div>
+            </div>
+          )}
           <Canvas
             coursePuzzleId={coursePuzzleId}
             thoughts={thoughts}
@@ -483,7 +644,12 @@ export default function CanvasPage() {
       {/* ─── Right: Stage chat panel (collapsible) ─────────────────────── */}
       {chatOpen ? (
         <aside className="w-80 shrink-0">
-          <StageChat stage={stage} onClose={() => setChatOpen(false)} />
+          <StageChat
+            stage={stage}
+            primaryElement={coursePuzzle.primary_element}
+            coursePuzzleId={coursePuzzleId}
+            onClose={() => setChatOpen(false)}
+          />
         </aside>
       ) : (
         <button
@@ -503,22 +669,34 @@ export default function CanvasPage() {
             <h2 className="font-display text-2xl text-black mb-2">
               Advance to Stage {stage + 1}?
             </h2>
-            <p className="text-sm text-smoke mb-6">
+            <p className="text-sm text-smoke mb-2">
               Once you move on, you can&apos;t come back to Stage {stage}.
               Make sure you&apos;ve put real thinking work in here first.
             </p>
+            {stage === 1 && (
+              <p className="text-sm text-change mb-6">
+                When you advance, the guide will drop a few <strong>nudge
+                blocks</strong> onto your canvas to extend your flow. You
+                can move, edit, or delete them like your own thoughts.
+              </p>
+            )}
+            {stage !== 1 && <div className="mb-6" />}
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setConfirmAdvance(false)}
-                className="px-4 py-2 text-sm text-smoke hover:text-black"
+                disabled={seedingNudges}
+                className="px-4 py-2 text-sm text-smoke hover:text-black disabled:opacity-40"
               >
                 Stay on Stage {stage}
               </button>
               <button
                 onClick={advanceStage}
-                className="px-4 py-2 text-sm bg-change text-white rounded-md hover:bg-change/90 font-medium"
+                disabled={seedingNudges}
+                className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary/90 font-medium disabled:opacity-60"
               >
-                Advance to Stage {stage + 1}
+                {seedingNudges
+                  ? "Dropping nudges…"
+                  : `Advance to Stage ${stage + 1}`}
               </button>
             </div>
           </div>
@@ -535,10 +713,14 @@ export default function CanvasPage() {
 }
 
 function StageIndicator({ current }) {
+  // Stage names rephrased per user feedback:
+  //   2 (Redirect) — AI nudges the user back onto a productive path.
+  //   3 (Quintessence) — connect this puzzle back to the larger goal that
+  //     prompted the course.
   const stages = [
     { n: 1, label: "Think" },
-    { n: 2, label: "Extend" },
-    { n: 3, label: "Synthesize" },
+    { n: 2, label: "Redirect" },
+    { n: 3, label: "Quintessence" },
   ];
   return (
     <div className="hidden tb:flex items-center gap-1 text-[11px] font-mono">

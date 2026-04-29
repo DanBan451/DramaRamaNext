@@ -1,7 +1,7 @@
 """
 Claude Adapter - Implementation of LLM port using Anthropic Claude
 """
-from typing import AsyncGenerator
+from typing import AsyncGenerator, List, Dict
 import anthropic
 
 from app.core.config import settings
@@ -44,6 +44,30 @@ class ClaudeStreamingAdapter(LLMClient):
             model=self.model,
             max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
+        )
+        if system:
+            kwargs["system"] = system
+        with self.client.messages.stream(**kwargs) as stream:
+            for text in stream.text_stream:
+                yield text
+
+    async def generate_stream_with_messages(
+        self,
+        messages: List[Dict[str, str]],
+        system: str = "",
+        max_tokens: int = 1500,
+    ) -> AsyncGenerator[str, None]:
+        """Stream a response given a structured message history.
+
+        Use this instead of `generate_stream_with_system` when the caller
+        wants Claude to see proper {role: user|assistant} turns. Cramming
+        the conversation into a single user prompt causes the model to
+        hallucinate role-prefixed turns ("User: ...") in its output.
+        """
+        kwargs = dict(
+            model=self.model,
+            max_tokens=max_tokens,
+            messages=messages,
         )
         if system:
             kwargs["system"] = system

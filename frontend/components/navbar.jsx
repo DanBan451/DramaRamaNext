@@ -57,7 +57,11 @@ export const Navbar = () => {
     { name: "Profile", path: "/profile" },
   ];
 
-  const isActive = (path) => pathname === path;
+  const isActive = (path) => {
+    if (!pathname) return false;
+    if (path === "/") return pathname === "/";
+    return pathname === path || pathname.startsWith(`${path}/`);
+  };
 
   return (
     <NextUINavbar

@@ -169,6 +169,10 @@ class CoursePuzzleResponse(BaseModel):
     bridge_back: str
     status: str
     completed_at: Optional[datetime] = None
+    # Persisted stage (1..3). Lets the frontend show "Resume" vs "Begin"
+    # on the puzzle list and restore the user back to their stage when
+    # they re-open the canvas.
+    current_stage: int = 1
 
 
 class CoursePuzzlesResponse(BaseModel):
@@ -215,6 +219,7 @@ class ThoughtResponse(BaseModel):
     time_spent_seconds: Optional[int] = None
     pos_x: float
     pos_y: float
+    is_nudge: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -241,3 +246,47 @@ class CanvasStateResponse(BaseModel):
 
 class DevRedirectResponse(BaseModel):
     course_puzzle_id: str
+
+
+class CanvasChatMessage(BaseModel):
+    """One turn in a canvas stage-chat history.
+
+    Kept intentionally minimal. The frontend owns the conversation state;
+    we only need enough to assemble a prompt for the LLM."""
+
+    role: str  # "user" | "assistant"
+    content: str
+
+
+class CanvasChatRequest(BaseModel):
+    stage: int  # 1, 2, or 3
+    history: List[CanvasChatMessage] = []
+    user_message: str
+
+
+class CanvasStageUpdateRequest(BaseModel):
+    """PATCH body for /canvas/{cp_id}/stage. Server-side validation also
+    clamps to 1..3 (matches the DB CHECK constraint)."""
+
+    current_stage: int
+
+
+class CanvasNudgesRequest(BaseModel):
+    """Inputs to the Stage 2 nudge seeder.
+
+    - `existing_thoughts` is a snapshot of the user's current thoughts at
+      the Stage 1 → Stage 2 boundary so the LLM can EXTEND their flow
+      rather than start cold.
+    - `positions` is a precomputed list of (x, y) where the frontend
+      wants each nudge dropped. The frontend knows the canvas geometry
+      better than we do (block dimensions, current viewport, etc.) so we
+      let it pick. If empty, the server falls back to a 2x2 grid offset
+      from origin (used in tests / older clients).
+    """
+
+    existing_thoughts: List[str] = []
+    positions: List[List[float]] = []  # list of [x, y] pairs
+
+
+class CanvasNudgesResponse(BaseModel):
+    nudges: List[ThoughtResponse]

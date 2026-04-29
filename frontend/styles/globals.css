@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Force a white page background BEFORE React paints. Without this, when
+   the user's OS is in dark mode the browser briefly paints a black canvas
+   between route transitions (Begin → puzzle was the most visible offender)
+   before our `body { bg-white }` rule kicks in. The flash is the html
+   element itself, not the body — Tailwind's body class can't cover it. */
+html {
+  background-color: #ffffff;
+  color-scheme: light;
+}
+
 /* Canvas component (ported from Weaponry) — scoped CSS variables.
    Only applied inside .canvas-host so we don't pollute the global palette. */
 .canvas-host {
@@ -55,6 +65,18 @@
   --color-ash: #333333;
   --color-smoke: #666666;
   --color-mist: #F5F5F5;
+}
+
+/* Hide scrollbars utility — used in canvas side panels where the scrollbar
+   distracts from the work surface. Keeps scroll behavior, just hides the UI. */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* Custom scrollbar */
@@ -421,6 +443,21 @@
   50.01%, 100% {
     left: -150%;
   }
+}
+
+/* Indeterminate progress bar — used on the course-generation loading
+   screen (and anywhere we want a visible "I'm working" sweep). The bar
+   slides left → right and loops. */
+@keyframes course-build-slide {
+  0% { left: -33%; }
+  100% { left: 100%; }
+}
+
+/* Intake progress bar pulse — gives a subtle shimmer to the intake
+   progress bar on /course/new so it feels alive, not static. */
+@keyframes intake-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
 }
 
 /* Primary button styles - purple */

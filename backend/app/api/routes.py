@@ -23,6 +23,9 @@ from app.api.schemas import (
     ThoughtUpdateContentRequest, ThoughtUpdateTaggingRequest,
     ThoughtResponse, ConnectionCreateRequest, ConnectionResponse,
     CanvasStateResponse, DevRedirectResponse,
+    CanvasChatRequest,
+    CanvasNudgesRequest, CanvasNudgesResponse,
+    CanvasStageUpdateRequest,
 )
 from app.domain.entities import (
     Response, Hint, Element, SessionStatus,
@@ -32,7 +35,7 @@ from app.domain.entities import (
 from app.domain.services import (
     build_session_completion_prompt, build_extract_understanding_prompt,
     build_extract_insight_prompt, build_batched_chat_prompt,
-    build_intake_chatbot_prompt,
+    build_intake_chatbot_system_prompt,
 )
 from app.adapters.supabase_adapter import (
     SupabaseUserRepository,
@@ -786,6 +789,27 @@ async def start_course_intake(
     return CourseIntakeStartResponse(course_id=course.id)
 
 
+def _scrub_role_prefixes(text: str) -> str:
+    """Belt-and-suspenders scrub of stray "User:" / "Assistant:" prefixes
+    Claude sometimes leaks at the start of a line. The proper fix is the
+    prompt + structured-message refactor in `course_intake_message`; this
+    only runs as a safety net for older sessions or model drift.
+    """
+    if not text:
+        return text
+    cleaned_lines = []
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        for prefix in ("User:", "Assistant:", "USER:", "ASSISTANT:"):
+            if stripped.startswith(prefix):
+                stripped = stripped[len(prefix):].lstrip()
+                break
+        # Preserve original leading whitespace where we didn't strip a
+        # prefix, but emit the cleaned line otherwise.
+        cleaned_lines.append(stripped if stripped != line.lstrip() else line)
+    return "\n".join(cleaned_lines)
+
+
 async def _handle_intake_response(course_id: str, full_response: str) -> None:
     """Persist the assistant turn after the SSE stream finishes.
 
@@ -794,6 +818,7 @@ async def _handle_intake_response(course_id: str, full_response: str) -> None:
     the structured fields via complete_intake. Otherwise save the response
     as-is and leave intake open.
     """
+    full_response = _scrub_role_prefixes(full_response)
     marker = "<<INTAKE_COMPLETE>>"
     if marker in full_response:
         visible_part, _, json_part = full_response.partition(marker)
@@ -866,17 +891,21 @@ async def course_intake_message(
     user_msg = IntakeMessage(role="user", content=user_message)
     course = await course_repo.append_intake_message(course_id, user_msg)
 
-    # 2. Build prompt
+    # 2. Build system prompt + structured message history. Inlining the
+    # transcript into a single user prompt previously caused Claude to
+    # leak "User:" / "Assistant:" prefixes into its replies. Passing the
+    # turns as proper messages fixes that and also gives Claude a
+    # cleaner sense of where it is in the conversation.
     history = [{"role": m.role, "content": m.content} for m in course.intake_messages]
-    prompt = build_intake_chatbot_prompt(history)
+    system_prompt = build_intake_chatbot_system_prompt()
 
     # 3. Stream + capture
     buffer: List[str] = []
 
     async def stream_and_capture():
-        async for chunk in llm_client.generate_stream_with_system(
-            prompt=prompt,
-            system="",  # all instructions live in the user prompt itself
+        async for chunk in llm_client.generate_stream_with_messages(
+            messages=history,
+            system=system_prompt,
             max_tokens=1500,
         ):
             buffer.append(chunk)
@@ -1059,6 +1088,7 @@ def _cp_to_response(cp) -> CoursePuzzleResponse:
         bridge_back=cp.bridge_back,
         status=cp.status,
         completed_at=cp.completed_at,
+        current_stage=getattr(cp, "current_stage", 1) or 1,
     )
 
 
@@ -1073,6 +1103,7 @@ def _thought_to_response(t) -> ThoughtResponse:
         time_spent_seconds=t.time_spent_seconds,
         pos_x=t.pos_x,
         pos_y=t.pos_y,
+        is_nudge=getattr(t, "is_nudge", False),
         created_at=t.created_at,
         updated_at=t.updated_at,
     )
@@ -1116,6 +1147,42 @@ async def _verify_connection_ownership(connection_id: str, user):
         raise HTTPException(status_code=404, detail="Connection not found")
     await _verify_puzzle_ownership(c.course_puzzle_id, user)
     return c
+
+
+@router.patch(
+    "/canvas/{course_puzzle_id}/stage",
+    response_model=CoursePuzzleResponse,
+)
+async def update_canvas_stage(
+    course_puzzle_id: str,
+    request: CanvasStageUpdateRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Persist the user's current stage on a course_puzzle.
+
+    Called by the canvas page on each Stage advance. Without this, leaving
+    the canvas and coming back drops the user back to Stage 1, which makes
+    the AI nudge re-seed pointless and forces re-doing work."""
+    user = current_user["db_user"]
+    cp = await _verify_puzzle_ownership(course_puzzle_id, user)
+
+    new_stage = request.current_stage
+    if new_stage < 1 or new_stage > 3:
+        raise HTTPException(
+            status_code=400,
+            detail="current_stage must be 1, 2, or 3",
+        )
+    # Refuse to go BACKWARD. Stage advancement is one-way by product
+    # design, and a stale tab racing with a fresh one shouldn't be able
+    # to undo progress.
+    if new_stage < (cp.current_stage or 1):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot move to an earlier stage",
+        )
+
+    updated = await puzzle_repo.update_current_stage(course_puzzle_id, new_stage)
+    return _cp_to_response(updated)
 
 
 @router.get(
@@ -1273,6 +1340,373 @@ async def delete_connection_endpoint(
     await _verify_connection_ownership(connection_id, user)
     await connection_repo.delete(connection_id)
     return None
+
+
+# ============ Canvas: Stage chat (real LLM) ============
+
+# Element + sub-element copy used to anchor the system prompt.
+#
+# CRITICAL: Keep this in sync with `frontend/lib/elements.ts` — both the
+# element list and the EXACT sub-element names. The previous version only
+# listed top-level elements, which caused the model to confidently deny
+# the existence of named sub-elements ("there's no separate 'Fail Again'
+# element") even though they're real items in the app's UI. By naming
+# every sub-element here, the model can reference them concretely (e.g.
+# "Fire → Fail Again") and the user gets matching guidance.
+_CANVAS_ELEMENTS_REFERENCE = (
+    "🌳 Earth — Understand Deeply. Master basics before you reach for clever moves.\n"
+    "  • Earth → Start with Simple — solve a simpler version first; nail the absolute fundamentals.\n"
+    "  • Earth → Spotlight the Specific — build a concrete example simpler than the original; probe it; recast back.\n"
+    "  • Earth → Add the Adjective — pick a descriptor (iterative? defensive? sequential?) and stay with it until insight.\n"
+    "\n"
+    "🔥 Fire — Fail Effectively. Failed attempts narrow the search space.\n"
+    "  • Fire → Fail Fast — never stare at a blank page; write SOMETHING (even wrong) so you have a thing to react to.\n"
+    "  • Fire → Fail Again — pursue failure on purpose; treat each failed attempt as a precious joule of understanding.\n"
+    "  • Fire → Fail Intentionally — invent a deliberately extreme/impossible scenario, then tame it by analyzing where it breaks.\n"
+    "\n"
+    "💨 Air — Create Questions. The right question opens doors no answer can.\n"
+    "  • Air → Be Your Own Socrates — ask the meta-question: what is the REAL question here? Are you asking the right one?\n"
+    "  • Air → Ask Basic Questions — ask the fundamental knowledge questions you've been skipping; they unlock structure.\n"
+    "  • Air → Ask Another Question — when stuck, switch to a different but related question; come back refreshed.\n"
+    "\n"
+    "🌊 Water — Flow with Ideas. Run multiple paths in parallel; doubt what feels obvious.\n"
+    "  • Water → Run Down All Paths — stick with each idea until it's clearly a dead-end, then ask why; map promise vs. dead.\n"
+    "  • Water → Embrace Doubt — never be 100% sure; inhabit the opposite view; what would a disagreer say?\n"
+    "  • Water → Never Stop — follow your best idea past the first insight; ask 'and then?' and 'where does this lead?'\n"
+    "\n"
+    "🪨 Change — The fifth element. Emerges when the other four show up at the same table; covered in Stage 3.\n"
+)
+
+
+def _build_canvas_chat_system_prompt(stage: int, cp) -> str:
+    """System prompt for the canvas stage chatbot.
+
+    The puzzle's `answer` is intentionally NOT included here — the bot
+    must never give it, and the easiest way to guarantee that is not to
+    let the model see it.
+    """
+    base = (
+        "You are the Guide inside DramaRama's canvas — a thinking coach that "
+        "helps a user practice the 5 Elements of Effective Thinking on a "
+        "specific puzzle. Be warm, direct, and concise (2–4 short paragraphs "
+        "max unless the user explicitly asks for depth). Use light Markdown "
+        "with **bold** for emphasis. Never include code fences.\n\n"
+        f"PUZZLE CONTEXT (do not quote verbatim back at the user unless useful):\n"
+        f"- Title: {cp.title}\n"
+        f"- Prompt: {cp.puzzle_text}\n\n"
+        "ELEMENTS REFERENCE:\n"
+        f"{_CANVAS_ELEMENTS_REFERENCE}\n"
+        "HARD RULES (apply in EVERY stage):\n"
+        "- NEVER give the puzzle's answer or any solution-shaped hint.\n"
+        "- NEVER extend, critique, or finish the user's flow on the canvas.\n"
+        "- If asked for the answer, refuse plainly and redirect them to the elements.\n"
+        "- Do not invent puzzle facts beyond what's in PUZZLE CONTEXT.\n"
+    )
+
+    if stage == 1:
+        return base + (
+            "\nSTAGE 1 — Think.\n"
+            "Your job is to teach what each Element wants from the user, and "
+            "to remind them what Stage 1 is for: doing real, independent "
+            "thinking on the canvas (drop blocks, draw connections). Answer "
+            "questions about specific elements with concrete, element-specific "
+            "guidance — not just by naming the element. Example: if asked "
+            "about Fire, explain *what fire wants you to do right now* on this "
+            "puzzle (try a guess, find an error, fail intentionally), not "
+            "just 'that's Fire'."
+        )
+    if stage == 2:
+        return base + (
+            "\nSTAGE 2 — Redirect.\n"
+            "You have ALREADY posted the only flow you'll ever post for this "
+            "puzzle. The user must work that flow on the canvas themselves. "
+            "For every user message, do not introduce new steps, do not "
+            "extend the flow, do not give answers. Briefly remind them that "
+            "the goal isn't the answer — it's to practice the 5 Elements — "
+            "and point them back to the existing flow. Keep replies to 1–3 "
+            "short sentences."
+        )
+    return base + (
+        "\nSTAGE 3 — Quintessence.\n"
+        "Help the user reflect on how this puzzle connects back to the "
+        "larger goal that prompted the course. Ask reflective questions; do "
+        "not summarize their work for them."
+    )
+
+
+def _format_canvas_chat_prompt(history, user_message: str) -> str:
+    """Render a flat user prompt from the running history. The ClaudeAdapter
+    we use takes a single user message; the system instructions are passed
+    separately. We embed the conversation as a transcript so the model sees
+    its own prior replies."""
+    lines = []
+    for m in history:
+        role = "User" if (m.role or "").lower() == "user" else "Guide"
+        lines.append(f"{role}: {m.content.strip()}")
+    lines.append(f"User: {user_message.strip()}")
+    lines.append("Guide:")
+    return "\n\n".join(lines)
+
+
+@router.post("/canvas/{course_puzzle_id}/chat/stream")
+async def canvas_chat_stream(
+    course_puzzle_id: str,
+    request: CanvasChatRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Stream a Stage chat reply via SSE. The frontend renders chunks as
+    they arrive so the user sees the model thinking. This is the only
+    LLM-backed surface in the canvas today."""
+    user = current_user["db_user"]
+    cp = await _verify_puzzle_ownership(course_puzzle_id, user)
+
+    user_message = (request.user_message or "").strip()
+    if not user_message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+    if request.stage not in (1, 2, 3):
+        raise HTTPException(status_code=400, detail="Invalid stage")
+
+    if not rate_limit_user(user.id, "canvas_chat"):
+        raise HTTPException(
+            status_code=429,
+            detail="You're chatting fast — give it a few seconds and try again.",
+        )
+
+    system_prompt = _build_canvas_chat_system_prompt(request.stage, cp)
+    prompt = _format_canvas_chat_prompt(request.history, user_message)
+
+    async def gen():
+        async for ev in sse_stream(
+            llm_client.generate_stream_with_system(
+                prompt=prompt,
+                system=system_prompt,
+                max_tokens=600,
+            )
+        ):
+            yield ev
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+# ============ Canvas: Stage 2 Nudges ============
+#
+# When the user advances from Stage 1 → Stage 2, we ask the LLM to drop a
+# small set of "nudge" thoughts on their canvas. These behave exactly like
+# user-authored thoughts (drag/connect/delete/edit) but are persisted with
+# is_nudge=true so the UI can render them with a distinctive treatment and
+# the user knows they didn't write them. The endpoint is one-shot per
+# course_puzzle: subsequent calls return the existing nudges instead of
+# generating more.
+
+# Element-keyed sub-element ids the model is allowed to pick from. Mirrors
+# the canonical list in `frontend/lib/elements.ts`. We hand the model the
+# id strings (e.g. "earth-1") so the response is unambiguous on tagging.
+_VALID_SUB_ELEMENTS = {
+    "earth": ["earth-1", "earth-2", "earth-3"],
+    "fire":  ["fire-1", "fire-2", "fire-3"],
+    "air":   ["air-1", "air-2", "air-3"],
+    "water": ["water-1", "water-2", "water-3"],
+    "synthesis": [
+        "earth-1", "earth-2", "earth-3",
+        "fire-1", "fire-2", "fire-3",
+        "air-1", "air-2", "air-3",
+        "water-1", "water-2", "water-3",
+    ],
+}
+
+
+def _build_nudges_prompt(cp, existing_thoughts: List[str]) -> str:
+    """Prompt to generate Stage 2 nudge thoughts.
+
+    The model is asked to return a strict JSON array of nudge objects.
+    We keep the schema small so JSON validation is easy server-side. We
+    DO include the puzzle text but NOT the solution; the model is
+    explicitly forbidden from giving the answer.
+    """
+    primary = cp.primary_element or "synthesis"
+    valid_subs = _VALID_SUB_ELEMENTS.get(primary, _VALID_SUB_ELEMENTS["synthesis"])
+    valid_subs_str = ", ".join(f'"{s}"' for s in valid_subs)
+
+    user_block = ""
+    if existing_thoughts:
+        items = "\n".join(f"  - {t.strip()}" for t in existing_thoughts if t.strip())
+        user_block = (
+            "\nThe user has already written these thoughts on the canvas — your "
+            "nudges should EXTEND their flow, not duplicate it:\n" + items + "\n"
+        )
+    else:
+        user_block = (
+            "\nThe user hasn't written any thoughts yet. Your nudges should give "
+            "them a concrete, puzzle-aware starting point.\n"
+        )
+
+    return (
+        "You are seeding nudge blocks on the user's thinking canvas at the "
+        "Stage 1 → Stage 2 transition. Generate 4 short, concrete nudges "
+        "that train the puzzle's primary element. Each nudge is a single "
+        "thought block the user can act on directly.\n\n"
+        f"PUZZLE CONTEXT:\n- Title: {cp.title}\n- Prompt: {cp.puzzle_text}\n"
+        f"- Primary element: {primary}\n"
+        f"{user_block}\n"
+        "HARD RULES:\n"
+        "- Do NOT give the answer or any solution-shaped hint.\n"
+        "- Each nudge must be ACTIONABLE on the canvas (a thing the user "
+        "can think about / write down right now), not abstract advice.\n"
+        "- Each nudge content must be ≤ 240 characters.\n"
+        f"- Tag each nudge with one of these sub_element ids: {valid_subs_str}.\n"
+        f"- Set element to \"{primary if primary != 'synthesis' else 'earth'}\" "
+        "for synthesis nudges pick the element matching the chosen sub_element id prefix.\n\n"
+        "Return ONLY a JSON object of the form:\n"
+        '{"nudges": [\n'
+        '  {"element": "<element id>", "sub_element": "<sub_element id>", "content": "<≤240 chars>"},\n'
+        "  ... 4 items total\n"
+        "]}\n"
+        "No prose, no markdown, no code fences. Just the JSON object."
+    )
+
+
+def _parse_nudges_json(raw: str) -> list:
+    """Best-effort parse of the model's nudges payload. Strips common
+    wrappers (markdown fences, leading/trailing prose) before parsing."""
+    text = (raw or "").strip()
+    # Strip ```json ... ``` fences if the model adds them despite instructions.
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
+        text = re.sub(r"\n?```\s*$", "", text)
+    # If there's leading prose, isolate the first '{' ... last '}' block.
+    first = text.find("{")
+    last = text.rfind("}")
+    if first != -1 and last != -1 and last > first:
+        text = text[first : last + 1]
+    try:
+        obj = json.loads(text)
+    except Exception as e:
+        raise ValueError(f"Model did not return valid JSON: {e}")
+    nudges = obj.get("nudges") if isinstance(obj, dict) else None
+    if not isinstance(nudges, list):
+        raise ValueError("Missing 'nudges' array in model output")
+    return nudges
+
+
+@router.post(
+    "/canvas/{course_puzzle_id}/stage2/nudges",
+    response_model=CanvasNudgesResponse,
+)
+async def generate_stage2_nudges(
+    course_puzzle_id: str,
+    request: CanvasNudgesRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Seed AI-generated nudge thoughts on the canvas. Idempotent: if any
+    nudges already exist for this puzzle we return them as-is and do not
+    call the LLM again. This mirrors how the user advances Stage 1 → Stage
+    2 once and only once."""
+    user = current_user["db_user"]
+    cp = await _verify_puzzle_ownership(course_puzzle_id, user)
+
+    # Idempotency: already seeded? Return existing.
+    existing_count = await thought_repo.count_nudges(course_puzzle_id)
+    if existing_count > 0:
+        all_thoughts = await thought_repo.get_by_course_puzzle(course_puzzle_id)
+        existing = [t for t in all_thoughts if getattr(t, "is_nudge", False)]
+        return CanvasNudgesResponse(
+            nudges=[_thought_to_response(t) for t in existing],
+        )
+
+    if not rate_limit_user(user.id, "canvas_chat"):
+        raise HTTPException(
+            status_code=429,
+            detail="Slow down — give it a few seconds before generating again.",
+        )
+
+    # 1. Ask the model for 4 nudges as JSON.
+    prompt = _build_nudges_prompt(cp, request.existing_thoughts)
+    try:
+        raw = await llm_client.generate_text(
+            prompt=prompt,
+            system=(
+                "You generate short, structured JSON for an internal API. "
+                "Never include prose outside the JSON object."
+            ),
+            max_tokens=900,
+        )
+        items = _parse_nudges_json(raw)
+    except Exception as e:
+        logger.error("Nudge generation failed for puzzle %s: %s", course_puzzle_id, e)
+        raise HTTPException(
+            status_code=502,
+            detail="Couldn't generate nudges right now. Try again in a moment.",
+        )
+
+    # 2. Validate + persist. We're forgiving on extra keys / wrong types,
+    #    but require content + valid sub_element.
+    primary = cp.primary_element or "synthesis"
+    valid_subs = set(_VALID_SUB_ELEMENTS.get(primary, _VALID_SUB_ELEMENTS["synthesis"]))
+
+    # Use frontend-supplied positions when present (they know the canvas
+    # geometry / where the user's existing thoughts live). Fall back to a
+    # 2x2 grid for clients that don't send any.
+    fallback_positions = [
+        (520, 100),
+        (520, 260),
+        (820, 100),
+        (820, 260),
+    ]
+    grid_positions: list = []
+    for p in (request.positions or [])[:4]:
+        if isinstance(p, (list, tuple)) and len(p) >= 2:
+            try:
+                grid_positions.append((float(p[0]), float(p[1])))
+            except (TypeError, ValueError):
+                pass
+    while len(grid_positions) < 4:
+        grid_positions.append(fallback_positions[len(grid_positions)])
+
+    created: list = []
+    for i, item in enumerate(items[:4]):
+        if not isinstance(item, dict):
+            continue
+        content = (item.get("content") or "").strip()
+        if not content:
+            continue
+        if len(content) > 280:
+            content = content[:277] + "…"
+        sub_element = item.get("sub_element")
+        if sub_element not in valid_subs:
+            # Pick a default sub-element for the primary so we never drop
+            # an untagged nudge — defeats the point of the feature.
+            sub_element = next(iter(valid_subs))
+        # Derive element from sub_element id prefix so synthesis puzzles
+        # tag correctly across the 4 base elements.
+        element = sub_element.split("-")[0]
+
+        pos_x, pos_y = grid_positions[i] if i < len(grid_positions) else (520 + i * 100, 420)
+        try:
+            t = await thought_repo.create(
+                course_puzzle_id=course_puzzle_id,
+                user_id=user.id,
+                content=content,
+                element=element,
+                sub_element=sub_element,
+                pos_x=pos_x,
+                pos_y=pos_y,
+                time_spent_seconds=None,
+                is_nudge=True,
+            )
+            created.append(t)
+        except Exception as e:
+            logger.error("Failed to persist nudge for puzzle %s: %s", course_puzzle_id, e)
+            # Continue — partial success is still useful.
+
+    if not created:
+        raise HTTPException(
+            status_code=502,
+            detail="Couldn't generate nudges right now. Try again in a moment.",
+        )
+
+    return CanvasNudgesResponse(
+        nudges=[_thought_to_response(t) for t in created],
+    )
 
 
 @router.get(

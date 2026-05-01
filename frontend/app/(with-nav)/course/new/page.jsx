@@ -6,15 +6,10 @@ import { useAuth } from "@clerk/nextjs";
 import { Spinner } from "@nextui-org/spinner";
 import { Button } from "@nextui-org/button";
 
-const INTAKE_MARKER = "<<INTAKE_COMPLETE>>";
+const STATEMENT_MARKER = "<<STATEMENT>>";
 
 /**
- * Strip the <<INTAKE_COMPLETE>> marker (and everything after) from the
- * visible portion of an in-progress assistant response. The backend will
- * also strip and persist only the visible portion, but we need to hide it
- * mid-stream so the user never sees the marker or the JSON.
- *
- * Also scrub stray "User:" / "Assistant:" line prefixes that Claude
+ * Scrub stray "User:" / "Assistant:" line prefixes that Claude
  * occasionally leaks. The prompt now passes the conversation as proper
  * message turns (instead of inlining a transcript), but this client-side
  * scrub keeps older streams clean and protects against model drift.
@@ -27,11 +22,22 @@ function scrubRolePrefixes(text) {
     .join("\n");
 }
 
-function visibleText(buffer) {
-  if (!buffer) return "";
-  const idx = buffer.indexOf(INTAKE_MARKER);
-  const visible = idx === -1 ? buffer : buffer.slice(0, idx).trimEnd();
-  return scrubRolePrefixes(visible);
+/**
+ * Extract the statement from a <<STATEMENT>> response.
+ * Returns { statement, isStatement } where statement is the one-sentence
+ * text after the marker, or null if no marker found.
+ */
+function parseStatement(buffer) {
+  if (!buffer) return { statement: null, isStatement: false, clarification: "" };
+  const cleaned = scrubRolePrefixes(buffer);
+  const idx = cleaned.indexOf(STATEMENT_MARKER);
+  if (idx === -1) {
+    return { statement: null, isStatement: false, clarification: cleaned.trim() };
+  }
+  const afterMarker = cleaned.slice(idx + STATEMENT_MARKER.length).trim();
+  // Take only the first sentence/line
+  const firstLine = afterMarker.split("\n").filter(Boolean)[0] || "";
+  return { statement: firstLine.trim(), isStatement: true, clarification: "" };
 }
 
 export default function NewCourseIntakePage() {
@@ -45,15 +51,20 @@ export default function NewCourseIntakePage() {
   const [streamBuffer, setStreamBuffer] = useState("");
   const [input, setInput] = useState("");
   const [intakeComplete, setIntakeComplete] = useState(false);
+  // The AI-generated statement the user can edit
+  const [statement, setStatement] = useState("");
+  // Whether the user has manually edited the statement
+  const [statementEdited, setStatementEdited] = useState(false);
+  // Finalizing state (calling the finalize endpoint)
+  const [finalizing, setFinalizing] = useState(false);
 
   const transcriptRef = useRef(null);
   const startedRef = useRef(false);
   const textareaRef = useRef(null);
 
+  const userTurns = messages.filter((m) => m.role === "user").length;
+
   // Refocus the composer after every assistant turn finishes streaming.
-  // Without this, the textarea loses focus while it's `disabled` during
-  // streaming, and the user has to click back into it before Enter works
-  // again — which felt like Enter-to-send was broken.
   useEffect(() => {
     if (!streaming && !intakeComplete && courseId && textareaRef.current) {
       textareaRef.current.focus({ preventScroll: true });
@@ -109,37 +120,21 @@ export default function NewCourseIntakePage() {
     }
   }, [messages, streamBuffer]);
 
-  // Intake progress estimate. We don't have a backend signal for "how
-  // much more do we need" mid-stream, so this is a heuristic. Previously
-  // we used `min(90, turns*20)` which hard-capped at 90 % and felt stuck
-  // for users whose intake ran 6+ turns. This is a logistic-ish curve
-  // that always nudges forward (asymptotes near 97 %), so every new
-  // turn produces visible motion. Hitting the <<INTAKE_COMPLETE>> marker
-  // snaps to 100 %.
-  const userTurns = messages.filter((m) => m.role === "user").length;
-  const progress = intakeComplete
-    ? 100
-    : Math.round(97 * (1 - Math.pow(0.6, userTurns)));
-  const progressLabel =
-    progress >= 85
-      ? "Almost there — wrapping up"
-      : progress >= 60
-        ? "Getting clear on what you need"
-        : progress >= 20
-          ? "Gathering context"
-          : "Just getting started";
+  // Extract statement from live stream buffer (for real-time typewriter)
+  const liveStreamParsed = parseStatement(streamBuffer);
+  const liveStatement = liveStreamParsed.statement;
+  const liveClarification = liveStreamParsed.clarification;
+  const isStreamingStatement = streaming && liveStreamParsed.isStatement;
 
-  async function sendMessage(cid, text, { hideUserMessage = false } = {}) {
+  async function sendMessage(cid, text) {
     if (!cid) return;
     setStreaming(true);
     setStreamBuffer("");
+    setStatementEdited(false);
 
-    if (!hideUserMessage) {
-      setMessages((prev) => [...prev, { role: "user", content: text }]);
-    }
+    setMessages((prev) => [...prev, { role: "user", content: text }]);
 
     let assistantBuffer = "";
-    let completeFlag = false;
 
     try {
       const token = await getToken();
@@ -180,31 +175,34 @@ export default function NewCourseIntakePage() {
             }
             if (typeof obj.text === "string") {
               assistantBuffer += obj.text;
-              if (assistantBuffer.includes(INTAKE_MARKER)) {
-                completeFlag = true;
-              }
               setStreamBuffer(assistantBuffer);
             }
           } catch (e) {
-            // Ignore malformed event lines but log
             console.warn("Bad SSE payload:", payload, e);
           }
         }
       }
 
-      // Commit final assistant turn to messages list (truncated at marker)
-      const visible = visibleText(assistantBuffer);
-      setMessages((prev) => [...prev, { role: "assistant", content: visible }]);
-      setStreamBuffer("");
+      // Parse the final response
+      const parsed = parseStatement(assistantBuffer);
 
-      // The <<INTAKE_COMPLETE>> marker means the model decided to wrap
-      // up. Snap the UI to "complete" immediately so the progress bar
-      // hits 100 % and the input disables — don't wait for the backend
-      // poll, which races with async post-stream processing.
-      if (completeFlag) {
-        setIntakeComplete(true);
-        await pollAndRedirect(cid);
+      if (parsed.isStatement && parsed.statement) {
+        // AI generated a statement — update the editable field
+        setStatement(parsed.statement);
+        // Store the raw response in messages (hidden from display since
+        // we show the statement in the editable field instead)
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: assistantBuffer.trim(), _isStatement: true },
+        ]);
+      } else {
+        // AI sent a clarification (gibberish rejection) — show as regular message
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: parsed.clarification },
+        ]);
       }
+      setStreamBuffer("");
     } catch (e) {
       console.error(e);
       setMessages((prev) => [
@@ -220,36 +218,37 @@ export default function NewCourseIntakePage() {
     }
   }
 
-  async function pollAndRedirect(cid) {
-    // The backend commits the intake AFTER the SSE stream generator
-    // finishes, so the first poll often races and sees
-    // intake_status='in_progress'. Retry a few times with a delay.
-    const MAX_ATTEMPTS = 8;
-    const DELAY_MS = 1500;
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      try {
-        const token = await getToken();
-        const res = await fetch(`/api/backend-api/course/${cid}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.course?.intake_status === "complete") {
-            setTimeout(() => {
-              router.push(`/courses/${cid}/ready`);
-            }, 2000);
-            return;
-          }
-        }
-      } catch (e) {
-        console.warn("Poll attempt failed", attempt, e);
+  async function handleCreateCourse() {
+    if (!courseId || !statement.trim() || finalizing || intakeComplete) return;
+    setFinalizing(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(
+        `/api/backend-api/course/intake/${courseId}/finalize`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ crisp_statement: statement.trim() }),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`Finalize failed (${res.status}): ${body.slice(0, 200)}`);
       }
-      // Wait before retrying
-      await new Promise((r) => setTimeout(r, DELAY_MS));
+      setIntakeComplete(true);
+      // Redirect to the ready page where puzzles are generated
+      setTimeout(() => {
+        router.push(`/courses/${courseId}/ready`);
+      }, 1500);
+    } catch (e) {
+      console.error(e);
+      setBootError(e.message || "Failed to create course.");
+    } finally {
+      setFinalizing(false);
     }
-    // All retries exhausted — the user already saw the marker so
-    // redirect anyway; the ready page will poll for generation status.
-    router.push(`/courses/${cid}/ready`);
   }
 
   function onSubmit(e) {
@@ -290,16 +289,17 @@ export default function NewCourseIntakePage() {
     );
   }
 
-  const liveAssistant = visibleText(streamBuffer);
+  // Determine what statement text to show in the editable field
+  const displayStatement = isStreamingStatement
+    ? liveStatement || ""
+    : statement;
+
+  // Show the statement field after the user has sent at least one message
+  const showStatementField = userTurns >= 1;
 
   return (
     <div className="min-h-screen bg-white pt-40 pb-12">
-      {/* Page width matches the navbar (max-w-[1536px] + px-6) so the
-          intake doesn't feel like a stranded narrow column floating in
-          the middle of the page. */}
       <div className="max-w-[1536px] mx-auto px-6">
-        {/* Eyebrow + title row spans full width — same alignment as the
-            navbar brand on the left. */}
         <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase mb-3">
           New Course
         </p>
@@ -307,65 +307,121 @@ export default function NewCourseIntakePage() {
           Tell us what to <em className="italic">train</em>.
         </h1>
         <p className="font-serif italic text-ash text-base mb-10 max-w-2xl">
-          A short conversation. We figure out what you actually want to get
-          better at, then build a course of puzzles tuned to it.
+          Tell us what you want to get better at. We&apos;ll distill it into a
+          single statement and build a course of puzzles tuned to it.
         </p>
 
         <div className="grid grid-cols-1 lp:grid-cols-[1fr_320px] gap-10">
-          {/* ─── Chat column ─────────────────────────────────────────── */}
+          {/* ─── Main column ──────────────────────────────────────────── */}
           <div className="min-w-0 max-w-3xl">
-            {/* Progress bar */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-mono text-[10px] tracking-[0.2em] text-smoke uppercase">
-                  {intakeComplete ? "Intake complete" : progressLabel}
-                </span>
-                <span className="font-mono text-[10px] tracking-[0.2em] text-smoke">
-                  {progress}%
-                </span>
+            {/* ─── Statement field (appears after first message) ─────── */}
+            {showStatementField && (
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-mono text-[10px] tracking-[0.2em] text-change uppercase">
+                    {intakeComplete
+                      ? "Course created"
+                      : isStreamingStatement
+                        ? statement
+                          ? "Rewriting..."
+                          : "Writing..."
+                        : "Your course statement"}
+                  </span>
+                  {!intakeComplete && displayStatement && !streaming && (
+                    <span className="text-[10px] text-smoke italic">
+                      Edit this or send another message to refine
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <StatementField
+                    value={displayStatement}
+                    onChange={(val) => {
+                      setStatement(val);
+                      setStatementEdited(true);
+                    }}
+                    streaming={isStreamingStatement}
+                    disabled={intakeComplete || finalizing}
+                  />
+                </div>
+                {/* Create Course button */}
+                {!intakeComplete && (
+                  <div className="mt-4 flex items-center gap-4">
+                    <Button
+                      onClick={handleCreateCourse}
+                      isDisabled={
+                        !displayStatement?.trim() ||
+                        finalizing
+                      }
+                      className="bg-primary text-white hover:bg-primary/90 h-12 px-6 font-medium"
+                      radius="none"
+                    >
+                      {finalizing ? "Creating..." : "Create Course"}
+                    </Button>
+                    {finalizing && (
+                      <span className="flex items-center gap-2">
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full rounded-full bg-change opacity-60 animate-ping" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-change" />
+                        </span>
+                        <span className="font-mono text-[11px] tracking-[0.2em] text-change uppercase">
+                          Building your course...
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                )}
+                {intakeComplete && (
+                  <div className="mt-4 flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-change opacity-60 animate-ping" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-change" />
+                    </span>
+                    <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase">
+                      Course committed. Building puzzles...
+                    </p>
+                  </div>
+                )}
               </div>
-              <div className="relative h-1.5 bg-mist rounded-full overflow-hidden">
-                <div
-                  className="absolute inset-y-0 left-0 bg-change rounded-full transition-[width] duration-700 ease-out"
-                  style={{
-                    width: `${progress}%`,
-                    animation: !intakeComplete && progress > 0
-                      ? "intake-pulse 2s ease-in-out infinite"
-                      : undefined,
-                  }}
-                />
-              </div>
-            </div>
+            )}
 
-            {/* Transcript */}
+            {/* ─── Chat transcript ────────────────────────────────────── */}
             <div
               ref={transcriptRef}
-              className="max-h-[60vh] overflow-y-auto scrollbar-hide pr-1 mb-6 space-y-3"
+              className="max-h-[50vh] overflow-y-auto scrollbar-hide pr-1 mb-6 space-y-3"
             >
-              {messages.map((m, i) => (
-                <MessageBubble key={i} role={m.role} content={m.content} />
-              ))}
-              {streaming && (
+              {messages.map((m, i) => {
+                // Don't render <<STATEMENT>> responses as chat bubbles —
+                // the statement is shown in the editable field above.
+                if (m._isStatement) return null;
+                return (
+                  <MessageBubble key={i} role={m.role} content={m.content} />
+                );
+              })}
+              {/* Streaming: show clarification messages live, but NOT
+                  statement responses (those render in the field above) */}
+              {streaming && !isStreamingStatement && liveClarification && (
                 <MessageBubble
                   role="assistant"
-                  content={liveAssistant}
+                  content={liveClarification}
                   streaming
                 />
               )}
-              {intakeComplete && (
-                <div className="flex items-center gap-2 pt-2">
+              {/* Streaming a statement: show a subtle "writing" indicator in chat */}
+              {isStreamingStatement && (
+                <div className="flex items-center gap-2 py-2">
                   <span className="relative flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full rounded-full bg-change opacity-60 animate-ping" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-change" />
                   </span>
                   <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase">
-                    Course committed. Building puzzles…
+                    {statement ? "Rewriting your statement..." : "Writing your statement..."}
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Composer */}
+            {/* ─── Composer ───────────────────────────────────────────── */}
             <form
               onSubmit={onSubmit}
               className="border-t border-mist pt-4 flex items-end gap-3"
@@ -378,10 +434,12 @@ export default function NewCourseIntakePage() {
                 disabled={streaming || intakeComplete || !courseId}
                 placeholder={
                   intakeComplete
-                    ? "Intake complete."
+                    ? "Course created."
                     : streaming
-                    ? "Waiting for the interviewer…"
-                    : "Type your answer. Enter to send."
+                    ? "Waiting..."
+                    : userTurns === 0
+                      ? "Type your answer. Enter to send."
+                      : "Send another message to refine, or edit the statement above."
                 }
                 rows={2}
                 className="flex-1 resize-none border border-mist focus:border-black bg-white text-black px-3 py-2 text-base leading-relaxed font-serif italic placeholder:not-italic placeholder:text-smoke focus:outline-none disabled:bg-mist/40 disabled:text-smoke rounded-md"
@@ -389,37 +447,15 @@ export default function NewCourseIntakePage() {
               <Button
                 type="submit"
                 isDisabled={streaming || intakeComplete || !courseId || !input.trim()}
-                className="bg-primary text-white hover:bg-primary/90 h-12 px-5"
+                className="bg-black text-white hover:bg-ash h-12 px-5"
                 radius="none"
               >
                 Send
               </Button>
             </form>
-
-            {/* "I'm ready" escape hatch. Surfaces after enough turns so
-                users who feel the chat is dragging can force the model
-                to wrap up. The system prompt now treats this phrasing as
-                an explicit signal to finalize on the next turn. */}
-            {!intakeComplete && !streaming && courseId && userTurns >= 4 && (
-              <div className="mt-3 flex items-center justify-between gap-3">
-                <p className="text-xs text-smoke italic">
-                  Feel like we have enough?
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (streaming || intakeComplete) return;
-                    sendMessage(courseId, "I'm ready — build my course now.");
-                  }}
-                  className="text-xs font-mono tracking-[0.15em] uppercase text-change hover:text-primary border border-change/40 hover:border-primary/60 rounded-md px-3 py-2 transition-colors"
-                >
-                  I'm ready — build it →
-                </button>
-              </div>
-            )}
           </div>
 
-          {/* ─── Side panel — kills the empty-page feeling ──────────── */}
+          {/* ─── Side panel ───────────────────────────────────────────── */}
           <aside className="hidden lp:block">
             <div className="sticky top-32 space-y-6">
               <div className="border-l-2 border-change pl-4">
@@ -427,14 +463,15 @@ export default function NewCourseIntakePage() {
                   How this works
                 </p>
                 <p className="font-serif italic text-ash text-base leading-relaxed">
-                  We talk for a few turns. You tell us what you want to be
-                  more effective at. We listen for the real shape underneath.
+                  Tell us what you want to be more effective at. The AI writes a
+                  one-sentence statement. Edit it until it feels right, then
+                  create your course.
                 </p>
               </div>
 
               <div className="bg-change/5 border border-change/20 rounded-lg p-5">
                 <p className="font-mono text-[10px] tracking-[0.2em] text-change uppercase mb-3">
-                  What you'll get
+                  What you&apos;ll get
                 </p>
                 <ul className="space-y-2 text-sm text-ash">
                   <li className="flex gap-2">
@@ -485,10 +522,38 @@ export default function NewCourseIntakePage() {
   );
 }
 
-// Typewriter hook — gradually reveals `target` while `streaming`. Mirror
-// of the one in components/canvas/StageChat.jsx; lifted here to keep this
-// page self-contained (the chat panel and the intake page are different
-// products and a small duplication is cheaper than a shared dep).
+// ─── Statement field with typewriter animation ──────────────────────────
+// Shows the AI-generated statement with a typewriter effect while streaming,
+// and becomes an editable input when streaming stops.
+function StatementField({ value, onChange, streaming, disabled }) {
+  const shown = useTypewriter(value || "", streaming);
+  const inputRef = useRef(null);
+
+  if (streaming) {
+    return (
+      <div className="bg-change/5 border-2 border-change/30 rounded-lg px-4 py-3 min-h-[3rem] flex items-center">
+        <span className="text-black text-lg leading-relaxed font-serif italic">
+          {shown}
+          <span className="inline-block w-1.5 h-5 align-text-bottom ml-0.5 bg-change/70 animate-pulse" />
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      placeholder="Your course statement will appear here..."
+      className="w-full bg-white border-2 border-black/20 focus:border-black rounded-lg px-4 py-3 text-black text-lg leading-relaxed font-serif italic placeholder:not-italic placeholder:text-smoke focus:outline-none disabled:bg-mist/40 disabled:text-smoke transition-colors"
+    />
+  );
+}
+
+// Typewriter hook — gradually reveals `target` while `streaming`.
 function useTypewriter(target, streaming) {
   const [shown, setShown] = useState(target || "");
   const targetRef = useRef(target || "");
@@ -526,9 +591,6 @@ function useTypewriter(target, streaming) {
 }
 
 function MessageBubble({ role, content, streaming }) {
-  // Both sides are LEFT-ALIGNED with backgrounds — same shape as the
-  // puzzle-canvas chat. Right-aligning the user looked stranded once we
-  // widened the chat column.
   const visible = useTypewriter(content || "", !!streaming);
   if (role === "user") {
     return (

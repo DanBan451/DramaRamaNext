@@ -34,7 +34,7 @@ import {
 import Timer from "@/components/canvas/Timer";
 import type { Thought, Connection } from "@/types/canvas";
 
-const CANVAS_INITIAL = 8000;
+const CANVAS_INITIAL = 32000;
 const CANVAS_PADDING = 2000;
 const BLOCK_WIDTH = 280;
 const BLOCK_MIN_HEIGHT = 100;
@@ -75,6 +75,8 @@ interface CanvasProps {
     to_thought_id: string,
   ) => Promise<Connection>) | null;
   onDeleteConnection: ((connectionId: string) => Promise<void>) | null;
+
+  onClearElement?: () => void;
 }
 
 interface DraftBlock {
@@ -106,18 +108,15 @@ export default function Canvas({
   selectedSubElement,
   onCreateThought,
   onUpdateThoughtPosition,
-  // onUpdateThoughtContent + onUpdateThoughtTagging are accepted but not yet
-  // wired to any UI gesture in phase 4b (inline-edit and retag happen in 4c).
-  // We still take them as props so the page can pass them in without warnings.
   onUpdateThoughtContent: _onUpdateThoughtContent,
-  onUpdateThoughtTagging: _onUpdateThoughtTagging,
+  onUpdateThoughtTagging,
   onDeleteThought,
   onCreateConnection,
   onDeleteConnection,
+  onClearElement,
 }: CanvasProps) {
   void _coursePuzzleId;
   void _onUpdateThoughtContent;
-  void _onUpdateThoughtTagging;
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<DraftBlock | null>(null);
@@ -136,8 +135,16 @@ export default function Canvas({
   const [tracedPath, setTracedPath] = useState<Set<string>>(new Set());
   const [tracedConnections, setTracedConnections] = useState<Set<string>>(new Set());
 
+  // Hovered connection line (for the click-to-delete interaction on SVG paths)
+  const [hoveredConnection, setHoveredConnection] = useState<string | null>(null);
+
   // Pending connection: when user clicks connector then clicks empty canvas
   const [pendingConnectionFrom, setPendingConnectionFrom] = useState<string | null>(null);
+  // Keeps the dashed line visible after the draft is saved but before the
+  // real connection round-trip finishes — prevents the flicker where the
+  // line disappears and then reappears as a solid arrow.
+  const [inflightConnectionFrom, setInflightConnectionFrom] = useState<string | null>(null);
+  const [inflightConnectionToPos, setInflightConnectionToPos] = useState<{ x: number; y: number } | null>(null);
   const draftTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Zoom state
@@ -161,13 +168,40 @@ export default function Canvas({
     timeRef.current = seconds;
   }, []);
 
-  // Center viewport on mount
+  // Center viewport on mount: if there are existing thoughts, center on
+  // their centroid; otherwise center on the canvas. This handles puzzles
+  // whose thoughts were saved against an older, smaller CANVAS_INITIAL.
   useEffect(() => {
-    if (containerRef.current) {
+    if (!containerRef.current) return;
+    if (thoughts.length > 0) {
+      let sumX = 0;
+      let sumY = 0;
+      for (const t of thoughts) {
+        sumX += t.pos_x + BLOCK_WIDTH / 2;
+        sumY += t.pos_y + BLOCK_MIN_HEIGHT / 2;
+      }
+      const cx = sumX / thoughts.length;
+      const cy = sumY / thoughts.length;
+      containerRef.current.scrollLeft = cx - containerRef.current.clientWidth / 2;
+      containerRef.current.scrollTop = cy - containerRef.current.clientHeight / 2;
+    } else {
       containerRef.current.scrollLeft = CANVAS_INITIAL / 2 - containerRef.current.clientWidth / 2;
       containerRef.current.scrollTop = CANVAS_INITIAL / 2 - containerRef.current.clientHeight / 2;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Retag the selected thought when the user picks an element from the sidebar.
+  // Track the previous sub-element so we only fire on intentional changes, not on mount.
+  const prevSubElementRef = useRef(selectedSubElement);
+  useEffect(() => {
+    const prev = prevSubElementRef.current;
+    prevSubElementRef.current = selectedSubElement;
+    // Only act when the user just selected a sub-element (not on deselect, not on mount with same value)
+    if (!selectedThought || !selectedElement || !selectedSubElement) return;
+    if (selectedSubElement === prev) return;
+    onUpdateThoughtTagging?.(selectedThought, selectedElement, selectedSubElement).catch(() => {});
+  }, [selectedElement, selectedSubElement]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Focus draft textarea without scrolling
   useEffect(() => {
@@ -264,6 +298,8 @@ export default function Canvas({
 
       setPendingConnectionFrom(connectingFrom);
       setConnectingFrom(null);
+      // Connected drafts are always plain (untagged)
+      onClearElement?.();
       setDraft({ x, y });
       setDraftContent("");
       setTimerRunning(false);
@@ -272,8 +308,7 @@ export default function Canvas({
       return;
     }
 
-    if (!selectedElement || !selectedSubElement) return;
-
+    // Allow placing plain (untagged) thoughts even without element selected
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = (e.clientX - rect.left) / zoom - BLOCK_WIDTH / 2;
     const y = (e.clientY - rect.top) / zoom - BLOCK_MIN_HEIGHT / 2;
@@ -336,23 +371,35 @@ export default function Canvas({
     // Pending-connection source is captured too, since we need its id AFTER
     // the create-thought call resolves (which may take a few hundred ms).
     const pendingFrom = pendingConnectionFrom;
+    const draftPos = { x: draft.x, y: draft.y };
     setPendingConnectionFrom(null);
     setDraft(null);
     setDraftContent("");
     timeRef.current = 0;
     setTimerReset((r) => r + 1);
 
+    // Keep a ghost dashed line from the source to where the draft was so
+    // there's no flicker gap while the create-thought + create-connection
+    // round-trips are in-flight.
+    if (pendingFrom) {
+      setInflightConnectionFrom(pendingFrom);
+      setInflightConnectionToPos(draftPos);
+    }
+
     try {
       if (!onCreateThought) return;
       const newThought = await onCreateThought(body);
       if (pendingFrom) {
-        // Fire-and-forget the connection; the parent handles rollback.
-        onCreateConnection?.(pendingFrom, newThought.id).catch(() => {
+        // Await the connection so the real arrow appears before we drop the ghost.
+        await onCreateConnection?.(pendingFrom, newThought.id).catch(() => {
           /* parent shows error toast */
         });
       }
     } catch {
       // Parent already rolled back optimistic state + surfaced an error.
+    } finally {
+      setInflightConnectionFrom(null);
+      setInflightConnectionToPos(null);
     }
   }
 
@@ -673,7 +720,7 @@ export default function Canvas({
   }
 
   return (
-    <div className="canvas-host relative flex-1 overflow-hidden">
+    <div className="canvas-host absolute inset-0 overflow-hidden">
       {/* Toolbar */}
       <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
         {connectingFrom && (
@@ -740,8 +787,8 @@ export default function Canvas({
         )}
         <div className="px-3 py-1.5 bg-white border border-[var(--wireframe)] rounded-lg text-xs text-[var(--text-muted)]">
           {selectedSubElement
-            ? "Click canvas to place thought"
-            : "Select an element, then click canvas — or double-click anywhere"}
+            ? "Click canvas to place tagged thought"
+            : "Click canvas to place a thought"}
         </div>
       </div>
 
@@ -916,7 +963,7 @@ export default function Canvas({
       {/* Scrollable canvas container */}
       <div
         ref={containerRef}
-        className={`w-full h-full overflow-auto ${
+        className={`w-full h-full overflow-auto scrollbar-hide ${
           panning
             ? "cursor-grabbing"
             : selectedElement && selectedSubElement
@@ -978,6 +1025,9 @@ export default function Canvas({
               <marker id="arrowhead-trace" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
                 <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b" />
               </marker>
+              <marker id="arrowhead-delete" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444" />
+              </marker>
               <style>{`
                 @keyframes flowDash {
                   to { stroke-dashoffset: -24; }
@@ -1013,15 +1063,19 @@ export default function Canvas({
               const cy2 = toAnchor.y;
               const d = `M ${fromPos.x} ${fromPos.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${toAnchor.x} ${toAnchor.y}`;
               const isTraced = tracedConnections.has(conn.id);
+              const isHovered = hoveredConnection === conn.id;
+              // Midpoint of cubic bezier at t=0.5
+              const mx = 0.125 * fromPos.x + 0.375 * cx1 + 0.375 * cx2 + 0.125 * toAnchor.x;
+              const my = 0.125 * fromPos.y + 0.375 * cy1 + 0.375 * cy2 + 0.125 * toAnchor.y;
               return (
                 <g key={conn.id}>
                   {/* Soft glow underneath. */}
                   <path
                     d={d}
-                    stroke={isTraced ? "#facc15" : "#4db6ac"}
-                    strokeWidth={isTraced ? 5 : 3}
+                    stroke={isTraced ? "#facc15" : isHovered ? "#ef4444" : "#4db6ac"}
+                    strokeWidth={isTraced ? 5 : isHovered ? 5 : 3}
                     fill="none"
-                    opacity={isTraced ? 0.4 : 0.15}
+                    opacity={isTraced ? 0.4 : isHovered ? 0.25 : 0.15}
                     strokeLinecap="round"
                   />
                   {/* SOLID base line that owns the arrowhead marker. This
@@ -1032,11 +1086,11 @@ export default function Canvas({
                       from source to arrow tip regardless of dash phase. */}
                   <path
                     d={d}
-                    stroke={isTraced ? "#f59e0b" : "#8ab4f8"}
+                    stroke={isTraced ? "#f59e0b" : isHovered ? "#ef4444" : "#8ab4f8"}
                     strokeWidth={isTraced ? 3 : 2}
                     fill="none"
                     strokeLinecap="butt"
-                    markerEnd={isTraced ? "url(#arrowhead-trace)" : "url(#arrowhead)"}
+                    markerEnd={isTraced ? "url(#arrowhead-trace)" : isHovered ? "url(#arrowhead-delete)" : "url(#arrowhead)"}
                     opacity={1}
                   />
                   {/* Animated dashed overlay — purely decorative shimmer.
@@ -1044,50 +1098,89 @@ export default function Canvas({
                       the solid base remains the dominant visual line. */}
                   <path
                     d={d}
-                    stroke={isTraced ? "url(#trace-gradient)" : "url(#flow-gradient)"}
+                    stroke={isTraced ? "url(#trace-gradient)" : isHovered ? "#ef4444" : "url(#flow-gradient)"}
                     strokeWidth={isTraced ? 3 : 2}
                     fill="none"
                     strokeDasharray="12 12"
                     strokeLinecap="round"
-                    opacity={isTraced ? 0.7 : 0.4}
+                    opacity={isTraced ? 0.7 : isHovered ? 0.5 : 0.4}
                     className="flow-line"
                   />
+                  {/* Wide transparent hit-target so the line is easy to hover/click.
+                      pointerEvents="stroke" scopes events to the stroke area only,
+                      leaving the canvas background fully interactive. */}
+                  <path
+                    d={d}
+                    stroke="transparent"
+                    strokeWidth={20}
+                    fill="none"
+                    style={{ pointerEvents: "stroke", cursor: "pointer" }}
+                    onMouseEnter={() => setHoveredConnection(conn.id)}
+                    onMouseLeave={() => setHoveredConnection(null)}
+                    onClick={(e) => { e.stopPropagation(); deleteConnectionLocal(conn.id); }}
+                  />
+                  {/* × delete button shown at bezier midpoint on hover */}
+                  {isHovered && (
+                    <g
+                      style={{ cursor: "pointer" }}
+                      onMouseEnter={() => setHoveredConnection(conn.id)}
+                      onMouseLeave={() => setHoveredConnection(null)}
+                      onClick={(e) => { e.stopPropagation(); deleteConnectionLocal(conn.id); }}
+                    >
+                      <circle cx={mx} cy={my} r={11} fill="white" stroke="#ef4444" strokeWidth={1.5} />
+                      <text
+                        x={mx}
+                        y={my}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fill="#ef4444"
+                        fontSize={15}
+                        fontWeight="bold"
+                        style={{ pointerEvents: "none", userSelect: "none" }}
+                      >
+                        ×
+                      </text>
+                    </g>
+                  )}
                 </g>
               );
             })}
-            {/* Pending connection line from source thought to draft */}
-            {pendingConnectionFrom &&
-              draft &&
-              (() => {
-                const sourceThought = thoughtMap.get(pendingConnectionFrom);
-                if (!sourceThought) return null;
-                const fromPos = getConnectorPos(sourceThought);
-                // Target the LEFT edge of the draft block (like completed connections)
-                // so the arrow tip is visible and not hidden behind the card.
-                const toX = draft.x - ARROW_TIP_INSET;
-                const toY = draft.y + BLOCK_MIN_HEIGHT / 2;
-                const dx = toX - fromPos.x;
-                const dy = toY - fromPos.y;
-                const handle = Math.max(80, Math.abs(dx) * 0.5, Math.abs(dy) * 0.4);
-                const cx1 = fromPos.x + handle;
-                const cy1 = fromPos.y;
-                const cx2 = toX - handle;
-                const cy2 = toY;
-                const d = `M ${fromPos.x} ${fromPos.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${toX} ${toY}`;
-                return (
-                  <path
-                    d={d}
-                    stroke="#8ab4f8"
-                    strokeWidth={2}
-                    fill="none"
-                    strokeDasharray="6 6"
-                    strokeLinecap="round"
-                    markerEnd="url(#arrowhead-pending)"
-                    opacity={0.5}
-                    className="flow-line"
-                  />
-                );
-              })()}
+            {/* Pending connection line from source thought to draft (or to the
+                saved draft position while the create-thought+connection round-trip
+                is in-flight so the dashed line never flickers out). */}
+            {(() => {
+              const fromId = pendingConnectionFrom ?? inflightConnectionFrom;
+              const toPos = draft
+                ? { x: draft.x, y: draft.y }
+                : inflightConnectionToPos;
+              if (!fromId || !toPos) return null;
+              const sourceThought = thoughtMap.get(fromId);
+              if (!sourceThought) return null;
+              const fromPos = getConnectorPos(sourceThought);
+              const toX = toPos.x - ARROW_TIP_INSET;
+              const toY = toPos.y + BLOCK_MIN_HEIGHT / 2;
+              const dx = toX - fromPos.x;
+              const dy = toY - fromPos.y;
+              const handle = Math.max(80, Math.abs(dx) * 0.5, Math.abs(dy) * 0.4);
+              const cx1 = fromPos.x + handle;
+              const cy1 = fromPos.y;
+              const cx2 = toX - handle;
+              const cy2 = toY;
+              const d = `M ${fromPos.x} ${fromPos.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${toX} ${toY}`;
+              return (
+                <path
+                  d={d}
+                  stroke="#8ab4f8"
+                  strokeWidth={2}
+                  fill="none"
+                  strokeDasharray="6 6"
+                  strokeLinecap="round"
+                  markerEnd="url(#arrowhead-pending)"
+                  opacity={0.5}
+                  className="flow-line"
+                />
+              );
+            })()}
           </svg>
 
           {/* Existing thought blocks */}
@@ -1239,8 +1332,10 @@ export default function Canvas({
           {/* Draft block (new thought being created) */}
           {draft &&
             (() => {
-              const isPlaceholder = !!pendingConnectionFrom && !selectedSubElement;
-              const draftElColor = selectedElement ? getElementColor(selectedElement) : null;
+              const draftElColor =
+                selectedElement && selectedSubElement
+                  ? getElementColor(selectedElement)
+                  : null;
               const draftSubEl =
                 selectedElement && selectedSubElement
                   ? getSubElement(selectedElement, selectedSubElement)
@@ -1255,12 +1350,8 @@ export default function Canvas({
                     width: BLOCK_WIDTH,
                     minHeight: BLOCK_MIN_HEIGHT,
                     zIndex: 15,
-                    backgroundColor: isPlaceholder ? "#f9fafb" : draftElColor ? draftElColor.bg : "#ffffff",
-                    borderColor: isPlaceholder
-                      ? "#9ca3af"
-                      : draftElColor
-                        ? draftElColor.border
-                        : "var(--red-light)",
+                    backgroundColor: draftElColor ? draftElColor.bg : "#f9fafb",
+                    borderColor: draftElColor ? draftElColor.border : "#d1d5db",
                   }}
                   onClick={(e) => e.stopPropagation()}
                   onDoubleClick={(e) => e.stopPropagation()}
@@ -1269,14 +1360,7 @@ export default function Canvas({
                   <div className="p-3">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-1.5">
-                        {isPlaceholder ? (
-                          <>
-                            <span className="w-6 h-6 rounded-md flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-500">
-                              ?
-                            </span>
-                            <span className="text-xs font-medium text-gray-500 italic">Select an element</span>
-                          </>
-                        ) : draftSubEl && draftElColor ? (
+                        {draftSubEl && draftElColor ? (
                           <>
                             <span
                               className="w-6 h-6 rounded-md flex items-center justify-center text-sm font-bold"
@@ -1291,16 +1375,8 @@ export default function Canvas({
                               {draftSubEl.name}
                             </span>
                           </>
-                        ) : selectedElement ? (
-                          <>
-                            <span className="text-sm">{getElement(selectedElement)?.emoji}</span>
-                            <span className="text-xs font-medium text-[var(--text-secondary)]">
-                              {selectedSubElement &&
-                                getSubElement(selectedElement, selectedSubElement)?.name}
-                            </span>
-                          </>
                         ) : (
-                          <span className="text-xs text-[var(--text-muted)] italic">no element selected</span>
+                          <span className="text-xs text-[var(--text-muted)] italic">thought</span>
                         )}
                       </div>
                       <Timer running={timerRunning} onTimeUpdate={handleTimeUpdate} reset={timerReset} />
@@ -1322,7 +1398,7 @@ export default function Canvas({
                           ? getSubElement(selectedElement, selectedSubElement)?.description
                           : "Type your thought..."
                       }
-                      className="w-full min-h-[80px] text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] bg-transparent border-none outline-none resize-y"
+                      className="w-full min-h-[80px] text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] bg-transparent border-none outline-none resize-none scrollbar-hide"
                     />
 
                     <div className="flex items-center gap-2 mt-2">

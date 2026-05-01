@@ -48,90 +48,11 @@ Your job here is to actually think through the puzzle on the canvas. Drop blocks
 
 I'm here to remind you what each element means and how to approach this stage. I won't help you solve the puzzle and I won't extend your ideas — that's *your* work. When you feel ready, hit **Next Stage** at the top.`;
 
-// Stage 2 chat welcome. One per primary element. Stage 2 is the moment
-// the AI extends the user's flow: when the user advanced from Stage 1,
-// the canvas page already called the backend nudge endpoint and dropped
-// 4 concrete "AI Nudge" blocks on the canvas. So the chat shouldn't tell
-// the user to drop blocks — that work is done. Instead the welcome
-// message reveals the puzzle's primary element, points at the nudges
-// they can now see, and tells them HOW to use the nudges (read each
-// one, react to it on a new block of their own, connect, delete what
-// doesn't help).
-const STAGE_2_FLOWS = {
-  earth: `**Stage 2 — Redirect.** Your puzzle leans on 🌳 **Earth** — *understand the basics deeply*.
-
-I just dropped four **AI Nudge** blocks on your canvas (look for the dashed purple borders). Each one is a concrete, Earth-flavored prompt tailored to this puzzle. They're yours now — drag them, edit them, or delete the ones that don't help.
-
-Here's how to work them:
-
-1. Read each nudge. **Pick one** to start with — usually the simplest.
-2. **React to it** on a new block of your own. Tag your reply with whichever 🌳 Earth sub-element fits (*Start with Simple*, *Spotlight the Specific*, or *Add the Adjective*).
-3. **Connect** your reply to the nudge that prompted it.
-4. Repeat for the other nudges. Delete any that feel off-target.
-5. When the picture clarifies, drop one final block summarizing **the simplest version of the puzzle that still has its real structure**.
-
-Ask me if you want me to clarify what an Earth sub-element is asking for — but I won't extend the nudges or solve the puzzle.`,
-
-  fire: `**Stage 2 — Redirect.** Your puzzle leans on 🔥 **Fire** — *fail effectively*.
-
-I just dropped four **AI Nudge** blocks on your canvas (dashed purple borders). Each one is a concrete, Fire-flavored prompt — a guess to make, a failure to inspect, an extreme case to push to. They're yours now — drag, edit, or delete freely.
-
-Here's how to work them:
-
-1. Read each nudge. **Pick one** and write your honest first attempt at it on a new block of your own. Tag it 🔥 Fire (*Fail Fast*, *Fail Again*, or *Fail Intentionally* — whichever fits).
-2. **Connect** your attempt to the nudge that prompted it.
-3. On another new block, write **exactly why your attempt might be wrong**. Tag it 🔥 Fire → *Fail Again*.
-4. Repeat for the other nudges. Delete the ones that feel off-target.
-5. When you've worked at least three nudges, drop a block describing **what edge of the puzzle you've now mapped** — the place between "definitely yes" and "definitely no".
-
-Failing here is not losing. It's the cheap way to find the boundary of an idea. Ask me if a nudge is unclear — but I won't extend them or hand you the answer.`,
-
-  air: `**Stage 2 — Redirect.** Your puzzle leans on 💨 **Air** — *create questions*.
-
-I just dropped four **AI Nudge** blocks on your canvas (dashed purple borders). Each one is a sharp, Air-flavored question about this puzzle — meta-questions, basic questions, sideways questions. They're yours now — drag, edit, or delete freely.
-
-Here's how to work them:
-
-1. Read each nudge. **Pick one** that feels uncomfortable — that's usually the right one.
-2. **Answer it** on a new block of your own. Tag your answer 🌳 Earth → *Start with Simple* (giving an answer is an Earth move; the question itself was Air).
-3. **Connect** your answer to the nudge that prompted it.
-4. On a new block, write a **better question** than the nudge itself. Tag it 💨 Air → *Ask Another Question*.
-5. Repeat for the other nudges. Delete any that don't help.
-
-The right question opens doors no answer can. Ask me if a nudge is unclear — but I won't extend them or solve the puzzle.`,
-
-  water: `**Stage 2 — Redirect.** Your puzzle leans on 🌊 **Water** — *flow with ideas*.
-
-I just dropped four **AI Nudge** blocks on your canvas (dashed purple borders). Each is a Water-flavored prompt — a path to run down, an obvious idea to doubt, a step beyond the first insight. They're yours now — drag, edit, or delete freely.
-
-Here's how to work them:
-
-1. Read each nudge. **Pick one** path and follow it on a new block of your own. Tag 🌊 Water (*Run Down All Paths*, *Embrace Doubt*, or *Never Stop*).
-2. **Connect** your block to the nudge that prompted it.
-3. When you hit a dead end, write a block **explaining why** it's a dead end. Tag 🌊 Water → *Embrace Doubt*.
-4. Repeat with another nudge so multiple paths run in parallel.
-5. **Connect** the surviving paths to each other. The shape of the connections IS the structure of the puzzle.
-
-Don't commit too early. Ask me if a nudge is unclear — but I won't extend them or solve the puzzle.`,
-
-  // Synthesis-tagged puzzles draw on all four elements at once. Nudges
-  // for these are spread across the four elements; the welcome reflects
-  // that and asks the user to react with whichever sub-element matches.
-  synthesis: `**Stage 2 — Redirect.** Your puzzle is a 🪨 **Change** puzzle — it leans on all four elements together.
-
-I just dropped four **AI Nudge** blocks on your canvas (dashed purple borders). Each one is tagged with a different element — one Earth, one Fire, one Air, one Water — so you can rep all of them on the same puzzle. They're yours now — drag, edit, or delete freely.
-
-Here's how to work them:
-
-1. Read each nudge. Notice which element it's tagged with.
-2. **React** to each on a new block of your own. Tag your reply with a sub-element from the SAME family (e.g. respond to a Fire nudge with another Fire move).
-3. **Connect** each of your replies to the nudge that prompted it.
-4. Once you've worked all four, drop one final block titled "**What changed in my thinking?**" Tag it 🪨 Change.
-
-Synthesis isn't a fifth element — it's what happens when the other four show up at the same table. Ask me if a nudge is unclear — but I won't extend them or solve the puzzle.`,
-};
-
-const STAGE_2_FLOW_DEFAULT = STAGE_2_FLOWS.synthesis;
+// Stage 2 has no static welcome message anymore. The fan-shape diagnostic
+// engine returns a `chat_message` tuned to the user's actual canvas state,
+// and that message is passed in via the `stage2WelcomeMessage` prop. If
+// it's missing for any reason, fall back to a generic neutral pointer.
+const STAGE_2_FALLBACK = `I just dropped a small set of **AI Nudge** blocks on your canvas (dashed purple borders). Pick one and react to it on a new block of your own. They're yours — drag, edit, or delete what doesn't help.`;
 
 const STAGE_3_REFLECT_WELCOME = `**Time to reflect.**
 
@@ -231,7 +152,6 @@ async function streamCanvasChat({
 
 export default function StageChat({
   stage,
-  primaryElement,
   coursePuzzleId,
   onClose,
   stage2WelcomeMessage,
@@ -244,12 +164,11 @@ export default function StageChat({
   const welcome = useMemo(() => {
     if (stage === 1) return STAGE_1_WELCOME;
     if (stage === 2) {
-      if (stage2WelcomeMessage) {
-        return stage2WelcomeMessage;
-      }
-      return (
-        STAGE_2_FLOWS[primaryElement] || STAGE_2_FLOW_DEFAULT
-      );
+      // Stage 2 welcome comes from the server's fan-shape engine; it's
+      // tuned to the user's specific canvas state and the move that was
+      // chosen. Only fall back to the neutral pointer if the server
+      // somehow returned nothing (idempotent reseed, network blip).
+      return stage2WelcomeMessage || STAGE_2_FALLBACK;
     }
     if (stage === 3) {
       return stage3Phase === "bridge"
@@ -257,7 +176,7 @@ export default function StageChat({
         : STAGE_3_REFLECT_WELCOME;
     }
     return "";
-  }, [stage, primaryElement, stage2WelcomeMessage, stage3Phase]);
+  }, [stage, stage2WelcomeMessage, stage3Phase]);
 
   const [messages, setMessages] = useState(() => [
     { role: "assistant", content: welcome },

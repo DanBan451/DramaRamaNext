@@ -333,7 +333,7 @@ function PuzzleCard({ puzzle }) {
   // they know where they're picking up.
   const stage = Number(puzzle.current_stage) || 1;
   const isCompleted = puzzle.status === "completed";
-  const inProgress = stage > 1 && !isCompleted;
+  const inProgress = puzzle.status === "in_progress" && !isCompleted;
   const stageLabel = stage === 2 ? "Stage 2 — Redirect" : stage === 3 ? "Stage 3 — Quintessence" : null;
   return (
     <div className={`relative bg-white border border-mist border-l-4 p-6 rounded-r-lg shadow-sm transition-all flex flex-col ${

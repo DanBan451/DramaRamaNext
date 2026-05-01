@@ -135,6 +135,15 @@ class CourseIntakeMessageRequest(BaseModel):
     user_message: str
 
 
+class CourseIntakeFinalizeRequest(BaseModel):
+    crisp_statement: str
+
+
+class CourseIntakeFinalizeResponse(BaseModel):
+    success: bool
+    course_id: str
+
+
 class CourseSummary(BaseModel):
     id: str
     intake_status: str
@@ -293,11 +302,23 @@ class CanvasNudgesRequest(BaseModel):
 
 
 class CanvasNudgesResponse(BaseModel):
+    """Response from the Stage 2 fan-shape diagnostic engine.
+
+    `nudges` contains all newly-created nudge thoughts in canvas order:
+    - shape='fan': anchor first, then children (anchor + N children)
+    - shape='single': one node only
+    `connections` contains all newly-created edges:
+    - branch_source -> anchor (only if branch_source_thought_id is set on a fan)
+    - anchor -> child (one per child, fan only)
+    - branch_source -> single (only if branch_source_thought_id is set on a single)
+    """
     nudges: List[ThoughtResponse]
     connections: List[ConnectionResponse] = []
     chat_message: Optional[str] = None
-    decision: Optional[str] = None  # "branch" or "redirect"
-    branch_from_thought_id: Optional[str] = None
+    move: Optional[str] = None  # one of MOVES (simplify, push_extreme, ...)
+    shape: Optional[str] = None  # "fan" | "single"
+    branch_source_thought_id: Optional[str] = None
+    already_seeded: bool = False
 
 
 # ============ Stage 3: Reflection + Bridge + Synthesis ============

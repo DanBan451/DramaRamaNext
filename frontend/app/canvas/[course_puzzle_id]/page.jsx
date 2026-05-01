@@ -30,92 +30,9 @@ import {
   completePuzzle as apiCompletePuzzle,
 } from "@/lib/canvas-api";
 
-// Block geometry — must match Canvas.tsx constants. Used to lay nudges
-// out without overlapping existing thoughts. If you change these in
-// Canvas.tsx, update them here too.
-const BLOCK_WIDTH = 280;
-const BLOCK_MIN_HEIGHT = 100;
-const BLOCK_GAP_X = 80;
-const BLOCK_GAP_Y = 60;
-// Canvas.tsx mounts centered on (CANVAS_INITIAL/2, CANVAS_INITIAL/2).
-// When the user has no thoughts yet and advances to Stage 2 immediately,
-// we drop nudges near that center so they're inside the viewport instead
-// of all the way at (200, 200).
-const CANVAS_VIEWPORT_CENTER = 4000;
-
-// Compute 4 nudge positions that EXTEND the user's existing flow rather
-// than landing far away. Strategy:
-//   1. If the user has thoughts: place nudges in a 2x2 grid to the RIGHT
-//      of the rightmost existing thought, vertically centered around the
-//      vertical centroid of the existing thoughts. Avoid overlap with
-//      any existing block by nudging Y if a candidate intersects.
-//   2. If the user has no thoughts: drop them in a 2x2 grid near origin.
-function computeNudgePositions(thoughts) {
-  const cols = 2;
-  const rows = 2;
-  const stepX = BLOCK_WIDTH + BLOCK_GAP_X; // 360
-  const stepY = BLOCK_MIN_HEIGHT + BLOCK_GAP_Y; // 160
-
-  if (!thoughts || thoughts.length === 0) {
-    // Center the 2x2 grid roughly on the initial canvas viewport so the
-    // nudges land in front of the user's eyes the moment they appear.
-    const totalW = cols * stepX - BLOCK_GAP_X;
-    const totalH = rows * stepY - BLOCK_GAP_Y;
-    const startX = CANVAS_VIEWPORT_CENTER - totalW / 2;
-    const startY = CANVAS_VIEWPORT_CENTER - totalH / 2;
-    const out = [];
-    for (let r = 0; r < rows; r += 1) {
-      for (let c = 0; c < cols; c += 1) {
-        out.push([startX + c * stepX, startY + r * stepY]);
-      }
-    }
-    return out;
-  }
-
-  // Bounding box of existing thoughts.
-  let minY = Infinity;
-  let maxY = -Infinity;
-  let maxRight = -Infinity;
-  for (const t of thoughts) {
-    minY = Math.min(minY, t.pos_y);
-    maxY = Math.max(maxY, t.pos_y + BLOCK_MIN_HEIGHT);
-    maxRight = Math.max(maxRight, t.pos_x + BLOCK_WIDTH);
-  }
-  const startX = maxRight + BLOCK_GAP_X;
-  const blockHeight = rows * stepY - BLOCK_GAP_Y;
-  const centerY = (minY + maxY) / 2;
-  const startY = Math.max(0, centerY - blockHeight / 2);
-
-  // Lay out 2x2 grid to the right.
-  const candidates = [];
-  for (let r = 0; r < rows; r += 1) {
-    for (let c = 0; c < cols; c += 1) {
-      candidates.push([startX + c * stepX, startY + r * stepY]);
-    }
-  }
-
-  // Avoid overlap with any existing thought (cheap rectangular check).
-  // If a candidate overlaps, shift it down by stepY until it doesn't.
-  const overlaps = (x, y) => {
-    for (const t of thoughts) {
-      const ox = t.pos_x;
-      const oy = t.pos_y;
-      const xOverlap = x < ox + BLOCK_WIDTH && x + BLOCK_WIDTH > ox;
-      const yOverlap = y < oy + BLOCK_MIN_HEIGHT && y + BLOCK_MIN_HEIGHT > oy;
-      if (xOverlap && yOverlap) return true;
-    }
-    return false;
-  };
-  return candidates.map(([x, y]) => {
-    let cy = y;
-    let safety = 20;
-    while (overlaps(x, cy) && safety > 0) {
-      cy += stepY;
-      safety -= 1;
-    }
-    return [x, cy];
-  });
-}
+// Stage 2 nudge positions are computed server-side now (fan-shape engine).
+// The previous client-side 2x2 grid was removed when the diagnostic engine
+// took over.
 
 function makeTempId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -484,39 +401,31 @@ export default function CanvasPage() {
       );
     });
 
-    // Stage 1 → 2 seeds AI nudge blocks on the canvas. Only nudges if
-    // none already exist (the backend is idempotent on this anyway, but
-    // we still gate locally to avoid an unnecessary network call). We
-    // pass the user's current thought contents so the model can extend
-    // their flow rather than start from scratch, and explicit positions
-    // so nudges land NEXT TO the existing flow rather than far off-screen.
+    // Stage 1 → 2 seeds an AI intervention on the canvas via the fan-shape
+    // diagnostic engine. The server picks the move (simplify, push_extreme,
+    // socrates, etc.), shape (fan or single), the branch source, and node
+    // positions — we just ferry the result into local state. Idempotent on
+    // the backend; we still gate locally to avoid a redundant request.
     if (nextStage === 2 && !seedingNudges) {
       const alreadyHasNudges = thoughts.some((t) => t.is_nudge);
       if (alreadyHasNudges) return;
 
       setSeedingNudges(true);
-      const userOnly = thoughts.filter((t) => !t.is_nudge);
-      const userThoughts = userOnly.map((t) => t.content).filter(Boolean);
-      const positions = computeNudgePositions(userOnly);
       try {
-        const response = await generateStage2Nudges(
-          coursePuzzleId,
-          userThoughts,
-          positions,
-          getToken,
-        );
+        const response = await generateStage2Nudges(coursePuzzleId, getToken);
         const { nudges, connections: newConnections, chat_message } = response;
-        
+
         if (nudges?.length) {
-          // Merge in: skip any duplicates (defense against double-clicks).
+          // Defense against double-clicks: skip ids we already have locally.
           setThoughts((prev) => {
             const have = new Set(prev.map((t) => t.id));
             const fresh = nudges.filter((n) => !have.has(n.id));
             return [...prev, ...fresh];
           });
         }
-        
-        // Merge connections (for branch decisions)
+
+        // Merge connections (source->anchor and anchor->child edges from
+        // the fan-shape engine, or source->single from single-node moves).
         if (newConnections?.length) {
           setConnections((prev) => {
             const have = new Set(prev.map((c) => c.id));
@@ -524,8 +433,9 @@ export default function CanvasPage() {
             return [...prev, ...fresh];
           });
         }
-        
-        // Store the chat message for StageChat to use
+
+        // Store the server-generated opening chat message. StageChat reads
+        // this as the first assistant turn instead of a per-element template.
         if (chat_message) {
           setStage2WelcomeMessage(chat_message);
         }
@@ -626,8 +536,13 @@ export default function CanvasPage() {
               selectedElement={selectedElement}
               selectedSubElement={selectedSubElement}
               onSelect={(el, sub) => {
-                setSelectedElement(el);
-                setSelectedSubElement(sub);
+                if (selectedSubElement === sub) {
+                  setSelectedElement(null);
+                  setSelectedSubElement(null);
+                } else {
+                  setSelectedElement(el);
+                  setSelectedSubElement(sub);
+                }
               }}
               onClear={clearSelection}
               thoughtsByElement={thoughtsByElement}
@@ -735,6 +650,7 @@ export default function CanvasPage() {
             onDeleteThought={isCompleted ? null : handleDeleteThought}
             onCreateConnection={isCompleted ? null : handleCreateConnection}
             onDeleteConnection={isCompleted ? null : handleDeleteConnection}
+            onClearElement={clearSelection}
           />
         </div>
       </div>
@@ -744,7 +660,6 @@ export default function CanvasPage() {
         <aside className="w-80 shrink-0">
           <StageChat
             stage={stage}
-            primaryElement={coursePuzzle.primary_element}
             coursePuzzleId={coursePuzzleId}
             onClose={() => setChatOpen(false)}
             stage2WelcomeMessage={stage2WelcomeMessage}

@@ -3,7 +3,6 @@ import {
   ClerkProvider,
 } from "@clerk/nextjs";
 import { Providers } from "./providers";
-import { NavbarWrapper } from "../components/NavbarWrapper";
 
 export const metadata = {
   title: {
@@ -60,7 +59,6 @@ export default function RootLayout({ children }) {
       </head>
       <body className="bg-white antialiased overflow-x-hidden">
         <Providers themeProps={{ attribute: "class", defaultTheme: "light" }}>
-          <NavbarWrapper />
           {children}
         </Providers>
       </body>

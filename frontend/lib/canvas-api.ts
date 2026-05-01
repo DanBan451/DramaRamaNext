@@ -174,28 +174,44 @@ export async function deleteConnection(
   if (!res.ok) throw new Error(`deleteConnection: ${res.status}`);
 }
 
+export type NudgeMove =
+  | "simplify"
+  | "push_extreme"
+  | "enumerate_cases"
+  | "ground_in_specifics"
+  | "find_negative_space"
+  | "name_the_frame"
+  | "socrates"
+  | "extend_thread";
+
 export interface Stage2NudgesResponse {
+  /** Newly-created nudge thoughts in canvas order (anchor first for fans). */
   nudges: Thought[];
+  /** New edges: source->anchor and anchor->child (fan), or source->single. */
   connections: Connection[];
+  /** Opening assistant message for Stage 2 chat (null on idempotent reseed). */
   chat_message: string | null;
-  decision: "branch" | "redirect" | null;
-  branch_from_thought_id: string | null;
+  move: NudgeMove | null;
+  shape: "fan" | "single" | null;
+  branch_source_thought_id: string | null;
+  /** True when nudges already existed and were returned without LLM call. */
+  already_seeded: boolean;
 }
 
+/**
+ * Generate the Stage 2 fan-shape (or single-node) intervention.
+ * The server is the source of truth for both the move selection and the
+ * positioning, so the client no longer passes positions or thought snapshots.
+ */
 export async function generateStage2Nudges(
   coursePuzzleId: string,
-  existingThoughts: string[],
-  positions: Array<[number, number]>,
   getToken: TokenGetter,
 ): Promise<Stage2NudgesResponse> {
   const res = await authedFetch(
     `/canvas/${coursePuzzleId}/stage2/nudges`,
     {
       method: "POST",
-      body: JSON.stringify({
-        existing_thoughts: existingThoughts,
-        positions,
-      }),
+      body: JSON.stringify({}),
     },
     getToken,
   );

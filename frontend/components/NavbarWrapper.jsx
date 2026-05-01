@@ -1,25 +1,7 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { Navbar } from "./navbar";
 
-// Pages where navbar is always hidden.
-// Canvas pages take the full viewport (sidebar + canvas) and have their
-// own back button, so the global fixed navbar is hidden there to prevent
-// it from sitting on top of the canvas.
-const noNavbarPages = ["/login"];
-const noNavbarPrefixes = ["/canvas/"];
-
-export const NavbarWrapper = () => {
-  const pathname = usePathname();
-
-  if (noNavbarPages.includes(pathname)) {
-    return null;
-  }
-  if (noNavbarPrefixes.some((p) => pathname.startsWith(p))) {
-    return null;
-  }
-
-  return <Navbar />;
-};
-
+// Rendered only inside the (with-nav) route group layout.
+// Canvas and login pages are outside that group, so they never see this.
+export const NavbarWrapper = () => <Navbar />;

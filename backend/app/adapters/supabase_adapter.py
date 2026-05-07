@@ -481,7 +481,11 @@ class SupabaseCourseRepository(CourseRepository):
     async def create(self, user_id: str) -> Course:
         data = {
             "user_id": user_id,
-            "intake_status": "in_progress",
+            # Drafts are created when the user clicks "Start course" on the
+            # intake page. They should not appear in the Courses list until
+            # the user actually engages (sends at least one message) or
+            # finalizes.
+            "intake_status": "draft",
             "intake_messages": [],
             "course_status": "awaiting_puzzles",
         }
@@ -499,6 +503,7 @@ class SupabaseCourseRepository(CourseRepository):
             self.client.table("courses")
             .select("*")
             .eq("user_id", user_id)
+            .neq("intake_status", "draft")
             .order("created_at", desc=True)
             .limit(limit)
             .execute()
@@ -510,18 +515,23 @@ class SupabaseCourseRepository(CourseRepository):
         # for one-message-at-a-time intake traffic.
         existing = (
             self.client.table("courses")
-            .select("intake_messages")
+            .select("intake_messages,intake_status")
             .eq("id", course_id)
             .execute()
         )
         if not existing.data:
             raise ValueError(f"Course {course_id} not found")
         msgs = existing.data[0].get("intake_messages") or []
+        current_intake_status = existing.data[0].get("intake_status") or "in_progress"
         msgs.append(self._msg_to_dict(message))
+        next_intake_status = (
+            "in_progress" if current_intake_status == "draft" else current_intake_status
+        )
         result = (
             self.client.table("courses")
             .update({
                 "intake_messages": msgs,
+                "intake_status": next_intake_status,
                 "updated_at": datetime.utcnow().isoformat(),
             })
             .eq("id", course_id)

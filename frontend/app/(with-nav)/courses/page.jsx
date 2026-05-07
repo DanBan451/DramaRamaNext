@@ -122,7 +122,7 @@ export default function CoursesPage() {
                 No courses yet.
               </h3>
               <p className="text-smoke mb-8">
-                Tell us what you want to master. We&apos;ll build the rest.
+                Start with one sentence. We&apos;ll build puzzles that train it.
               </p>
               <Button
                 as={Link}

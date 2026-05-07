@@ -101,7 +101,7 @@ export default function CanvasPage() {
     if (!isLoaded || isSignedIn) return;
     const t = setTimeout(() => {
       router.push(`/login?redirect=/canvas/${coursePuzzleId}`);
-    }, 450);
+    }, 1200);
     return () => clearTimeout(t);
   }, [isLoaded, isSignedIn, router, coursePuzzleId]);
 
@@ -492,6 +492,9 @@ export default function CanvasPage() {
             }
           : prev,
       );
+      // Ensure the learner sees the closing note immediately after finishing.
+      // (Many users collapse the chat panel while working.)
+      setChatOpen(true);
     } catch (e) {
       notifyError(e?.message || "Couldn't complete puzzle — try again.");
     } finally {

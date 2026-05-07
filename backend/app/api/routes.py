@@ -779,7 +779,12 @@ def _course_to_summary(course) -> CourseSummary:
 async def start_course_intake(
     current_user: dict = Depends(get_current_user),
 ):
-    """Create a new Course in 'in_progress' intake state."""
+    """Create a new Course in 'draft' intake state.
+
+    We create a row so intake messages can be persisted, but we keep it out
+    of the user's Courses list until they actually engage (first message)
+    or finalize.
+    """
     user = current_user["db_user"]
 
     if not rate_limit_user(user.id, "course_intake_start"):
@@ -1801,6 +1806,7 @@ HARD RULES
 6. Each child node tagged with one of these sub_element ids: {valid_subs_str}
 7. Anchor node tagged the same way as children.
 8. For SINGLE moves: the single node also tagged with a sub_element.
+9. The chat_message must NOT assume linear sequencing like "now it's time to..." or "next we...". Write it so it still feels correct if the user is returning later (e.g. "Continue by…", "Pick one nudge…", "If you're coming back…").
 
 ================================================================
 OUTPUT FORMAT

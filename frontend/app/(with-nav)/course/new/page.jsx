@@ -333,8 +333,8 @@ export default function NewCourseIntakePage() {
         <p className="font-serif text-ash text-base leading-relaxed mb-8 max-w-2xl">
           One short chat: the guide asks a few questions, then proposes a single
           sentence you can edit. We only create your course after you press{" "}
-          <strong className="font-medium text-black">Start course</strong> — nothing is
-          reserved before that.
+          <strong className="font-medium text-black">Create Course</strong> — nothing
+          shows up in your course list before that.
         </p>
 
         {!intakeStarted ? (

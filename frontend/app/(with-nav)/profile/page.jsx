@@ -6,6 +6,7 @@ import { Button } from "@nextui-org/button";
 import { useAuth, useUser } from "@clerk/nextjs";
 import useSWR, { mutate } from "swr";
 import Footer from "@/components/Footer";
+import { readBackendErrorMessage } from "@/lib/read-backend-error";
 
 // Element metadata - simplified for profile display
 const ELEMENTS = [
@@ -21,11 +22,8 @@ const createFetcher = (getToken) => async (url) => {
   if (!token) throw new Error("Unable to authenticate");
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    const errorMsg = typeof err.detail === 'string' 
-      ? err.detail 
-      : (err.error || err.message || "Failed to fetch");
-    throw new Error(errorMsg);
+    const msg = await readBackendErrorMessage(res, "Failed to fetch");
+    throw new Error(msg);
   }
   return res.json();
 };

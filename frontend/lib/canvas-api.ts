@@ -270,13 +270,21 @@ export async function advanceToBridge(
 export async function completePuzzle(
   coursePuzzleId: string,
   getToken: TokenGetter,
-): Promise<{ status: string; completed_at: string | null }> {
+): Promise<{
+  status: string;
+  completed_at: string | null;
+  synthesis?: string | null;
+}> {
   const res = await authedFetch(
     `/canvas/${coursePuzzleId}/stage3/complete`,
     { method: "POST" },
     getToken,
   );
-  return asJson<{ status: string; completed_at: string | null }>(res, "completePuzzle");
+  return asJson<{
+    status: string;
+    completed_at: string | null;
+    synthesis?: string | null;
+  }>(res, "completePuzzle");
 }
 
 export async function getDevRedirectTarget(

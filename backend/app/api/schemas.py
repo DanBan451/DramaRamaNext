@@ -339,3 +339,4 @@ class Stage3ChatRequest(BaseModel):
 class CompletePuzzleResponse(BaseModel):
     status: str  # "completed"
     completed_at: Optional[datetime] = None
+    synthesis: Optional[str] = None

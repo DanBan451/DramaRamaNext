@@ -1461,19 +1461,22 @@ def _build_canvas_chat_system_prompt(
         )
     elif stage == 2:
         stage_directive = (
-            "\nSTAGE 2 — REDIRECT\n"
+            "\nSTAGE 2 — REDIRECT (Edward Burger / *Making Up Your Own Mind*)\n"
             "\n"
-            "The user has received a small structured intervention on their canvas\n"
-            "(anchor + children, or a single deep prompt). They should be working through it.\n"
+            "The user has a small structured intervention on their canvas\n"
+            "(anchor + children, or a single deep prompt). This is a *redirect* —\n"
+            "not a new lecture. Voice: invitational, intellectually playful, humble.\n"
+            "Short sentences. No hype, no therapy-speak, no cheerleading.\n"
             "\n"
             "Your role:\n"
-            "- DO NOT solve the puzzle.\n"
-            "- DO point them back to the new nodes on their canvas.\n"
-            "- DO answer questions about how to engage with the nodes (what does this anchor mean?\n"
-            "  what is this child asking?).\n"
-            "- DO reference their existing thoughts when discussing the new intervention.\n"
-            "- AVOID extending their thinking beyond what's on the canvas.\n"
-            "- If asked \"should I do this nudge first?\" — say which one and why, in 1-2 sentences.\n"
+            "- DO NOT solve the puzzle or give answer-shaped hints.\n"
+            "- DO gently point back to the purple nudge nodes and what each is *asking* them to try.\n"
+            "- DO answer questions about how to engage (what the anchor names, what a child is for).\n"
+            "- DO reference their own words from the canvas when it helps.\n"
+            "- AVOID inventing a brand-new method beyond what's already on the canvas.\n"
+            "- If they want \"one more step\": remind them the work is to *live inside* the nudges,\n"
+            "  not to collect more instructions.\n"
+            "- If asked which nudge first: pick one briefly and say why, 1–2 sentences.\n"
         )
     else:  # stage 3 — note: Stage 3 has its own dedicated chat endpoint, but
            # if this prompt is reused, handle it gracefully.
@@ -2049,7 +2052,11 @@ async def generate_stage2_nudges(
         return CanvasNudgesResponse(
             nudges=[_thought_to_response(t) for t in existing_nudges],
             connections=[_connection_to_response(c) for c in nudge_connections],
-            chat_message=None,
+            chat_message=(
+                "Welcome back — your **AI Nudge** blocks are still on the canvas. "
+                "Continue where you left off: pick a nudge, answer it on a fresh block, "
+                "or edit anything that no longer fits. When you're ready, use **Next Stage** above."
+            ),
             move=None,
             shape=None,
             branch_source_thought_id=None,
@@ -2330,12 +2337,9 @@ def _build_stage3_chat_system_prompt(
     if phase == "reflect":
         return base + (
             "\nPHASE: REFLECT\n"
-            "Help the user reflect on what just happened. Ask about:\n"
-            "- What surprised them\n"
-            "- Where they got stuck and what unstuck them\n"
-            "- What they'd do differently next time\n"
-            "Keep it personal and puzzle-specific. Reference their actual "
-            "work if they mention it."
+            "Help them look back at what happened — Burger-style: curious, not corrective.\n"
+            "Invite, don't inventory. One angle at a time. Ask about surprise, friction,\n"
+            "or a moment that clicked — only what fits what they actually put on the canvas.\n"
         )
 
     # phase == "bridge"
@@ -2343,46 +2347,103 @@ def _build_stage3_chat_system_prompt(
     domain = course.domain or "their domain"
     return base + (
         f"\nPHASE: BRIDGE\n"
-        f"The user's real-world goal: \"{user_goal}\" (domain: {domain}).\n"
-        f"Help them connect what they just practiced to that goal. Ask:\n"
-        f"- How does this kind of thinking show up in {domain}?\n"
-        f"- What's one situation where they could apply what they just did?\n"
-        f"- What would change if they brought this approach to their work?\n"
-        f"Do NOT mention element names. Keep it grounded in their life."
+        f"They care about: \"{user_goal}\" (context: {domain}).\n"
+        f"We're not summarizing the puzzle — we're linking practice to life.\n"
+        f"Ask one grounded question at a time about where this *kind of thinking*\n"
+        f"already shows up for them, or where they might try it next. No jargon.\n"
+        f"Do NOT mention element names."
+    )
+
+
+def _build_completed_puzzle_chat_system_prompt(
+    cp,
+    course,
+    synthesis: str | None,
+    *,
+    user_thoughts: list | None = None,
+    nudge_thoughts: list | None = None,
+    reflection_thoughts: list | None = None,
+    connections: list | None = None,
+) -> str:
+    """When the puzzle is already completed: welcome-back chat, *we* voice."""
+    forbidden = (
+        "FORBIDDEN WORDS — never use these in your response: "
+        "earth, fire, air, water, element, synthesis, change, Change, "
+        "quintessence, coaching, coach."
+    )
+    user_block = _format_thoughts_compact(user_thoughts or []) or "  (none)"
+    nudge_block = _format_thoughts_compact(nudge_thoughts or []) or "  (none)"
+    reflection_block = _format_thoughts_compact(reflection_thoughts or []) or "  (none)"
+    if connections:
+        conn_block = "\n".join(
+            f"  [{c['from_id']}] -> [{c['to_id']}]" for c in connections
+        )
+    else:
+        conn_block = "  (no connections drawn)"
+
+    syn = (synthesis or "").strip() or "(none saved yet)"
+    muscle = (cp.why_this_trains_the_element or "").strip() or "the thinking move this puzzle was built around"
+    bridge_hint = (cp.domain_connection or cp.bridge_back or "").strip() or "how this practice ties back to what they care about"
+
+    user_goal = course.crisp_statement or "their larger goal"
+
+    return (
+        "You are revisiting a finished thinking puzzle with someone who already did the work.\n"
+        "Use **we/us/our** language: you and they went through this together. "
+        "Warm, plain, short (2–4 sentences per turn). Light **bold** ok. No code fences.\n\n"
+        f"PUZZLE: {cp.title}\n"
+        f"Prompt: {cp.puzzle_text}\n\n"
+        f"What this puzzle was meant to stretch (for us to reference): {muscle}\n"
+        f"How it was designed to connect to their life (background): {bridge_hint}\n"
+        f"Their course commitment: {user_goal}\n\n"
+        f"SAVED CLOSING NOTE (may quote briefly if helpful):\n{syn}\n\n"
+        f"THEIR CANVAS (for quoting):\n"
+        f"User thoughts:\n{user_block}\n\n"
+        f"Nudge nodes:\n{nudge_block}\n\n"
+        f"Reflections:\n{reflection_block}\n\n"
+        f"CONNECTIONS:\n{conn_block}\n\n"
+        f"{forbidden}\n\n"
+        "RULES:\n"
+        "- NEVER give the puzzle answer or solution-shaped hints.\n"
+        "- Do not sound like a report about \"the user\" — speak with them.\n"
+        "- If they ask what to do next, suggest how we might apply what we noticed to their goal.\n"
     )
 
 
 def _build_synthesis_prompt(cp, course, thoughts, reflections) -> str:
-    """Prompt for generating the hidden synthesis paragraph.
-
-    The synthesis is a 3–5 sentence paragraph capturing what the user
-    practiced and how it connects to their goal. It's stored but never
-    shown to the user directly (used internally for course-level
-    insights later).
-    """
+    """Closing message shown to the learner: *we* voice, specific to their canvas."""
     thought_summaries = "\n".join(
         f"  - {t.content[:200]}" for t in thoughts[:20] if t.content
     )
     reflection_summaries = "\n".join(
         f"  - {r.content[:200]}" for r in reflections[:10] if r.content
     )
+    muscle = cp.why_this_trains_the_element or ""
+    bridge_design = (cp.domain_connection or cp.bridge_back or "").strip()
 
     return (
-        "Write a 3–5 sentence synthesis paragraph about this user's "
-        "work on a thinking puzzle. This is for internal records, not "
-        "shown to the user.\n\n"
+        "Write a single 4–7 sentence closing message the learner will read "
+        "right after finishing this puzzle. Voice: **we/us/our** together with "
+        "the learner (e.g. \"We started out aiming to…\", \"What we practiced here…\"). "
+        "Address them as **you** where natural. No third-person report "
+        "(avoid \"the user\", \"they learned\").\n\n"
+        "Cover ALL of:\n"
+        "(1) What thinking move or habit this puzzle was set up to stretch, and why that mattered.\n"
+        "(2) What we actually did on the canvas — cite their words or paraphrase specific notes "
+        "from the lists below, not generic praise.\n"
+        "(3) How this small puzzle bridges toward their larger commitment — use their goal and, "
+        "if useful, this design note: "
+        f"{bridge_design or '(infer carefully from goal and canvas)'}\n\n"
         f"PUZZLE: {cp.title}\n"
         f"Puzzle prompt: {cp.puzzle_text}\n"
-        f"User's real-world goal: {course.crisp_statement or 'N/A'}\n"
+        f"Designer note on the muscle to train: {muscle or '(infer from puzzle)'}\n"
+        f"Their stated goal: {course.crisp_statement or 'N/A'}\n"
         f"Domain: {course.domain or 'N/A'}\n\n"
-        f"USER'S THOUGHTS ON THE CANVAS:\n{thought_summaries or '(none)'}\n\n"
-        f"USER'S REFLECTIONS:\n{reflection_summaries or '(none)'}\n\n"
-        "Capture: (1) what thinking approaches the user practiced, "
-        "(2) key insights they surfaced, (3) how this connects to their "
-        "real-world goal. Be specific and grounded in their actual work. "
+        f"THOUGHTS AND NUDGES ON THE CANVAS:\n{thought_summaries or '(none)'}\n\n"
+        f"REFLECTIONS:\n{reflection_summaries or '(none)'}\n\n"
         "Do NOT use the words: earth, fire, air, water, element, synthesis, "
         "change, quintessence.\n\n"
-        "Return ONLY the paragraph, no heading, no bullet points."
+        "Return ONLY the message — no title, no bullet points."
     )
 
 
@@ -2434,9 +2495,6 @@ async def stage3_chat_stream(
             detail="You're chatting fast — give it a few seconds and try again.",
         )
 
-    # Determine phase (default to 'reflect' if not set yet)
-    phase = cp.stage3_phase or "reflect"
-
     # We need the parent course for bridge-phase prompts
     course = await course_repo.get_by_id(cp.course_id)
     if not course:
@@ -2452,15 +2510,27 @@ async def stage3_chat_stream(
         for c in raw_connections
     ]
 
-    system_prompt = _build_stage3_chat_system_prompt(
-        cp,
-        course,
-        phase,
-        user_thoughts=user_thoughts,
-        nudge_thoughts=nudge_thoughts,
-        reflection_thoughts=reflection_thoughts,
-        connections=connections,
-    )
+    if cp.status == "completed":
+        system_prompt = _build_completed_puzzle_chat_system_prompt(
+            cp,
+            course,
+            getattr(cp, "synthesis", None),
+            user_thoughts=user_thoughts,
+            nudge_thoughts=nudge_thoughts,
+            reflection_thoughts=reflection_thoughts,
+            connections=connections,
+        )
+    else:
+        phase = cp.stage3_phase or "reflect"
+        system_prompt = _build_stage3_chat_system_prompt(
+            cp,
+            course,
+            phase,
+            user_thoughts=user_thoughts,
+            nudge_thoughts=nudge_thoughts,
+            reflection_thoughts=reflection_thoughts,
+            connections=connections,
+        )
 
     # Build message history for Claude structured messages API
     messages = []
@@ -2511,10 +2581,7 @@ async def complete_puzzle(
     course_puzzle_id: str,
     current_user: dict = Depends(get_current_user),
 ):
-    """Finalize the puzzle: generate synthesis, mark completed.
-
-    The synthesis is stored but never shown to the user. The frontend
-    routes back to the course list on success."""
+    """Finalize the puzzle: generate closing synthesis, mark completed."""
     user = current_user["db_user"]
     cp = await _verify_puzzle_ownership(course_puzzle_id, user)
 
@@ -2523,6 +2590,7 @@ async def complete_puzzle(
         return CompletePuzzleResponse(
             status="completed",
             completed_at=cp.completed_at,
+            synthesis=getattr(cp, "synthesis", None),
         )
 
     # Load course for synthesis prompt
@@ -2535,21 +2603,20 @@ async def complete_puzzle(
     thoughts = [t for t in all_thoughts if t.kind in ("thought", "nudge")]
     reflections = [t for t in all_thoughts if t.kind == "reflection"]
 
-    # Generate synthesis (non-streaming, hidden from user)
     synthesis = ""
     try:
         prompt = _build_synthesis_prompt(cp, course, thoughts, reflections)
         synthesis = await llm_client.generate_text(
             prompt=prompt,
             system=(
-                "You write concise internal summaries for a learning platform. "
-                "No element names, no coaching jargon. Just clear prose."
+                "You write warm, specific closing notes learners read after a puzzle. "
+                "Use we/us with them; never 'the user'. No element names, no therapy jargon."
             ),
-            max_tokens=400,
+            max_tokens=500,
         )
     except Exception as e:
         logger.error("Synthesis generation failed for puzzle %s: %s", course_puzzle_id, e)
-        synthesis = "(synthesis generation failed)"
+        synthesis = "(We couldn't generate your closing note — you can still review your canvas.)"
 
     # Save synthesis and mark completed
     updated = await puzzle_repo.save_synthesis_and_complete(
@@ -2559,6 +2626,7 @@ async def complete_puzzle(
     return CompletePuzzleResponse(
         status="completed",
         completed_at=updated.completed_at,
+        synthesis=updated.synthesis,
     )
 
 

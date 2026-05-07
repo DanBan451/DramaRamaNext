@@ -56,17 +56,17 @@ const STAGE_2_FALLBACK = `I just dropped a small set of **AI Nudge** blocks on y
 
 const STAGE_3_REFLECT_WELCOME = `**Time to reflect.**
 
-You've done real work on this puzzle. Before we move on, let's think about what actually happened.
+We've put real work into this puzzle. Before we move on, what actually happened for you?
 
-What surprised you? Where did you get stuck — and what got you unstuck? Drop your reflections as blocks on the canvas (they'll show up with a warm gold border) or talk through them here.
+What surprised you? Where did you get stuck — and what got you unstuck? Drop reflections on the canvas (warm gold border) or talk through them here.
 
-When you're ready to connect this back to your real-world goal, hit **"Now bridge to my goal"** below.`;
+When you want to connect this to your real-world goal, use **"Now bridge to my goal"** below.`;
 
-const STAGE_3_BRIDGE_WELCOME = `**Let's bridge to your goal.**
+const STAGE_3_BRIDGE_WELCOME = `**Let's keep bridging this to your goal.**
 
-Now the interesting part: how does what you just practiced connect to the thing you actually care about?
+How does what we practiced here hook up to what you actually care about?
 
-Think about where this kind of thinking shows up in your real work. What's one situation where you could use what you just did?`;
+Where does this kind of thinking already show up in your life — and where might you try it next?`;
 
 // Streams a chat reply from the backend SSE endpoint. Calls `onChunk(text)`
 // for each delta as it arrives, then resolves with the full text. Throws on
@@ -80,13 +80,14 @@ async function streamCanvasChat({
   getToken,
   onChunk,
   signal,
+  useStage3Endpoint,
 }) {
-  // Stage 3 uses its own endpoint (phase-aware prompt)
-  const endpoint = stage === 3
+  const useS3 = stage === 3 || useStage3Endpoint;
+  const endpoint = useS3
     ? `/api/backend-api/canvas/${coursePuzzleId}/stage3/chat`
     : `/api/backend-api/canvas/${coursePuzzleId}/chat/stream`;
 
-  const payload = stage === 3
+  const payload = useS3
     ? { history, user_message: userMessage }
     : { stage, history, user_message: userMessage };
 
@@ -159,9 +160,18 @@ export default function StageChat({
   onAdvanceToBridge,
   onCompletePuzzle,
   isCompleted = false,
+  synthesis = null,
 }) {
   const { getToken } = useAuth();
   const welcome = useMemo(() => {
+    if (isCompleted) {
+      const syn = (synthesis || "").trim();
+      const head =
+        "**Welcome back.** This puzzle is finished — your canvas is read-only, but we can still talk it through.";
+      if (syn)
+        return `${head}\n\n**Our closing note:**\n\n${syn}\n\nIf anything new occurs to you, or you want to connect this to what you're working on now, say it below.`;
+      return `${head}\n\nIf you want to revisit how this connects to your goals, ask below.`;
+    }
     if (stage === 1) return STAGE_1_WELCOME;
     if (stage === 2) {
       // Stage 2 welcome comes from the server's fan-shape engine; it's
@@ -176,7 +186,7 @@ export default function StageChat({
         : STAGE_3_REFLECT_WELCOME;
     }
     return "";
-  }, [stage, stage2WelcomeMessage, stage3Phase]);
+  }, [isCompleted, synthesis, stage, stage2WelcomeMessage, stage3Phase]);
 
   const [messages, setMessages] = useState(() => [
     { role: "assistant", content: welcome },
@@ -274,6 +284,7 @@ export default function StageChat({
         getToken,
         onChunk: appendChunk,
         signal: controller.signal,
+        useStage3Endpoint: isCompleted,
       });
       // Mark the final assistant message as no-longer-streaming.
       setMessages((prev) => {
@@ -381,22 +392,24 @@ export default function StageChat({
           }}
           rows={1}
           placeholder={
-            stage === 1
-              ? "Ask about an element or this stage…"
-              : stage === 2
-                ? "Ask away — I'll just nudge you back to the flow."
-                : stage3Phase === "bridge"
-                  ? "How does this connect to your goal?"
-                  : "What did you notice? What surprised you?"
+            isCompleted
+              ? "Ask about this puzzle, the closing note, or your goals…"
+              : stage === 1
+                ? "Ask about an element or this stage…"
+                : stage === 2
+                  ? "Ask away — I'll just nudge you back to the flow."
+                  : stage3Phase === "bridge"
+                    ? "How does this connect to your goal?"
+                    : "What did you notice? What surprised you?"
           }
           className="flex-1 resize-none scrollbar-hide border border-mist rounded-md px-3 py-2 text-sm focus:outline-none focus:border-change/60 leading-relaxed"
-          disabled={streaming || isCompleted}
+          disabled={streaming}
           ref={textareaRef}
           style={{ maxHeight: TEXTAREA_MAX_PX, minHeight: TEXTAREA_MIN_PX }}
         />
         <button
           type="submit"
-          disabled={streaming || !draft.trim() || isCompleted}
+          disabled={streaming || !draft.trim()}
           className="px-3 py-2 bg-primary text-white text-sm rounded-md font-medium hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors self-end"
         >
           {streaming ? "…" : "Send"}

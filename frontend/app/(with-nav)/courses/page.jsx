@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@nextui-org/button";
-import { Spinner } from "@nextui-org/spinner";
+import CreativeSpinner from "@/components/CreativeSpinner";
+import { readBackendErrorMessage } from "@/lib/read-backend-error";
 import Footer from "@/components/Footer";
 
 const STATUS_LABEL = {
@@ -57,7 +58,11 @@ export default function CoursesPage() {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) {
-          throw new Error(`Failed to load courses (${res.status})`);
+          const msg = await readBackendErrorMessage(
+            res,
+            `Failed to load courses (${res.status})`,
+          );
+          throw new Error(msg);
         }
         const data = await res.json();
         setCourses(data.courses || []);
@@ -73,7 +78,7 @@ export default function CoursesPage() {
   if (!isLoaded || loading) {
     return (
       <div className="min-h-screen bg-white pt-24 flex items-center justify-center">
-        <Spinner size="md" color="default" />
+        <CreativeSpinner label="Loading courses" />
       </div>
     );
   }

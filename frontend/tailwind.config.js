@@ -50,8 +50,15 @@ module.exports = {
         'float': 'float 4s ease-in-out infinite',
         'shimmer': 'shimmer 1s ease-out forwards',
         'shimmer-slide': 'shimmerSlide 1.5s ease-in-out infinite',
+        'cube-twist': 'cubeTwist 2.2s ease-in-out infinite',
       },
       keyframes: {
+        cubeTwist: {
+          '0%': { transform: 'rotateX(-18deg) rotateY(0deg)' },
+          '35%': { transform: 'rotateX(-18deg) rotateY(200deg)' },
+          '65%': { transform: 'rotateX(162deg) rotateY(200deg)' },
+          '100%': { transform: 'rotateX(-18deg) rotateY(360deg)' },
+        },
         fadeIn: {
           '0%': { opacity: '0', transform: 'translateY(8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },

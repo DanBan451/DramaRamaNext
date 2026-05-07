@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
 import Canvas from "@/components/canvas/Canvas";
 import ElementsSidebar from "@/components/canvas/ElementsSidebar";
 import StageChat from "@/components/canvas/StageChat";
@@ -94,11 +95,14 @@ export default function CanvasPage() {
     return m;
   }, [thoughts]);
 
-  // Auth gate
+  // Auth gate — brief delay so Clerk can finish hydrating a returning session
+  // without flashing the login layout.
   useEffect(() => {
-    if (isLoaded && !isSignedIn) {
+    if (!isLoaded || isSignedIn) return;
+    const t = setTimeout(() => {
       router.push(`/login?redirect=/canvas/${coursePuzzleId}`);
-    }
+    }, 450);
+    return () => clearTimeout(t);
   }, [isLoaded, isSignedIn, router, coursePuzzleId]);
 
   // Auto-dismiss toast
@@ -146,6 +150,18 @@ export default function CanvasPage() {
       cancelled = true;
     };
   }, [isLoaded, isSignedIn, coursePuzzleId, getToken]);
+
+  // Reloading mid–Stage 2: nudges exist but the opening guide line lived only
+  // in memory. Restore a welcome-back line without calling the nudge endpoint.
+  useEffect(() => {
+    if (loading || !coursePuzzleId) return;
+    if (stage !== 2) return;
+    const hasNudges = thoughts.some((t) => t.is_nudge);
+    if (!hasNudges || stage2WelcomeMessage) return;
+    setStage2WelcomeMessage(
+      "Welcome back — your **AI Nudge** blocks are still on the canvas. Continue where you left off: pick a nudge, answer it on a fresh block, or edit what no longer fits. When you're ready, use **Next Stage** above.",
+    );
+  }, [loading, coursePuzzleId, stage, thoughts, stage2WelcomeMessage]);
 
   // ---------- Optimistic handlers ----------
 
@@ -465,13 +481,17 @@ export default function CanvasPage() {
     setConfirmComplete(false);
     setCompleting(true);
     try {
-      await apiCompletePuzzle(coursePuzzleId, getToken);
-      // Navigate back to the course's puzzle list
-      if (coursePuzzle?.course_id) {
-        router.push(`/courses/${coursePuzzle.course_id}/ready`);
-      } else {
-        router.push("/courses");
-      }
+      const res = await apiCompletePuzzle(coursePuzzleId, getToken);
+      setCoursePuzzle((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "completed",
+              synthesis: res.synthesis ?? prev.synthesis,
+              completed_at: res.completed_at ?? prev.completed_at,
+            }
+          : prev,
+      );
     } catch (e) {
       notifyError(e?.message || "Couldn't complete puzzle — try again.");
     } finally {
@@ -607,13 +627,23 @@ export default function CanvasPage() {
               so the user can review their puzzle's conclusion. */}
           {isCompleted && coursePuzzle.synthesis && (
             <div className="absolute top-0 left-0 right-0 z-20 bg-emerald-50/95 border-b border-emerald-200 px-6 py-4 backdrop-blur-sm">
-              <div className="max-w-2xl">
-                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-700 mb-2">
-                  Puzzle Summary
-                </p>
-                <p className="text-sm text-emerald-900 leading-relaxed whitespace-pre-wrap">
-                  {coursePuzzle.synthesis}
-                </p>
+              <div className="max-w-2xl flex flex-col gap-3">
+                <div>
+                  <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-700 mb-2">
+                    Puzzle complete — our closing note
+                  </p>
+                  <p className="text-sm text-emerald-900 leading-relaxed whitespace-pre-wrap">
+                    {coursePuzzle.synthesis}
+                  </p>
+                </div>
+                {coursePuzzle.course_id && (
+                  <Link
+                    href={`/courses/${coursePuzzle.course_id}/ready`}
+                    className="text-sm font-medium text-emerald-800 underline underline-offset-2 hover:text-emerald-950 w-fit"
+                  >
+                    Back to course →
+                  </Link>
+                )}
               </div>
             </div>
           )}
@@ -667,6 +697,7 @@ export default function CanvasPage() {
             onAdvanceToBridge={() => setConfirmBridge(true)}
             onCompletePuzzle={() => setConfirmComplete(true)}
             isCompleted={isCompleted}
+            synthesis={coursePuzzle.synthesis}
           />
         </aside>
       ) : (
@@ -759,8 +790,9 @@ export default function CanvasPage() {
               Finish this puzzle?
             </h2>
             <p className="text-sm text-smoke mb-6 leading-relaxed">
-              This will mark the puzzle as complete and take you back to your
-              course. You won't be able to add more blocks after this.
+              This marks the puzzle complete and locks the canvas. Your closing
+              note will appear above and in the guide — stay as long as you like,
+              then head back to your course when you&apos;re ready.
             </p>
             <div className="flex gap-2 justify-end">
               <button

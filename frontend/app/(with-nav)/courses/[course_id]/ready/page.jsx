@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
-import { Spinner } from "@nextui-org/spinner";
+import CreativeSpinner from "@/components/CreativeSpinner";
 import { Button } from "@nextui-org/button";
 
 const ROTATING_PHRASES = [
@@ -217,7 +217,7 @@ export default function CourseReadyPage() {
     if (loadError) return <ErrorScreen message={loadError} />;
     return (
       <div className="min-h-screen bg-white pt-24 flex items-center justify-center">
-        <Spinner size="md" color="default" />
+        <CreativeSpinner label="Loading course" />
       </div>
     );
   }
@@ -239,7 +239,7 @@ export default function CourseReadyPage() {
     if (!puzzles) {
       return (
         <div className="min-h-screen bg-white pt-24 flex items-center justify-center">
-          <Spinner size="md" color="default" />
+          <CreativeSpinner label="Loading puzzles" />
         </div>
       );
     }

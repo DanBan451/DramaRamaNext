@@ -1,31 +1,15 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@nextui-org/button";
 import CreativeSpinner from "@/components/CreativeSpinner";
 
-const STATEMENT_MARKER = "<<STATEMENT>>";
-/** Editable tail; full goal sentence = prefix + tail (unless tail already starts with "I want"). */
-const STATEMENT_PREFIX = "I want to think more effectively in ";
+const INTAKE_COMPLETE_MARKER = "<<INTAKE_COMPLETE>>";
 
-function extractTailForField(aiText) {
-  const t = (aiText || "").trim();
-  if (!t) return "";
-  const p = STATEMENT_PREFIX.trimEnd();
-  if (t.toLowerCase().startsWith(p.toLowerCase())) {
-    return t.slice(p.length).trim();
-  }
-  return t;
-}
-
-function buildCrispStatement(tail) {
-  const t = (tail || "").trim();
-  if (!t) return "";
-  if (/^i want\b/i.test(t)) return t;
-  return `${STATEMENT_PREFIX}${t}`;
-}
+const OPENING_ASSISTANT_PROMPT =
+  "What's a part of your life you want to become more effective at?";
 
 /**
  * Scrub stray "User:" / "Assistant:" line prefixes that Claude
@@ -42,26 +26,161 @@ function scrubRolePrefixes(text) {
 }
 
 /**
- * Extract the statement from a <<STATEMENT>> response.
- * Returns { statement, isStatement } where statement is the one-sentence
- * text after the marker, or null if no marker found.
+ * Split an accumulating assistant buffer into:
+ * - visible prose (shown in the chat bubble)
+ * - JSON payload (captured silently once <<INTAKE_COMPLETE>> appears)
  */
-function parseStatement(buffer) {
-  if (!buffer) return { statement: null, isStatement: false, clarification: "" };
-  const cleaned = scrubRolePrefixes(buffer);
-  const idx = cleaned.indexOf(STATEMENT_MARKER);
+function splitVisibleAndJson(buffer) {
+  const cleaned = scrubRolePrefixes(buffer || "");
+  const idx = cleaned.indexOf(INTAKE_COMPLETE_MARKER);
   if (idx === -1) {
-    return { statement: null, isStatement: false, clarification: cleaned.trim() };
+    return { visible: cleaned, intakeJson: null, hasMarker: false };
   }
-  const afterMarker = cleaned.slice(idx + STATEMENT_MARKER.length).trim();
-  // Take only the first sentence/line
-  const firstLine = afterMarker.split("\n").filter(Boolean)[0] || "";
-  return { statement: firstLine.trim(), isStatement: true, clarification: "" };
+  // Use the FIRST marker occurrence defensively.
+  const before = cleaned.slice(0, idx);
+  const after = cleaned.slice(idx + INTAKE_COMPLETE_MARKER.length);
+  let visible = (before || "").trimEnd();
+  // Some older prompts ended with this phrase; keep it out of the bubble.
+  visible = visible
+    .replace(/Building your course now\.?\s*$/i, "")
+    .trimEnd();
+  const intakeJson = (after || "").trim();
+  return { visible, intakeJson, hasMarker: true };
+}
+
+function extractJsonObject(text) {
+  if (!text) return null;
+  let t = String(text).trim();
+  // Strip ```json fences if present
+  t = t.replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
+  const first = t.indexOf("{");
+  const last = t.lastIndexOf("}");
+  if (first === -1 || last === -1 || last <= first) return null;
+  return t.slice(first, last + 1);
+}
+
+function deriveCourseLabelFallback(crispStatement) {
+  const tokens = (crispStatement || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+  if (!tokens.length) return "";
+  return tokens.slice(0, 12).join(" ").replace(/[.?!]+$/, "");
+}
+
+function validateIntakePayload(obj) {
+  if (!obj || typeof obj !== "object") return { ok: false, reason: "missing_json" };
+  const crisp = String(obj.crisp_statement || "").trim();
+  const label = String(obj.course_label || "").trim();
+  if (!crisp) return { ok: false, reason: "missing_crisp_statement" };
+  // Other fields are used downstream but we keep validation light here; backend will still extract/validate.
+  return { ok: true, crisp_statement: crisp, course_label: label };
+}
+
+function assistantVisibleForDisplay(raw) {
+  return (splitVisibleAndJson(raw || "").visible || "").trim();
+}
+
+/**
+ * Rebuild client transcript from persisted JSONB intake_messages.
+ * Strips trailing JSON from assistant rows; detects completed intake marker
+ * and restores extraction state without rendering the concluding bubble.
+ */
+function hydrateIntakeFromServerMessages(intake_messages) {
+  const rawList = Array.isArray(intake_messages) ? [...intake_messages] : [];
+  const normalized = rawList.map((m) => ({
+    role: (m.role || "").toLowerCase() === "user" ? "user" : "assistant",
+    content: String(m.content || "").trim(),
+  }));
+
+  let lastAssistIdx = -1;
+  for (let i = normalized.length - 1; i >= 0; i--) {
+    if (normalized[i].role === "assistant") {
+      lastAssistIdx = i;
+      break;
+    }
+  }
+
+  let sliceEnd = normalized.length;
+  let extractionComplete = false;
+  let intakePayload = null;
+  let courseLabel = "";
+
+  if (lastAssistIdx >= 0) {
+    const split = splitVisibleAndJson(normalized[lastAssistIdx].content || "");
+    const ijRaw = split.intakeJson != null ? String(split.intakeJson).trim() : "";
+    if (ijRaw) {
+      const extracted = extractJsonObject(ijRaw);
+      if (extracted) {
+        try {
+          const obj = JSON.parse(extracted);
+          const v = validateIntakePayload(obj);
+          if (v.ok) {
+            extractionComplete = true;
+            courseLabel =
+              v.course_label || deriveCourseLabelFallback(v.crisp_statement);
+            intakePayload = {
+              ...obj,
+              crisp_statement: v.crisp_statement,
+              course_label: courseLabel,
+            };
+            sliceEnd = lastAssistIdx;
+          }
+        } catch {
+          /* keep full transcript */
+        }
+      }
+    }
+  }
+
+  const displaySlice = normalized.slice(0, sliceEnd);
+  const messagesOut = [];
+  for (let i = 0; i < displaySlice.length; i++) {
+    const m = displaySlice[i];
+    if (m.role === "assistant") {
+      const vis = assistantVisibleForDisplay(m.content);
+      if (!vis) continue;
+      messagesOut.push({ role: "assistant", content: vis });
+    } else if (m.content) {
+      messagesOut.push({ role: "user", content: m.content });
+    }
+  }
+
+  return {
+    messages: messagesOut,
+    extractionComplete,
+    intakePayload,
+    courseLabel,
+  };
 }
 
 export default function NewCourseIntakePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white pt-24 flex items-center justify-center">
+          <CreativeSpinner label="Loading" />
+        </div>
+      }
+    >
+      <NewCourseIntakePageInner />
+    </Suspense>
+  );
+}
+
+function NewCourseIntakePageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const resumeIdCandidate = searchParams.get("resume");
+  const resumeId =
+    resumeIdCandidate && /^[0-9a-f-]{10,}$/i.test(resumeIdCandidate.trim())
+      ? resumeIdCandidate.trim()
+      : null;
+
   const { getToken, isLoaded, isSignedIn } = useAuth();
+
+  const [resumeHydrating, setResumeHydrating] = useState(Boolean(resumeId));
 
   const [courseId, setCourseId] = useState(null);
   const [bootError, setBootError] = useState(null);
@@ -71,15 +190,23 @@ export default function NewCourseIntakePage() {
   const [streaming, setStreaming] = useState(false);
   const [streamBuffer, setStreamBuffer] = useState("");
   const [input, setInput] = useState("");
+  /** When true, course has been committed (finalize called) and puzzles are generating */
   const [intakeComplete, setIntakeComplete] = useState(false);
-  /** Editable completion of "I want to think more effectively in …" */
-  const [statement, setStatement] = useState("");
-  const [proposalLocked, setProposalLocked] = useState(false);
+  /** When true, the AI has emitted <<INTAKE_COMPLETE>> + valid JSON */
+  const [extractionComplete, setExtractionComplete] = useState(false);
+  const [extractionError, setExtractionError] = useState(null);
+  const [intakePayload, setIntakePayload] = useState(null); // parsed JSON
+  const [intakeJsonRaw, setIntakeJsonRaw] = useState(null); // raw JSON text after marker
+  const [markerSeen, setMarkerSeen] = useState(false);
+  /** Editable course label (short phrase after prefix) */
+  const [courseLabel, setCourseLabel] = useState("");
+  const [justUnlockedLabel, setJustUnlockedLabel] = useState(false);
   // Finalizing state (calling the finalize endpoint)
   const [finalizing, setFinalizing] = useState(false);
 
   const transcriptRef = useRef(null);
   const textareaRef = useRef(null);
+  const courseLabelRef = useRef(null);
 
   const userTurns = messages.filter((m) => m.role === "user").length;
 
@@ -89,19 +216,102 @@ export default function NewCourseIntakePage() {
       !streaming &&
       !intakeComplete &&
       courseId &&
-      !proposalLocked &&
+      !extractionComplete &&
       textareaRef.current
     ) {
       textareaRef.current.focus({ preventScroll: true });
     }
-  }, [streaming, intakeComplete, courseId, proposalLocked]);
+  }, [streaming, intakeComplete, courseId, extractionComplete]);
 
-  // Redirect unauthenticated users
+  useEffect(() => {
+    if (!extractionComplete) return;
+    if (!courseLabelRef.current) return;
+    courseLabelRef.current.focus({ preventScroll: true });
+    courseLabelRef.current.select?.();
+    setJustUnlockedLabel(true);
+    const t = setTimeout(() => setJustUnlockedLabel(false), 900);
+    return () => clearTimeout(t);
+  }, [extractionComplete]);
+
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
-      router.replace("/login?redirect=/course/new");
+      const path = resumeId
+        ? `/course/new?resume=${encodeURIComponent(resumeId)}`
+        : "/course/new";
+      router.replace(`/login?redirect=${encodeURIComponent(path)}`);
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [isLoaded, isSignedIn, router, resumeId]);
+
+  // Load persisted intake_messages when reopening from My Courses.
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+
+    if (!resumeId) {
+      setResumeHydrating(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadResume() {
+      setResumeHydrating(true);
+      setBootError(null);
+      try {
+        const token = await getToken();
+        const res = await fetch(`/api/backend-api/course/${resumeId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const body = await res.text().catch(() => "");
+          throw new Error(body || `${res.status}`);
+        }
+        const data = await res.json();
+        const course = data.course;
+        if (course.intake_status === "complete") {
+          router.replace(`/courses/${course.id}/ready`);
+          return;
+        }
+
+        const hydrated = hydrateIntakeFromServerMessages(data.intake_messages);
+        let msgs = hydrated.messages;
+        if (
+          msgs.length === 0 &&
+          (course.intake_status === "draft" ||
+            course.intake_status === "in_progress")
+        ) {
+          msgs = [{ role: "assistant", content: OPENING_ASSISTANT_PROMPT }];
+        }
+
+        setCourseId(course.id);
+        setIntakeStarted(true);
+        setMessages(msgs);
+        setExtractionError(null);
+        if (hydrated.extractionComplete && hydrated.intakePayload) {
+          setExtractionComplete(true);
+          setIntakePayload(hydrated.intakePayload);
+          setCourseLabel(hydrated.courseLabel || "");
+        } else {
+          setExtractionComplete(false);
+          setIntakePayload(null);
+          setCourseLabel("");
+        }
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setBootError(
+            "We couldn’t reopen that intake chat. Try starting a fresh course.",
+          );
+        }
+      } finally {
+        if (!cancelled) setResumeHydrating(false);
+      }
+    }
+
+    loadResume();
+    return () => {
+      cancelled = true;
+    };
+  }, [resumeId, isLoaded, isSignedIn, getToken, router]);
 
   async function startIntake() {
     if (!isSignedIn || creatingCourse || courseId) return;
@@ -120,13 +330,7 @@ export default function NewCourseIntakePage() {
       const data = await res.json();
       setCourseId(data.course_id);
       setIntakeStarted(true);
-      setMessages([
-        {
-          role: "assistant",
-          content:
-            "What's a part of your life you want to become more effective at?",
-        },
-      ]);
+      setMessages([{ role: "assistant", content: OPENING_ASSISTANT_PROMPT }]);
     } catch (e) {
       console.error(e);
       setBootError(e.message || "Failed to start your course.");
@@ -142,20 +346,21 @@ export default function NewCourseIntakePage() {
     }
   }, [messages, streamBuffer]);
 
-  // Extract statement from live stream buffer (for real-time typewriter)
-  const liveStreamParsed = parseStatement(streamBuffer);
-  const liveStatement = liveStreamParsed.statement;
-  const liveClarification = liveStreamParsed.clarification;
-  const isStreamingStatement = streaming && liveStreamParsed.isStatement;
+  // Live visible assistant text (strip marker/JSON if present mid-stream)
+  const liveVisibleAssistant = (streamBuffer || "").trim();
 
   async function sendMessage(cid, text) {
     if (!cid) return;
     setStreaming(true);
     setStreamBuffer("");
+    setExtractionError(null);
+    setMarkerSeen(false);
 
     setMessages((prev) => [...prev, { role: "user", content: text }]);
 
     let assistantBuffer = "";
+    let visibleBuffer = "";
+    let jsonBuffer = null;
 
     try {
       const token = await getToken();
@@ -196,7 +401,12 @@ export default function NewCourseIntakePage() {
             }
             if (typeof obj.text === "string") {
               assistantBuffer += obj.text;
-              setStreamBuffer(assistantBuffer);
+              const split = splitVisibleAndJson(assistantBuffer);
+              visibleBuffer = split.visible || "";
+              jsonBuffer = split.intakeJson;
+              setStreamBuffer(visibleBuffer);
+              setIntakeJsonRaw(jsonBuffer);
+              if (split.hasMarker) setMarkerSeen(true);
             }
           } catch (e) {
             console.warn("Bad SSE payload:", payload, e);
@@ -204,26 +414,55 @@ export default function NewCourseIntakePage() {
         }
       }
 
-      // Parse the final response
-      const parsed = parseStatement(assistantBuffer);
+      // After the stream ends: only persist assistant prose as a bubble if we did NOT
+      // successfully complete intake (that prose duplicates the confirm step).
+      const finalVisible = (visibleBuffer || "").trim();
+      let extractionParseOk = false;
 
-      if (parsed.isStatement && parsed.statement) {
-        setStatement(extractTailForField(parsed.statement));
-        setProposalLocked(true);
-        // Store the raw response in messages (hidden from display since
-        // we show the statement in the editable field instead)
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: assistantBuffer.trim(), _isStatement: true },
-        ]);
-      } else {
-        // AI sent a clarification (gibberish rejection) — show as regular message
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: parsed.clarification },
-        ]);
+      if (jsonBuffer != null) {
+        const extracted = extractJsonObject(jsonBuffer);
+        if (!extracted) {
+          setExtractionError(
+            "Something went wrong extracting your goal. Try replying again in a different way.",
+          );
+          setExtractionComplete(false);
+          setIntakePayload(null);
+        } else {
+          try {
+            const obj = JSON.parse(extracted);
+            const v = validateIntakePayload(obj);
+            if (!v.ok) {
+              setExtractionError(
+                "Something went wrong extracting your goal. Try replying again in a different way.",
+              );
+              setExtractionComplete(false);
+              setIntakePayload(null);
+            } else {
+              const label = v.course_label || deriveCourseLabelFallback(v.crisp_statement);
+              const payload = {
+                ...obj,
+                crisp_statement: v.crisp_statement,
+                course_label: label,
+              };
+              setIntakePayload(payload);
+              setCourseLabel(label);
+              setExtractionComplete(true);
+              extractionParseOk = true;
+            }
+          } catch (e) {
+            console.error("Failed parsing intake JSON:", e);
+            setExtractionError(
+              "Something went wrong extracting your goal. Try replying again in a different way.",
+            );
+            setExtractionComplete(false);
+            setIntakePayload(null);
+          }
+        }
       }
-      setStreamBuffer("");
+
+      if (finalVisible && !extractionParseOk) {
+        setMessages((prev) => [...prev, { role: "assistant", content: finalVisible }]);
+      }
     } catch (e) {
       console.error(e);
       setMessages((prev) => [
@@ -240,8 +479,9 @@ export default function NewCourseIntakePage() {
   }
 
   async function handleCreateCourse() {
-    const crisp = buildCrispStatement(statement);
-    if (!courseId || !crisp || finalizing || intakeComplete) return;
+    const crisp = String(intakePayload?.crisp_statement || "").trim();
+    const label = String(courseLabel || "").trim();
+    if (!courseId || !crisp || !label || finalizing || intakeComplete) return;
     setFinalizing(true);
     try {
       const token = await getToken();
@@ -253,7 +493,7 @@ export default function NewCourseIntakePage() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ crisp_statement: crisp }),
+          body: JSON.stringify({ crisp_statement: crisp, course_label: label }),
         },
       );
       if (!res.ok) {
@@ -276,7 +516,8 @@ export default function NewCourseIntakePage() {
   function onSubmit(e) {
     e.preventDefault();
     const text = input.trim();
-    if (!text || streaming || intakeComplete || !courseId || proposalLocked) return;
+    if (!text || streaming || intakeComplete || !courseId || extractionComplete)
+      return;
     setInput("");
     sendMessage(courseId, text);
   }
@@ -296,6 +537,14 @@ export default function NewCourseIntakePage() {
     );
   }
 
+  if (resumeId && resumeHydrating && !bootError) {
+    return (
+      <div className="min-h-screen bg-white pt-24 flex items-center justify-center">
+        <CreativeSpinner label="Resuming intake" />
+      </div>
+    );
+  }
+
   if (bootError) {
     return (
       <div className="min-h-screen bg-white pt-24 flex flex-col items-center justify-center px-6 gap-4">
@@ -311,16 +560,8 @@ export default function NewCourseIntakePage() {
     );
   }
 
-  const displayTail = isStreamingStatement
-    ? extractTailForField(liveStatement || "")
-    : statement;
-
-  const showStatementField = userTurns >= 1;
-  const crispPreview = buildCrispStatement(displayTail);
-
   return (
-    <div className="min-h-screen bg-white pt-40 pb-12">
-      <div className="max-w-3xl mx-auto px-6">
+    <div className="min-h-screen w-full bg-white pt-40 pb-12">
         <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase mb-3">
           New Course
         </p>
@@ -330,7 +571,7 @@ export default function NewCourseIntakePage() {
           </span>{" "}
           <span className="text-black">…</span>
         </h1>
-        <p className="font-serif text-ash text-base leading-relaxed mb-8 max-w-2xl">
+        <p className="font-serif text-ash text-base leading-relaxed mb-8">
           One short chat: the guide asks a few questions, then proposes a single
           sentence you can edit. We only create your course after you press{" "}
           <strong className="font-medium text-black">Create Course</strong> — nothing
@@ -351,53 +592,74 @@ export default function NewCourseIntakePage() {
           </div>
         ) : (
           <>
-            {/* ─── Statement (one field: fixed prefix + editable tail) ─── */}
-            {showStatementField && (
-              <div className="mb-8">
-                <div className="flex items-center justify-between mb-2 gap-2">
-                  <span className="font-mono text-[10px] tracking-[0.2em] text-change uppercase">
-                    {intakeComplete
-                      ? "Course created"
-                      : isStreamingStatement
-                        ? statement
-                          ? "Rewriting…"
-                          : "Writing…"
-                        : "Your course sentence"}
+            {!!extractionError && (
+              <p className="mb-4 text-sm text-primary">{extractionError}</p>
+            )}
+
+            <div
+              ref={transcriptRef}
+              className="max-h-[50vh] overflow-y-auto scrollbar-hide pr-1 mb-6 space-y-3"
+            >
+              {messages.map((m, i) => {
+                if (m._isStatement) return null;
+                return (
+                  <MessageBubble key={i} role={m.role} content={m.content} />
+                );
+              })}
+              {streaming && liveVisibleAssistant && (
+                <MessageBubble
+                  role="assistant"
+                  content={liveVisibleAssistant}
+                  streaming
+                />
+              )}
+              {streaming && markerSeen && (
+                <div className="flex items-center gap-2 py-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-change opacity-60 animate-ping" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-change" />
                   </span>
-                  {proposalLocked && !intakeComplete && !streaming && (
-                    <span className="text-[10px] text-smoke italic text-right">
-                      Edit the line below, then create your course.
-                    </span>
-                  )}
+                  <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase">
+                    Extracting your course…
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {extractionComplete || intakeComplete ? (
+              <div className="border-t border-mist pt-6 space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-[10px] tracking-[0.2em] text-change uppercase">
+                    {intakeComplete ? "Course created" : "Confirm your course sentence"}
+                  </span>
                 </div>
                 <div
-                  className={`rounded-lg px-4 py-3 min-h-[3.25rem] flex flex-wrap items-baseline gap-x-2 gap-y-2 ${
-                    isStreamingStatement
-                      ? "bg-change/5 border-2 border-change/30"
-                      : "bg-white border-2 border-black/15"
-                  }`}
+                  className={`rounded-lg px-4 py-3 min-h-[3.25rem] flex flex-wrap items-baseline gap-x-2 gap-y-2 bg-white border-2 ${
+                    justUnlockedLabel
+                      ? "border-change/50 shadow-[0_0_0_4px_rgba(123,97,255,0.12)]"
+                      : "border-black/15"
+                  } transition-shadow`}
                 >
                   <span className="font-serif italic text-lg text-black shrink-0">
                     I want to think more effectively in
                   </span>
-                  <StatementField
-                    value={displayTail}
-                    onChange={(val) => setStatement(val)}
-                    streaming={isStreamingStatement}
+                  <input
+                    ref={courseLabelRef}
+                    type="text"
+                    value={courseLabel}
+                    onChange={(e) => setCourseLabel(e.target.value)}
                     disabled={intakeComplete || finalizing}
+                    placeholder="…your focus here"
+                    className="flex-1 min-w-[12rem] bg-transparent border-0 border-b-2 border-black/25 focus:border-black px-0 py-1 text-black text-lg leading-relaxed font-serif italic placeholder:not-italic placeholder:text-smoke focus:outline-none focus:ring-0 disabled:opacity-50 transition-colors"
                   />
                 </div>
-                {!!crispPreview && !intakeComplete && !isStreamingStatement && (
-                  <p className="mt-2 text-xs text-smoke font-serif italic">
-                    Full sentence: {crispPreview}
-                  </p>
-                )}
+
                 {!intakeComplete && (
-                  <div className="mt-4 flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-4 flex-wrap">
                     <Button
                       onClick={handleCreateCourse}
-                      isDisabled={!crispPreview?.trim() || finalizing}
-                      className="bg-primary text-white hover:bg-primary/90 h-12 px-6 font-medium"
+                      isDisabled={!String(courseLabel || "").trim() || finalizing}
+                      className="bg-primary text-white hover:bg-primary/90 h-12 px-6 font-medium disabled:opacity-40"
                       radius="none"
                     >
                       {finalizing ? "Creating…" : "Create Course"}
@@ -415,8 +677,9 @@ export default function NewCourseIntakePage() {
                     )}
                   </div>
                 )}
+
                 {intakeComplete && (
-                  <div className="mt-4 flex items-center gap-2">
+                  <div className="flex items-center gap-2 pt-2">
                     <span className="relative flex h-2 w-2">
                       <span className="absolute inline-flex h-full w-full rounded-full bg-change opacity-60 animate-ping" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-change" />
@@ -427,112 +690,47 @@ export default function NewCourseIntakePage() {
                   </div>
                 )}
               </div>
-            )}
-
-            <div
-              ref={transcriptRef}
-              className="max-h-[50vh] overflow-y-auto scrollbar-hide pr-1 mb-6 space-y-3"
-            >
-              {messages.map((m, i) => {
-                if (m._isStatement) return null;
-                return (
-                  <MessageBubble key={i} role={m.role} content={m.content} />
-                );
-              })}
-              {streaming && !isStreamingStatement && liveClarification && (
-                <MessageBubble
-                  role="assistant"
-                  content={liveClarification}
-                  streaming
-                />
-              )}
-              {isStreamingStatement && (
-                <div className="flex items-center gap-2 py-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full rounded-full bg-change opacity-60 animate-ping" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-change" />
-                  </span>
-                  <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase">
-                    {statement ? "Rewriting your sentence…" : "Writing your sentence…"}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <form
-              onSubmit={onSubmit}
-              className="border-t border-mist pt-4 flex items-end gap-3"
-            >
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={onKeyDown}
-                disabled={
-                  streaming || intakeComplete || !courseId || proposalLocked
-                }
-                placeholder={
-                  intakeComplete
-                    ? "Course created."
-                    : proposalLocked
-                      ? "Your guide proposed a sentence — edit it above."
+            ) : (
+              <form
+                onSubmit={onSubmit}
+                className="border-t border-mist pt-4 flex items-end gap-3"
+              >
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={onKeyDown}
+                  disabled={streaming || intakeComplete || !courseId}
+                  placeholder={
+                    intakeComplete
+                      ? "Course created."
                       : streaming
                         ? "Waiting…"
                         : userTurns === 0
                           ? "Answer the guide. Enter to send."
                           : "Keep going — the guide isn’t done yet."
-                }
-                rows={2}
-                className="flex-1 resize-none border border-mist focus:border-black bg-white text-black px-3 py-2 text-base leading-relaxed font-serif italic placeholder:not-italic placeholder:text-smoke focus:outline-none disabled:bg-mist/40 disabled:text-smoke rounded-md"
-              />
-              <Button
-                type="submit"
-                isDisabled={
-                  streaming ||
-                  intakeComplete ||
-                  !courseId ||
-                  proposalLocked ||
-                  !input.trim()
-                }
-                className="bg-black text-white hover:bg-ash h-12 px-5"
-                radius="none"
-              >
-                Send
-              </Button>
-            </form>
+                  }
+                  rows={2}
+                  className="flex-1 resize-none border border-mist focus:border-black bg-white text-black px-3 py-2 text-base leading-relaxed font-serif italic placeholder:not-italic placeholder:text-smoke focus:outline-none disabled:bg-mist/40 disabled:text-smoke rounded-md"
+                />
+                <Button
+                  type="submit"
+                  isDisabled={
+                    streaming ||
+                    intakeComplete ||
+                    !courseId ||
+                    !input.trim()
+                  }
+                  className="bg-black text-white hover:bg-ash h-12 px-5"
+                  radius="none"
+                >
+                  Send
+                </Button>
+              </form>
+            )}
           </>
         )}
-      </div>
     </div>
-  );
-}
-
-// ─── Statement field with typewriter animation ──────────────────────────
-// Shows the AI-generated statement with a typewriter effect while streaming,
-// and becomes an editable input when streaming stops.
-function StatementField({ value, onChange, streaming, disabled }) {
-  const shown = useTypewriter(value || "", streaming);
-  const inputRef = useRef(null);
-
-  if (streaming) {
-    return (
-      <span className="text-black text-lg leading-relaxed font-serif italic min-w-[12rem] flex-1">
-        {shown}
-        <span className="inline-block w-1.5 h-5 align-text-bottom ml-0.5 bg-change/70 animate-pulse" />
-      </span>
-    );
-  }
-
-  return (
-    <input
-      ref={inputRef}
-      type="text"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      disabled={disabled}
-      placeholder="…your focus here"
-      className="flex-1 min-w-[12rem] bg-transparent border-0 border-b-2 border-black/25 focus:border-black px-0 py-1 text-black text-lg leading-relaxed font-serif italic placeholder:not-italic placeholder:text-smoke focus:outline-none focus:ring-0 disabled:opacity-50 transition-colors"
-    />
   );
 }
 
@@ -573,15 +771,20 @@ function useTypewriter(target, streaming) {
   return shown;
 }
 
+/** Readable chat width: cap long lines, shrink short messages with w-fit. */
+const BUBBLE_MAX = "max-w-[min(42rem,85%)] w-fit";
+
 function MessageBubble({ role, content, streaming }) {
   const visible = useTypewriter(content || "", !!streaming);
   if (role === "user") {
     return (
-      <div>
+      <div className="flex w-full flex-col items-end">
         <p className="font-mono text-[11px] tracking-[0.2em] text-smoke uppercase mb-1">
           You
         </p>
-        <div className="bg-mist rounded-lg px-4 py-3 text-black text-base leading-relaxed whitespace-pre-wrap break-words font-serif italic">
+        <div
+          className={`${BUBBLE_MAX} bg-mist rounded-lg px-4 py-3 text-black text-base leading-relaxed whitespace-pre-wrap break-words font-serif italic`}
+        >
           {content}
         </div>
       </div>
@@ -589,11 +792,13 @@ function MessageBubble({ role, content, streaming }) {
   }
   const showThinking = streaming && !visible;
   return (
-    <div>
+    <div className="flex w-full flex-col items-start">
       <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase mb-1">
         AI {streaming ? "· typing" : ""}
       </p>
-      <div className="bg-change/10 border border-change/20 rounded-lg px-4 py-3 text-black text-base leading-relaxed whitespace-pre-wrap break-words">
+      <div
+        className={`${BUBBLE_MAX} bg-change/10 border border-change/20 rounded-lg px-4 py-3 text-black text-base leading-relaxed whitespace-pre-wrap break-words`}
+      >
         {showThinking ? (
           <span className="inline-flex items-center gap-1 text-smoke italic">
             <span className="animate-pulse">Thinking</span>

@@ -456,6 +456,7 @@ class SupabaseCourseRepository(CourseRepository):
             intake_status=row.get("intake_status", "in_progress"),
             intake_messages=messages,
             crisp_statement=row.get("crisp_statement"),
+            course_label=row.get("course_label"),
             domain=row.get("domain"),
             what=row.get("what"),
             why=row.get("why"),
@@ -543,6 +544,7 @@ class SupabaseCourseRepository(CourseRepository):
         self,
         course_id: str,
         crisp_statement: str,
+        course_label: Optional[str],
         domain: str,
         what: str,
         why: str,
@@ -553,6 +555,7 @@ class SupabaseCourseRepository(CourseRepository):
         update = {
             "intake_status": "complete",
             "crisp_statement": crisp_statement,
+            "course_label": (course_label or None),
             "domain": domain,
             "what": what,
             "why": why,

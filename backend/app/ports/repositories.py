@@ -168,6 +168,7 @@ class CourseRepository(ABC):
         self,
         course_id: str,
         crisp_statement: str,
+        course_label: Optional[str],
         domain: str,
         what: str,
         why: str,

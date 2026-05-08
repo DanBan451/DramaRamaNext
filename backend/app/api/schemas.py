@@ -1,7 +1,7 @@
 """
 API Schemas - Request and Response models
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -137,6 +137,7 @@ class CourseIntakeMessageRequest(BaseModel):
 
 class CourseIntakeFinalizeRequest(BaseModel):
     crisp_statement: str
+    course_label: Optional[str] = None
 
 
 class CourseIntakeFinalizeResponse(BaseModel):
@@ -149,6 +150,11 @@ class CourseSummary(BaseModel):
     intake_status: str
     course_status: str
     crisp_statement: Optional[str] = None
+    course_label: Optional[str] = None
+    intake_preview: Optional[str] = Field(
+        default=None,
+        description="First user-turn snippet — unfinished intakes still have no course_label.",
+    )
     domain: Optional[str] = None
     generation_error: Optional[str] = None
     created_at: Optional[datetime] = None

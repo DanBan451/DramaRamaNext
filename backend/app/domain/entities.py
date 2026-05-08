@@ -238,10 +238,13 @@ class Course(BaseModel):
     id: str
     user_id: str
 
-    intake_status: Literal["in_progress", "complete", "abandoned"] = "in_progress"
+    intake_status: Literal["draft", "in_progress", "complete", "abandoned"] = "in_progress"
     intake_messages: List[IntakeMessage] = []
 
     crisp_statement: Optional[str] = None
+    # Short label used for course title/UI. Completes:
+    # "I want to think more effectively in ___"
+    course_label: Optional[str] = None
     domain: Optional[str] = None
     what: Optional[str] = None
     why: Optional[str] = None

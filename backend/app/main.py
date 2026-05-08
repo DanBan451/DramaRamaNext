@@ -43,18 +43,56 @@ if PostgrestAPIError:
             detail,
             exc_info=exc,
         )
-        if "PGRST205" in msg or "schema cache" in msg or "Could not find the table" in msg:
+        msg_l = msg.lower()
+        detail_s = str(detail).lower()
+
+        # Missing column (common after pulling new code without running migrations)
+        if (
+            "column" in msg_l
+            and (
+                "does not exist" in msg_l
+                or "unknown" in msg_l
+                or "schema cache" in msg_l
+            )
+        ) or (
+            "could not find" in detail_s
+            and "column" in detail_s
+        ):
             return JSONResponse(
                 status_code=500,
                 content={
                     "detail": (
-                        "Supabase tables are not created yet. "
-                        "Run the SQL schema in Supabase (tables: users, sessions, responses, hints) "
-                        "then restart the backend."
+                        "Your Supabase schema is missing a column the app expects "
+                        "(for example `courses.course_label`). "
+                        "In the Supabase SQL editor, run the migrations under "
+                        "`DramaRamaNext/backend/migrations/` — at minimum "
+                        "`014_course_label.sql` and `015_courses_allow_draft_intake_status.sql` "
+                        "(and ensure older course migrations like `008_courses.sql` have been applied). "
+                        "No backend restart is required after SQL changes."
                     )
                 },
             )
-        return JSONResponse(status_code=500, content={"detail": "Database error"})
+
+        if (
+            "PGRST205" in msg
+            or "schema cache" in msg_l
+            or "could not find the table" in msg_l
+        ):
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "detail": (
+                        "Supabase schema is missing tables or they are not visible to PostgREST. "
+                        "Apply the DramaRama schema: run the SQL migrations in "
+                        "`DramaRamaNext/backend/migrations/` (users, sessions, responses, hints, "
+                        "courses, course_puzzles, etc.), reload the schema if needed, then retry."
+                    )
+                },
+            )
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Database error: {detail}"},
+        )
 
 # CORS configuration
 app.add_middleware(

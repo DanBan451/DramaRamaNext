@@ -2,7 +2,7 @@
 API Routes - HTTP endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException
-from typing import List
+from typing import List, Optional
 import re
 
 from app.core.security import get_current_user
@@ -762,12 +762,29 @@ async def get_deep_understanding(
 
 # ============ Course Endpoints (Phase 2) ============
 
+def _intake_preview_snippet(course) -> Optional[str]:
+    """Short snippet from the first non-empty user turn — for unfinished intakes."""
+    for m in course.intake_messages or []:
+        if (getattr(m, "role", None) or "") != "user":
+            continue
+        t = (getattr(m, "content", None) or "").strip()
+        if not t:
+            continue
+        t = " ".join(t.split())
+        if len(t) > 96:
+            return f"{t[:96]}…"
+        return t
+    return None
+
+
 def _course_to_summary(course) -> CourseSummary:
     return CourseSummary(
         id=course.id,
         intake_status=course.intake_status,
         course_status=course.course_status,
         crisp_statement=course.crisp_statement,
+        course_label=getattr(course, "course_label", None),
+        intake_preview=_intake_preview_snippet(course),
         domain=course.domain,
         generation_error=getattr(course, "generation_error", None),
         created_at=course.created_at,
@@ -857,7 +874,9 @@ async def course_intake_message(
         raise HTTPException(status_code=404, detail="Course not found")
     if course.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not your course")
-    if course.intake_status != "in_progress":
+    # Draft: user clicked "Start course" but hasn't messaged yet.
+    # in_progress: at least one message has been saved.
+    if course.intake_status not in ("draft", "in_progress"):
         raise HTTPException(status_code=400, detail="Intake already complete")
 
     user_message = (request.user_message or "").strip()
@@ -924,6 +943,9 @@ async def finalize_course_intake(
     crisp = (request.crisp_statement or "").strip()
     if not crisp:
         raise HTTPException(status_code=400, detail="Crisp statement is required")
+    course_label = (request.course_label or "").strip() if hasattr(request, "course_label") else ""
+    if not course_label:
+        raise HTTPException(status_code=400, detail="course_label is required")
 
     # Build conversation for extraction
     conversation = [{"role": m.role, "content": m.content} for m in course.intake_messages]
@@ -950,6 +972,7 @@ async def finalize_course_intake(
     await course_repo.complete_intake(
         course_id=course_id,
         crisp_statement=crisp,
+        course_label=course_label,
         domain=data.get("domain", "").strip(),
         what=data.get("what", "").strip(),
         why=data.get("why", "").strip(),
@@ -1965,9 +1988,20 @@ def _validate_nudge_response(
 # Must match block dimensions in frontend/components/canvas/Canvas.tsx.
 BLOCK_WIDTH = 280        # matches Canvas.tsx
 BLOCK_MIN_HEIGHT = 100   # matches Canvas.tsx
-CLEAR_MARGIN_X = 120     # gap between rightmost thought's right edge and anchor left edge
-CHILD_OFFSET_X = 320     # horizontal offset from anchor to its children
-CHILD_VERTICAL_SPACING = 170  # vertical spacing between children in a fan
+
+# Spacing knobs (tuned to feel closer to Weaponry).
+# - The old implementation always placed nudges after the *rightmost* thought
+#   on the entire canvas, which could put them very far from the user's flow.
+# - We now prefer placing them just to the right of the branch source (when
+#   present), and only push further right if we'd collide with existing blocks.
+CLEAR_MARGIN_X = 80          # gap between a thought's right edge and nudge left edge
+CHILD_OFFSET_X = 260         # horizontal offset from anchor to its children
+CHILD_VERTICAL_SPACING = 130 # vertical spacing between children in a fan
+
+# Collision padding so "clear" means visibly not overlapping.
+COLLISION_PAD_X = 40
+COLLISION_PAD_Y = 30
+
 CANVAS_CENTER = 16000    # matches Canvas.tsx CANVAS_INITIAL/2
 
 
@@ -1993,6 +2027,60 @@ def _source_y(branch_source_thought_id: str | None, existing_thoughts: list) -> 
     return float(CANVAS_CENTER)
 
 
+def _get_source_thought(branch_source_thought_id: str | None, existing_thoughts: list):
+    """Return the branch source thought object if present, else None."""
+    if not branch_source_thought_id:
+        return None
+    return next(
+        (t for t in existing_thoughts if str(t.id) == branch_source_thought_id),
+        None,
+    )
+
+
+def _rects_overlap(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> bool:
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    return ax1 < bx2 and ax2 > bx1 and ay1 < by2 and ay2 > by1
+
+
+def _is_clear_position(x: float, y: float, existing_thoughts: list) -> bool:
+    """Check whether placing a block at (x,y) would collide with existing blocks."""
+    candidate = (
+        x - COLLISION_PAD_X,
+        y - COLLISION_PAD_Y,
+        x + BLOCK_WIDTH + COLLISION_PAD_X,
+        y + BLOCK_MIN_HEIGHT + COLLISION_PAD_Y,
+    )
+    for t in existing_thoughts:
+        r = (
+            float(t.pos_x),
+            float(t.pos_y),
+            float(t.pos_x) + BLOCK_WIDTH,
+            float(t.pos_y) + BLOCK_MIN_HEIGHT,
+        )
+        if _rects_overlap(candidate, r):
+            return False
+    return True
+
+
+def _find_clear_x(
+    *,
+    start_x: float,
+    y_positions: list[float],
+    existing_thoughts: list,
+    step: float = 40,
+    max_steps: int = 120,
+) -> float:
+    """Find the nearest x >= start_x where ALL blocks at y_positions are clear."""
+    x = float(start_x)
+    for _ in range(max_steps):
+        if all(_is_clear_position(x, y, existing_thoughts) for y in y_positions):
+            return x
+        x += step
+    # Fallback: shove past the rightmost extent if the local region is too crowded.
+    return _rightmost_x_extent(existing_thoughts) + CLEAR_MARGIN_X
+
+
 def _compute_fan_positions(
     branch_source_thought_id: str | None,
     existing_thoughts: list,
@@ -2000,21 +2088,48 @@ def _compute_fan_positions(
 ) -> tuple[dict, list[dict]]:
     """
     Returns (anchor_position, children_positions) for a fan layout.
-    Anchor is placed past the right edge of ALL existing thoughts (not just the
-    source), so nudges never overlap anything already on the canvas.
+    Anchor is placed near the branch source when possible (feels connected to
+    the user's flow), with collision-avoidance. If no branch source is chosen,
+    we fall back to a safe placement past the rightmost extent.
     Children fan to the right of the anchor, vertically centered on the source.
     """
-    anchor_x = _rightmost_x_extent(existing_thoughts) + CLEAR_MARGIN_X
     anchor_y = _source_y(branch_source_thought_id, existing_thoughts)
-    anchor_pos = {"x": anchor_x, "y": anchor_y}
 
-    child_x = anchor_x + CHILD_OFFSET_X
+    # Desired placement: just to the right of the branch source (if present),
+    # otherwise just to the right of the overall content.
+    source = _get_source_thought(branch_source_thought_id, existing_thoughts)
+    if source:
+        desired_anchor_x = float(source.pos_x) + BLOCK_WIDTH + CLEAR_MARGIN_X
+    else:
+        desired_anchor_x = _rightmost_x_extent(existing_thoughts) + CLEAR_MARGIN_X
+
+    # Compute children y positions first (centered on anchor_y).
     total_height = (child_count - 1) * CHILD_VERTICAL_SPACING
     start_y = anchor_y - total_height / 2
-    children_positions = [
-        {"x": child_x, "y": start_y + i * CHILD_VERTICAL_SPACING}
-        for i in range(child_count)
-    ]
+    child_ys = [start_y + i * CHILD_VERTICAL_SPACING for i in range(child_count)]
+
+    # Find an x that keeps anchor AND children clear (children are offset).
+    # We solve for anchor_x, then child_x follows.
+    # Check anchor clear at anchor_y and children clear at child_ys.
+    # Children x is anchor_x + CHILD_OFFSET_X.
+    def all_clear_for_anchor_x(ax: float) -> bool:
+        if not _is_clear_position(ax, anchor_y, existing_thoughts):
+            return False
+        cx = ax + CHILD_OFFSET_X
+        return all(_is_clear_position(cx, y, existing_thoughts) for y in child_ys)
+
+    anchor_x = float(desired_anchor_x)
+    for _ in range(120):
+        if all_clear_for_anchor_x(anchor_x):
+            break
+        anchor_x += 40
+    else:
+        # Fallback: shove past the rightmost extent in worst-case density.
+        anchor_x = _rightmost_x_extent(existing_thoughts) + CLEAR_MARGIN_X
+
+    anchor_pos = {"x": anchor_x, "y": anchor_y}
+    child_x = anchor_x + CHILD_OFFSET_X
+    children_positions = [{"x": child_x, "y": y} for y in child_ys]
     return anchor_pos, children_positions
 
 
@@ -2022,9 +2137,19 @@ def _compute_single_position(
     branch_source_thought_id: str | None,
     existing_thoughts: list,
 ) -> dict:
-    """Position for a single-node move: clear of all existing thoughts."""
-    anchor_x = _rightmost_x_extent(existing_thoughts) + CLEAR_MARGIN_X
+    """Position for a single-node move: near branch source with collision-avoidance."""
     anchor_y = _source_y(branch_source_thought_id, existing_thoughts)
+    source = _get_source_thought(branch_source_thought_id, existing_thoughts)
+    if source:
+        desired_x = float(source.pos_x) + BLOCK_WIDTH + CLEAR_MARGIN_X
+    else:
+        desired_x = _rightmost_x_extent(existing_thoughts) + CLEAR_MARGIN_X
+
+    anchor_x = _find_clear_x(
+        start_x=desired_x,
+        y_positions=[anchor_y],
+        existing_thoughts=existing_thoughts,
+    )
     return {"x": anchor_x, "y": anchor_y}
 
 

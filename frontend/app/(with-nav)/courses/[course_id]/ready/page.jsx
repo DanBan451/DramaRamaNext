@@ -30,6 +30,44 @@ const TERMINAL_STATUSES = new Set([
   "abandoned",
 ]);
 
+/** Sentence-case first character without lowercasing the rest */
+function sentenceCasePhrase(s) {
+  const t = (s || "").trim();
+  if (!t) return t;
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/**
+ * Phrase shown after “Becoming a more effective thinker in”.
+ * Prefer short `course_label` (matches intake UI). Older rows used only a
+ * long crisp_statement often starting “You want to…”, which must not repeat
+ * after “…in ”.
+ */
+function courseHeadlineInPhrase(course) {
+  const label = (course?.course_label || "").trim();
+  if (label) return label;
+
+  let c = (course?.crisp_statement || "").trim();
+  if (!c) return "Your course";
+
+  c = c
+    .replace(
+      /^i\s+want\s+to\s+think\s+more\s+effectively\s+in\s+/i,
+      "",
+    )
+    .trim();
+  c = c.replace(/^you\s+want\s+to\s+/i, "").trim();
+  c = c.replace(/^you\s+want\s+/i, "").trim();
+  if (!c) return "Your course";
+
+  c = sentenceCasePhrase(c);
+  if (c.length > 160) {
+    const cut = c.slice(0, 157).replace(/\s+\S*$/, "");
+    return `${cut}…`;
+  }
+  return c;
+}
+
 export default function CourseReadyPage() {
   const router = useRouter();
   const params = useParams();
@@ -223,7 +261,7 @@ export default function CourseReadyPage() {
   }
 
   const status = course.course_status;
-  const title = course.crisp_statement || "Your course";
+  const headlinePhrase = courseHeadlineInPhrase(course);
 
   if (status === "generation_failed") {
     return (
@@ -243,14 +281,14 @@ export default function CourseReadyPage() {
         </div>
       );
     }
-    return <ReadyView title={title} puzzles={puzzles} />;
+    return <ReadyView headlinePhrase={headlinePhrase} puzzles={puzzles} />;
   }
 
   // generating | awaiting_puzzles
-  return <LoadingView title={title} phrase={ROTATING_PHRASES[phraseIndex]} />;
+  return <LoadingView headlinePhrase={headlinePhrase} phrase={ROTATING_PHRASES[phraseIndex]} />;
 }
 
-function LoadingView({ title, phrase }) {
+function LoadingView({ headlinePhrase, phrase }) {
   return (
     <div className="min-h-screen bg-white pt-40 pb-16">
       <div className="max-w-[1536px] mx-auto px-6">
@@ -259,7 +297,7 @@ function LoadingView({ title, phrase }) {
         </p>
         <h1 className="font-display text-4xl tb:text-5xl text-black leading-[1.1] tracking-tight mb-10 max-w-3xl">
           <span className="text-smoke">Becoming a more effective thinker <em className="italic">in</em></span>{" "}
-          {title}
+          <span className="text-black font-serif italic">{headlinePhrase}</span>
         </h1>
 
         {/* Indeterminate progress bar — visibly moving so the user knows
@@ -289,7 +327,7 @@ function LoadingView({ title, phrase }) {
   );
 }
 
-function ReadyView({ title, puzzles }) {
+function ReadyView({ headlinePhrase, puzzles }) {
   return (
     <div className="min-h-screen bg-white pt-40 pb-16">
       <div className="max-w-[1536px] mx-auto px-6">
@@ -299,7 +337,7 @@ function ReadyView({ title, puzzles }) {
           </p>
           <h1 className="font-display text-4xl tb:text-5xl text-black leading-[1.1] tracking-tight">
             <span className="text-smoke">Becoming a more effective thinker <em className="italic">in</em></span>{" "}
-            {title}
+            <span className="text-black font-serif italic">{headlinePhrase}</span>
           </h1>
         </div>
 

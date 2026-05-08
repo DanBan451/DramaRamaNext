@@ -48,6 +48,7 @@ interface CanvasProps {
   connections: Connection[];
   selectedElement: string | null;
   selectedSubElement: string | null;
+  focusThoughtIds?: string[] | null;
 
   onCreateThought: ((body: {
     content: string;
@@ -106,6 +107,7 @@ export default function Canvas({
   connections,
   selectedElement,
   selectedSubElement,
+  focusThoughtIds = null,
   onCreateThought,
   onUpdateThoughtPosition,
   onUpdateThoughtContent: _onUpdateThoughtContent,
@@ -167,6 +169,39 @@ export default function Canvas({
   const handleTimeUpdate = useCallback((seconds: number) => {
     timeRef.current = seconds;
   }, []);
+
+  // When the parent requests focus (e.g. Stage 2 nudges were seeded),
+  // pan the viewport to the centroid of those thoughts so the user can
+  // immediately find them.
+  const lastFocusKeyRef = useRef<string>("");
+  useEffect(() => {
+    if (!containerRef.current) return;
+    if (!focusThoughtIds || focusThoughtIds.length === 0) return;
+
+    const key = focusThoughtIds.join(",");
+    if (key === lastFocusKeyRef.current) return;
+    lastFocusKeyRef.current = key;
+
+    const targets = focusThoughtIds
+      .map((id) => thoughts.find((t) => t.id === id))
+      .filter(Boolean);
+    if (targets.length === 0) return;
+
+    let sumX = 0;
+    let sumY = 0;
+    for (const t of targets) {
+      sumX += t.pos_x + BLOCK_WIDTH / 2;
+      sumY += t.pos_y + BLOCK_MIN_HEIGHT / 2;
+    }
+    const cx = sumX / targets.length;
+    const cy = sumY / targets.length;
+
+    // If zoom is very far out, bring it back to a usable level so the
+    // newly added blocks are actually visible.
+    const targetZoom = zoom < 0.7 ? 1 : undefined;
+    scrollToPosition(cx, cy, targetZoom);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusThoughtIds, thoughts]);
 
   // Center viewport on mount: if there are existing thoughts, center on
   // their centroid; otherwise center on the canvas. This handles puzzles

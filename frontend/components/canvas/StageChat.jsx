@@ -51,8 +51,11 @@ I'm here to remind you what each element means and how to approach this stage. I
 // Stage 2 has no static welcome message anymore. The fan-shape diagnostic
 // engine returns a `chat_message` tuned to the user's actual canvas state,
 // and that message is passed in via the `stage2WelcomeMessage` prop. If
-// it's missing for any reason, fall back to a generic neutral pointer.
-const STAGE_2_FALLBACK = `I just dropped a small set of **AI Nudge** blocks on your canvas (dashed purple borders). Pick one and react to it on a new block of your own. They're yours — drag, edit, or delete what doesn't help.`;
+// it's missing for any reason, fall back to a neutral pointer that does
+// NOT claim anything has already been dropped.
+const STAGE_2_FALLBACK = `You're in **Stage 2 — Redirect**.
+
+If you don't see any **AI Nudge** blocks yet, they're still being generated and will appear on the canvas shortly. Once they show up (dashed purple borders), pick one and respond on a new block of your own. They're yours — drag, edit, or delete what doesn't help.`;
 
 const STAGE_3_REFLECT_WELCOME = `**Time to reflect.**
 

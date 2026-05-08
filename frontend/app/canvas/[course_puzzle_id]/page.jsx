@@ -72,6 +72,9 @@ export default function CanvasPage() {
   // Stage 2 chat welcome message from the diagnostic nudge engine.
   // This replaces the per-element template system.
   const [stage2WelcomeMessage, setStage2WelcomeMessage] = useState(null);
+  // When Stage 2 nudges are seeded, focus the canvas on them so the user
+  // doesn't have to hunt for where they landed.
+  const [focusThoughtIds, setFocusThoughtIds] = useState(null);
 
   // Stage 3 sub-phase tracking. Set from server on load, updated locally
   // on advance. Null means not in Stage 3 yet.
@@ -427,9 +430,15 @@ export default function CanvasPage() {
       if (alreadyHasNudges) return;
 
       setSeedingNudges(true);
+      // Make the chat explicit about what's happening BEFORE any nodes exist.
+      // (Stage 2 welcome fallback must never claim nodes were dropped early.)
+      setStage2WelcomeMessage(
+        "Generating **AI Nudge** blocks now — I'll populate them onto your canvas in a moment.",
+      );
       try {
         const response = await generateStage2Nudges(coursePuzzleId, getToken);
         const { nudges, connections: newConnections, chat_message } = response;
+        const newNudgeIds = Array.isArray(nudges) ? nudges.map((n) => n.id) : [];
 
         if (nudges?.length) {
           // Defense against double-clicks: skip ids we already have locally.
@@ -454,10 +463,28 @@ export default function CanvasPage() {
         // this as the first assistant turn instead of a per-element template.
         if (chat_message) {
           setStage2WelcomeMessage(chat_message);
+        } else if (nudges?.length) {
+          setStage2WelcomeMessage(
+            "Done — I just populated a few **AI Nudge** blocks onto your canvas (dashed purple borders).",
+          );
+        } else {
+          // Defensive: avoid leaving a misleading "generating" message hanging
+          // forever if the server returned no nudges and no chat text.
+          setStage2WelcomeMessage(
+            "You're in **Stage 2 — Redirect**. If you don't see any AI nudges yet, try **Next Stage** again in a moment.",
+          );
+        }
+
+        // Focus the canvas on the newly-created nudges so they're easy to find.
+        if (newNudgeIds.length) {
+          setFocusThoughtIds(newNudgeIds);
         }
       } catch (e) {
         notifyError(
           e?.message || "Couldn't drop AI nudges on your canvas — try again later.",
+        );
+        setStage2WelcomeMessage(
+          "I couldn't populate the AI nudge blocks just now. Please try again in a moment.",
         );
       } finally {
         setSeedingNudges(false);
@@ -676,6 +703,7 @@ export default function CanvasPage() {
             connections={connections}
             selectedElement={selectedElement}
             selectedSubElement={selectedSubElement}
+            focusThoughtIds={focusThoughtIds}
             onCreateThought={isCompleted ? null : handleCreateThought}
             onUpdateThoughtPosition={isCompleted ? null : handleUpdateThoughtPosition}
             onUpdateThoughtContent={isCompleted ? null : handleUpdateThoughtContent}

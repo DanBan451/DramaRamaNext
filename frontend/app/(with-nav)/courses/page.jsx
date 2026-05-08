@@ -10,10 +10,34 @@ import { readBackendErrorMessage } from "@/lib/read-backend-error";
 import Footer from "@/components/Footer";
 
 const STATUS_LABEL = {
-  in_progress: "Intake in progress",
+  draft: "Intake not started",
+  in_progress: "Intake · not finalized",
   complete: "Intake complete",
   abandoned: "Abandoned",
 };
+
+function intakeCourseHref(course) {
+  const sid = course.intake_status;
+  if (sid === "draft" || sid === "in_progress") {
+    return `/course/new?resume=${encodeURIComponent(course.id)}`;
+  }
+  return `/courses/${course.id}/ready`;
+}
+
+/** Card title — never vague "Untitled" for unfinished drafts. */
+function courseCardTitle(course) {
+  const st = course.intake_status || "";
+  const preview = (course.intake_preview || "").trim();
+  const label = (course.course_label || "").trim();
+  const crisp = (course.crisp_statement || "").trim();
+
+  if (st === "complete") {
+    return label || crisp || "Course";
+  }
+  if (preview) return preview;
+  if (st === "draft") return "Continue intake · not started yet";
+  return "Continue intake · finish to unlock puzzles";
+}
 
 // Visible badge text + tailwind color classes for course_status.
 const COURSE_BADGE = {
@@ -29,11 +53,9 @@ const COURSE_BADGE = {
   abandoned: { label: "Abandoned", classes: "bg-mist text-smoke" },
 };
 
-// All course cards share a single Change-purple accent. We tried rotating
-// element colors but the rotation isn't tied to anything semantic and
-// confused users into thinking the colors meant difficulty / domain. The
-// purple keeps the page lively while staying meaningful (Change = the
-// quintessence; courses ARE about change).
+// Course cards use a Change-purple left stripe for finalized / “real” courses.
+// Unfinished intake cards use Fire (amber) for status text and hover so Change
+// purple stays sacred / quintessence-only, not administrative flags.
 
 export default function CoursesPage() {
   const router = useRouter();
@@ -148,15 +170,11 @@ export default function CoursesPage() {
 }
 
 function CourseCard({ course }) {
-  const title = course.crisp_statement || "Untitled course";
-
-  // If intake is still happening, return to /course/new. Otherwise the ready
-  // page handles every other course_status (loading, ready, failed, etc.).
-  const dest =
-    course.intake_status === "in_progress"
-      ? "/course/new"
-      : `/courses/${course.id}/ready`;
-
+  const title = courseCardTitle(course);
+  const href = intakeCourseHref(course);
+  const isUnfinishedIntake =
+    course.intake_status === "draft" ||
+    course.intake_status === "in_progress";
   const created = course.created_at
     ? new Date(course.created_at).toLocaleDateString("en-US", {
         month: "short",
@@ -176,8 +194,12 @@ function CourseCard({ course }) {
 
   return (
     <Link
-      href={dest}
-      className="group block bg-white border border-mist border-l-4 border-l-change bg-change/[0.03] hover:border-change p-6 transition-all hover:shadow-md hover:-translate-y-0.5 rounded-r-lg"
+      href={href}
+      className={
+        isUnfinishedIntake
+          ? "group block bg-white border border-mist border-l-4 border-l-fire bg-fire/[0.04] hover:border-fire/80 p-6 transition-all hover:shadow-md hover:-translate-y-0.5 rounded-r-lg"
+          : "group block bg-white border border-mist border-l-4 border-l-change bg-change/[0.03] hover:border-change p-6 transition-all hover:shadow-md hover:-translate-y-0.5 rounded-r-lg"
+      }
     >
       <div className="flex items-center justify-between gap-3 mb-3">
         <span className="text-[10px] font-mono tracking-[0.2em] uppercase text-smoke">
@@ -190,14 +212,29 @@ function CourseCard({ course }) {
             {badge.label}
           </span>
         ) : subStatus ? (
-          <span className="text-[10px] font-mono tracking-[0.15em] uppercase text-smoke">
+          <span
+            className={`text-[10px] font-mono tracking-[0.15em] uppercase ${
+              isUnfinishedIntake ? "text-fire" : "text-smoke"
+            }`}
+          >
             {subStatus}
           </span>
         ) : null}
       </div>
-      <h3 className="font-display text-xl text-black leading-snug mb-3 line-clamp-3 group-hover:text-change transition-colors">
+      <h3
+        className={`font-display text-xl text-black leading-snug mb-2 line-clamp-3 transition-colors ${
+          isUnfinishedIntake
+            ? "group-hover:text-fire"
+            : "group-hover:text-change"
+        }`}
+      >
         {title}
       </h3>
+      {isUnfinishedIntake && (
+        <p className="text-xs text-fire font-mono tracking-wide uppercase mb-3">
+          No puzzles until you finalize this intake
+        </p>
+      )}
       <p className="text-xs text-smoke font-mono">{created}</p>
     </Link>
   );

@@ -45,6 +45,8 @@ export default function PuzzleTypewriter({ onReady }) {
   const [twistVisible, setTwistVisible] = useState(false);
   const [question, setQuestion] = useState("");
   const [questionDone, setQuestionDone] = useState(false);
+  const [narrativeTypingDone, setNarrativeTypingDone] = useState(false);
+  const [twistTypingDone, setTwistTypingDone] = useState(false);
 
   // Which element currently has the cursor
   const [cursorAt, setCursorAt] = useState("none");
@@ -75,34 +77,34 @@ export default function PuzzleTypewriter({ onReady }) {
       // (Setting label removed — replaced by the "A quick story" eyebrow above the typewriter.)
       await wait(400);
 
-      // 2. Narrative — three lines, accumulating
-      const line1 = "A software engineer walks in. He says: \u201CI want to be a better debugger.\u201D";
-      const line2 = "We hand him a course of puzzles about engineers, code, and broken systems.";
-      const line3 = "Two weeks later, he\u2019s a better debugger.";
+      const narrativeLine1 =
+        "You have a problem. It\u2019s heavy. You\u2019ve been carrying it.";
+      const narrativeLine2 =
+        "What if it isn\u2019t a problem? What if it\u2019s a puzzle?";
+      const twistFull =
+        "A problem feels like a wall. A puzzle is something you can think your way through.";
+      const questionFull =
+        "The small puzzles aren\u2019t a warm-up. They\u2019re how you become the kind of thinker who can face the big one.";
 
       setCursorAt("narrative");
-      await typeText(setNarrative, line1, 14);
+      await typeText(setNarrative, narrativeLine1, 14);
       await wait(350);
-      await typeAppend(setNarrative, `${line1}\n`, line2, 12);
-      await wait(350);
-      await typeAppend(setNarrative, `${line1}\n${line2}\n`, line3, 12);
+      await typeAppend(setNarrative, `${narrativeLine1}\n`, narrativeLine2, 12);
       await wait(600);
+      setNarrativeTypingDone(true);
 
-      // 3. Twist (red)
       setCursorAt("twist");
       setTwistVisible(true);
       await wait(120);
-      await typeText(setTwist, "None of the puzzles were about HIS code.", 18);
+      await typeText(setTwist, twistFull, 18);
       await wait(600);
+      setTwistTypingDone(true);
 
-      // 4. Question (teal accent)
       setCursorAt("question");
-      const qText = "Why did it work?";
-      await typeText(setQuestion, qText, 16);
+      await typeText(setQuestion, questionFull, 14);
       await wait(150);
       setQuestionDone(true);
 
-      // Cursor stays permanently on the question
       setCursorAt("question");
       onReady && onReady();
     })();
@@ -123,8 +125,19 @@ export default function PuzzleTypewriter({ onReady }) {
 
         {/* Narrative — lighter tone so it recedes behind the left pitch, but sized so it’s still readable */}
         <div className="font-display text-[clamp(1.6rem,4.2vw,2.1rem)] font-medium text-ash leading-[1.45] tracking-tight mb-8 min-h-[3rem] whitespace-pre-wrap">
-          {narrative}
-          <Cursor visible={cursorAt === "narrative"} />
+          {narrativeTypingDone ? (
+            <>
+              You have a problem. It&apos;s heavy. You&apos;ve been carrying it.
+              {"\n"}
+              What if it isn&apos;t a problem? What if it&apos;s a{" "}
+              <em className="italic">puzzle</em>?
+            </>
+          ) : (
+            <>
+              {narrative}
+              <Cursor visible={cursorAt === "narrative"} />
+            </>
+          )}
         </div>
 
         {/* Students (legacy slot — hidden in current sequence) */}
@@ -177,15 +190,25 @@ export default function PuzzleTypewriter({ onReady }) {
           className="font-display text-[clamp(1.2rem,3vw,1.5rem)] font-medium leading-[1.5] mt-6 mb-6 min-h-[1.5em] transition-opacity duration-500"
           style={{ color: "#E5393C", opacity: twistVisible ? 1 : 0 }}
         >
-          {twist}
-          <Cursor color="#E5393C" visible={cursorAt === "twist"} />
+          {twistTypingDone ? (
+            <>
+              A problem feels like a <em className="italic">wall</em>. A{" "}
+              <em className="italic">puzzle</em> is something you can think your way through.
+            </>
+          ) : (
+            <>
+              {twist}
+              <Cursor color="#E5393C" visible={cursorAt === "twist"} />
+            </>
+          )}
         </div>
 
         {/* Question — softened from pure black so it reads as supporting, but clearly legible */}
         <div className="font-display text-[clamp(1.35rem,3.6vw,1.75rem)] font-medium text-ash leading-[1.4] tracking-tight min-h-[2.5rem]">
           {questionDone ? (
             <>
-              Why did <span style={{ color: "#2D8FAD" }}>it</span> work?
+              The small puzzles aren&apos;t a warm-up. They&apos;re how you become the kind of
+              thinker who can face the <span style={{ color: "#2D8FAD" }}>big one</span>.
             </>
           ) : (
             question

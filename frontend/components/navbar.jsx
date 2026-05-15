@@ -14,46 +14,36 @@ import { Link } from "@nextui-org/link";
 import { usePathname } from "next/navigation";
 import { Image } from "@nextui-org/react";
 import { useState } from "react";
-import { 
-  SignedIn, 
-  SignedOut, 
-  UserButton,
-  SignInButton,
-} from "@clerk/nextjs";
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+
+const textLinkClass =
+  "font-display text-black text-lg font-normal leading-snug lp:text-xl";
 
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
 
-  // Text colors for navbar - dark text on light background
   const textColor = "text-black";
   const textMuted = "text-smoke";
   const borderColor = "border-b-black";
   const hoverBorder = "hover:border-b-smoke";
 
-  // Base nav items (always visible)
-  const baseNavItems = [
-    { name: "Home", path: "/" },
-    { name: "The Practice", path: "/framework" },
-  ];
+  const practicePath = "/the-practice";
 
-  // Auth-only nav items
   const authNavItems = [
-    { name: "Understand", path: "/courses" },
+    { name: "Think", path: "/courses" },
     { name: "Profile", path: "/profile" },
   ];
 
-  // Mobile menu items for signed out users
   const signedOutMenuItems = [
-    { name: "Home", path: "/" },
-    { name: "The Practice", path: "/framework" },
+    { name: "The Practice", path: practicePath },
+    { name: "Login", path: "/login" },
+    { name: "Start a Course", path: "/login" },
   ];
 
-  // Mobile menu items for signed in users
   const signedInMenuItems = [
-    { name: "Home", path: "/" },
-    { name: "The Practice", path: "/framework" },
-    { name: "Understand", path: "/courses" },
+    { name: "The Practice", path: practicePath },
+    { name: "Think", path: "/courses" },
     { name: "Profile", path: "/profile" },
   ];
 
@@ -63,14 +53,27 @@ export const Navbar = () => {
     return pathname === path || pathname.startsWith(`${path}/`);
   };
 
+  const textNavItemClass = (path) =>
+    `${
+      isActive(path) ? `border-b-2 ${borderColor}` : `border-b-2 border-b-transparent ${hoverBorder}`
+    } pb-1 transition-all`;
+
   return (
     <NextUINavbar
       onMenuOpenChange={setIsMenuOpen}
       isBlurred={false}
-      className="fixed top-0 bg-transparent backdrop-blur-md z-50 py-2"
+      className="fixed top-0 z-50 bg-transparent py-2 backdrop-blur-md"
       maxWidth="2xl"
+      classNames={{
+        wrapper:
+          "box-border flex w-full max-w-[1536px] flex-nowrap items-center justify-between gap-4 px-6",
+      }}
     >
-      <NavbarContent className="lp:max-w-[30%]">
+      <NavbarContent
+        as="div"
+        justify="start"
+        className="m-0 flex min-w-0 list-none flex-row flex-nowrap items-center gap-2 p-0 !grow-0 !basis-auto"
+      >
         <NavbarMenuToggle
           aria-label={isMenuOpen ? "Close menu" : "Open menu"}
           className="sm:hidden text-black"
@@ -82,73 +85,35 @@ export const Navbar = () => {
               className="w-[48px] tb:w-[60px] lp:w-[72px]"
               alt="DramaRama"
             />
-            <span className={`font-mono text-sm lp:text-base ${textColor} tracking-[0.28em] uppercase font-medium`}>
+            <span className={`font-mono text-base lp:text-lg ${textColor} tracking-[0.28em] uppercase font-medium`}>
               DramaRama
             </span>
           </Link>
         </NavbarBrand>
       </NavbarContent>
 
-      <NavbarContent className="hidden sm:flex gap-8 lp:gap-12 max-w-min p-0 ml-auto lp:mr-10">
-        {/* Base nav items - always visible */}
-        {baseNavItems.map((item) => (
-          <NavbarItem
-            key={item.path}
-            className={`${
-              isActive(item.path)
-                ? `border-b-2 ${borderColor}`
-                : `border-b-2 border-b-transparent ${hoverBorder}`
-            } pb-1 transition-all`}
-          >
-            <Link
-              className={`${textColor} text-[16px] font-medium`}
-              href={item.path}
-            >
-              {item.name}
-            </Link>
-          </NavbarItem>
-        ))}
-        
-        {/* Auth-only nav items - only visible when signed in */}
-        <SignedIn>
-          {authNavItems.map((item) => (
-            <NavbarItem
-              key={item.path}
-              className={`${
-                isActive(item.path)
-                  ? `border-b-2 ${borderColor}`
-                  : `border-b-2 border-b-transparent ${hoverBorder}`
-              } pb-1 transition-all`}
-            >
-              <Link
-                className={`${textColor} text-[16px] font-medium`}
-                href={item.path}
-              >
-                {item.name}
-              </Link>
-            </NavbarItem>
-          ))}
-        </SignedIn>
-      </NavbarContent>
+      <NavbarContent
+        as="div"
+        justify="end"
+        className="m-0 hidden min-w-0 min-h-0 list-none flex-row flex-nowrap items-center gap-x-[clamp(1.5rem,2.5vw,3rem)] p-0 sm:flex"
+      >
+        <NavbarItem as="div" className={textNavItemClass(practicePath)}>
+          <Link className={textLinkClass} href={practicePath}>
+            The Practice
+          </Link>
+        </NavbarItem>
 
-      <NavbarContent className="max-w-min gap-4" justify="end">
-        {/* Signed Out - show login/get started */}
         <SignedOut>
-          <NavbarItem className="hidden tb:flex">
-            <Link href="/login">
-              <Button
-                className="bg-transparent border border-mist text-black px-5 py-4 text-sm font-medium hover:bg-mist transition-colors"
-                radius="none"
-              >
-                Login
-              </Button>
+          <NavbarItem as="div" className={textNavItemClass("/login")}>
+            <Link className={textLinkClass} href="/login">
+              Login
             </Link>
           </NavbarItem>
-          <NavbarItem>
+          <NavbarItem as="div">
             <Link href="/login">
               <Button
-                className="bg-primary text-white px-5 py-4 text-sm font-medium hover:bg-primary/90 transition-colors"
-                radius="none"
+                className="rounded-sm bg-primary px-5 py-4 text-base font-medium text-white transition-colors hover:bg-primary/90"
+                radius="sm"
               >
                 Start a Course
               </Button>
@@ -156,56 +121,63 @@ export const Navbar = () => {
           </NavbarItem>
         </SignedOut>
 
-        {/* Signed In - show user button (Dashboard link exists in the nav items) */}
         <SignedIn>
-          <NavbarItem>
-            <UserButton 
+          {authNavItems.map((item) => (
+            <NavbarItem as="div" key={item.path} className={textNavItemClass(item.path)}>
+              <Link className={textLinkClass} href={item.path}>
+                {item.name}
+              </Link>
+            </NavbarItem>
+          ))}
+          <NavbarItem as="div" className="flex shrink-0 items-center pl-1">
+            <UserButton
               afterSignOutUrl="/"
               appearance={{
                 elements: {
                   avatarBox: "w-10 h-10",
-                }
+                },
               }}
             />
-        </NavbarItem>
+          </NavbarItem>
         </SignedIn>
       </NavbarContent>
 
-      {/* Mobile Menu */}
       <NavbarMenu className="pt-8 bg-white/95 backdrop-blur-lg">
-        {/* Signed Out Menu */}
         <SignedOut>
           {signedOutMenuItems.map((item, index) => (
             <NavbarMenuItem key={`${item.name}-${index}`}>
-              <Link
-                className={`w-full text-lg py-2 ${
-                  isActive(item.path)
-                    ? `font-bold ${textColor} ${borderColor}`
-                    : `${textMuted} ${hoverBorder}`
-                }`}
-                href={item.path}
-                size="lg"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {item.name}
-              </Link>
+              {item.name === "Start a Course" ? (
+                <Link
+                  href={item.path}
+                  className="mt-2 flex w-full max-w-xs items-center justify-center bg-primary px-6 py-4 text-base font-medium text-white transition-colors hover:bg-primary/90"
+                  size="lg"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.name}
+                </Link>
+              ) : (
+                <Link
+                  className={`w-full text-xl py-2 ${
+                    isActive(item.path)
+                      ? `font-bold ${textColor} ${borderColor}`
+                      : `${textMuted} ${hoverBorder}`
+                  }`}
+                  href={item.path}
+                  size="lg"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.name}
+                </Link>
+              )}
             </NavbarMenuItem>
           ))}
-          <NavbarMenuItem>
-            <SignInButton mode="modal">
-              <button className="w-full text-lg py-2 text-black font-semibold text-left">
-                Login / Sign Up
-              </button>
-            </SignInButton>
-          </NavbarMenuItem>
         </SignedOut>
 
-        {/* Signed In Menu */}
         <SignedIn>
           {signedInMenuItems.map((item, index) => (
             <NavbarMenuItem key={`${item.name}-${index}`}>
               <Link
-                className={`w-full text-lg py-2 ${
+                className={`w-full text-xl py-2 ${
                   isActive(item.path)
                     ? `font-bold ${textColor} ${borderColor}`
                     : `${textMuted} ${hoverBorder}`
@@ -218,6 +190,16 @@ export const Navbar = () => {
               </Link>
             </NavbarMenuItem>
           ))}
+          <NavbarMenuItem className="mt-4">
+            <UserButton
+              afterSignOutUrl="/"
+              appearance={{
+                elements: {
+                  avatarBox: "w-10 h-10",
+                },
+              }}
+            />
+          </NavbarMenuItem>
         </SignedIn>
       </NavbarMenu>
     </NextUINavbar>

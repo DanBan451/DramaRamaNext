@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { Button } from "@nextui-org/button";
 import Link from "next/link";
-import { SignedIn, SignedOut } from "@clerk/nextjs";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Footer from "@/components/Footer";
 import PuzzleTypewriter from "@/components/PuzzleTypewriter";
-import HowItWorksSteps from "@/components/HowItWorksSteps";
+import SandboxIntroSection from "@/components/SandboxIntroSection";
+import ThinkIntroSection from "@/components/ThinkIntroSection";
+import HomeModeSequence from "@/components/HomeModeSequence";
 import { PUZZLES } from "@/lib/puzzles";
 
 export default function Home() {
@@ -30,11 +30,11 @@ export default function Home() {
   const contentY = useTransform(scrollYProgress, [0, 0.4], [0, -50]);
 
   return (
-    <div className="bg-white">
+    <div id="home-page-scroll" className="min-w-0 overflow-x-hidden bg-white">
       {/* 100svh fold: flexible hero image + intrinsic-height modes row (split flex so modes never clip). */}
       <section
         ref={heroRef}
-        className="relative flex h-[100svh] max-h-[100svh] min-h-0 flex-col overflow-hidden bg-white supports-[height:100dvh]:h-[100dvh] supports-[height:100dvh]:max-h-[100dvh]"
+        className="snap-start relative flex h-[100svh] max-h-[100svh] min-h-0 flex-col overflow-hidden bg-white supports-[height:100dvh]:h-[100dvh] supports-[height:100dvh]:max-h-[100dvh]"
       >
         <div className="relative min-h-0 flex-1 w-full overflow-hidden">
           {/* Background Image — focal point nudged down (higher % = puzzle sits lower in frame) */}
@@ -92,12 +92,9 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="absolute inset-x-0 top-0 bottom-0 mx-auto hidden max-w-[1536px] px-6 tb:block tb:px-0 tb:pl-[45%] lp:pl-[50%] tb:pr-6">
-              <div className="flex h-full max-w-none flex-col justify-center tb:max-w-[560px] tb:translate-y-5 tb:pb-20 lp:max-w-[620px] lp:translate-y-7 lp:pl-[100px] lp:pb-24">
-                <span
-                  className="mb-6 block font-mono text-[12px] font-medium uppercase tracking-[0.24em] lp:text-[14px]"
-                  style={{ color: "#2D8FAD" }}
-                >
+            <div className="absolute inset-x-0 top-0 bottom-0 mx-auto hidden max-w-[1536px] flex-col px-6 tb:flex tb:px-0 tb:pl-[38%] lp:pl-[40%] tb:pr-5 lp:pr-8 tb:pt-24 tb:pb-6 lp:pt-28 lp:pb-8">
+              <div className="flex min-h-0 w-full min-w-0 max-w-none flex-1 flex-col justify-center tb:pl-[calc(1.5rem+5vw)] lp:pl-[calc(2rem+5vw)]">
+                <span className="mb-6 block font-mono text-[12px] font-medium uppercase tracking-[0.24em] text-[#5B9BD5] lp:text-[14px]">
                   A quick story
                 </span>
                 <PuzzleTypewriter onReady={() => setPuzzleReady(true)} />
@@ -110,12 +107,12 @@ export default function Home() {
                       transition={{ duration: 0.6, ease: "easeOut" }}
                     >
                       <Link
-                        href="#how-it-works"
-                        className="group inline-flex items-center gap-3 font-display text-xl italic text-primary transition-colors hover:text-primary/70 lp:text-2xl"
+                        href="#the-sandbox"
+                        className="group inline-flex items-center gap-3 font-display text-xl italic text-[#5B9BD5] transition-colors hover:text-[#4A8FCE] lp:text-2xl"
                       >
                         <span className="relative">
-                          Find out why
-                          <span className="absolute left-0 -bottom-0.5 h-px w-full bg-primary/40 transition-colors group-hover:bg-primary" />
+                          Find out how
+                          <span className="absolute left-0 -bottom-0.5 h-px w-full bg-[#5B9BD5]/45 transition-colors group-hover:bg-[#4A8FCE]" />
                         </span>
                         <span
                           aria-hidden
@@ -131,72 +128,13 @@ export default function Home() {
             </div>
           </motion.div>
         </div>
-
-        <div className="relative shrink-0 flex flex-col overflow-hidden border-t border-mist bg-mist/60 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-5 shadow-[0_-8px_32px_rgba(0,0,0,0.06)] tb:pt-6 tb:pb-6 lp:pt-7 lp:pb-7">
-          {/* Shimmer: real layer + Tailwind keyframes (styled-jsx ::before was not reliably visible). */}
-          <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden" aria-hidden>
-            <div className="absolute inset-y-0 w-[min(70%,520px)] -skew-x-12 bg-gradient-to-r from-transparent via-white/90 to-transparent shadow-[0_0_40px_rgba(255,255,255,0.35)] animate-[shimmerSlide_3.2s_ease-in-out_infinite]" />
-          </div>
-
-          <div className="relative z-10 mx-auto w-full max-w-[1536px] flex flex-col px-6">
-            <div className="mt-5 w-full tb:mt-0">
-              <div className="grid w-full grid-cols-1 divide-y divide-mist/50 tb:grid-cols-2 tb:divide-x tb:divide-y-0">
-                <Link
-                  href="/course/new"
-                  className="group flex min-h-[8.5rem] flex-col justify-between bg-transparent py-8 text-left outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-change focus-visible:ring-offset-2 focus-visible:ring-offset-mist tb:min-h-0 tb:flex-1 tb:py-8 tb:pr-10 lp:py-8 lp:pr-14"
-                >
-                  <div>
-                    <div className="mb-3 h-px w-9 bg-primary" aria-hidden />
-                    <h2 className="font-display text-[clamp(1.45rem,2.8vw,1.85rem)] font-normal italic leading-[0.96] tracking-[-0.02em] text-black">
-                      The Practice
-                    </h2>
-                    <p className="mt-2.5 max-w-[22rem] font-sans text-[0.9375rem] font-medium leading-snug tracking-tight text-ash tb:max-w-none tb:text-base">
-                      Where the muscles get built.
-                    </p>
-                  </div>
-                  <span className="mt-7 flex w-full items-center justify-center border-2 border-change bg-transparent py-3.5 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-change transition-[background-color,box-shadow] duration-200 group-hover:bg-change/5 group-hover:shadow-sm tb:mt-8 tb:text-xs">
-                    Start the practice
-                  </span>
-                </Link>
-                <Link
-                  href="/courses"
-                  className="group flex min-h-[8.5rem] flex-col justify-between bg-transparent py-8 text-left outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-change focus-visible:ring-offset-2 focus-visible:ring-offset-mist tb:min-h-0 tb:flex-1 tb:py-8 tb:pl-10 lp:py-8 lp:pl-14"
-                >
-                  <div>
-                    <div className="mb-3 h-px w-9 bg-primary" aria-hidden />
-                    <h2 className="font-display text-[clamp(1.45rem,2.8vw,1.85rem)] font-normal italic leading-[0.96] tracking-[-0.02em] text-black">
-                      Understand
-                    </h2>
-                    <p className="mt-2.5 max-w-[22rem] font-sans text-[0.9375rem] font-medium leading-snug tracking-tight text-ash tb:max-w-none tb:text-base">
-                      Where they get used.
-                    </p>
-                  </div>
-                  <span className="mt-7 flex w-full items-center justify-center border-2 border-change bg-transparent py-3.5 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-change transition-[background-color,box-shadow] duration-200 group-hover:bg-change/5 group-hover:shadow-sm tb:mt-8 tb:text-xs">
-                    Go to Understand
-                  </span>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
       </section>
 
-      {/* ── How DramaRama Works ── four static step previews of the full product arc */}
-      <section
-        id="how-it-works"
-        className="py-20 tb:py-24 lp:py-28 px-6 bg-white scroll-mt-24"
-      >
-        <div className="max-w-[1536px] mx-auto">
-          <span className="font-mono text-xs text-smoke tracking-[0.3em] uppercase block mb-4">
-            How DramaRama works
-          </span>
-          <p className="font-display italic text-[22px] tb:text-[26px] lp:text-[30px] leading-[1.3] text-ash mb-12 tb:mb-16 lp:mb-20 max-w-[760px]">
-            From your goal to a more effective mind. Here&apos;s the path.
-          </p>
+      <HomeModeSequence />
 
-          <HowItWorksSteps />
-        </div>
-      </section>
+      <SandboxIntroSection />
+
+      <ThinkIntroSection />
 
       {/* ── Puzzle Preview removed in Phase 1 ── */}
       {false && (
@@ -262,52 +200,13 @@ export default function Home() {
           via PUZZLES; clicking a puzzle is a no-op until the homepage
           puzzle-CTA is redesigned. */}
 
-      {/* ── CTA ── */}
-      <section className="py-24 tb:py-32 px-6 bg-gradient-to-br from-ash via-void to-ash relative overflow-hidden">
-        {/* Subtle purple glow */}
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-change/10 rounded-full blur-3xl" />
-        
-        <motion.div
-          className="max-w-[1536px] mx-auto text-center relative z-10"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
-        >
-          <h2 className="font-display text-3xl tb:text-4xl lp:text-5xl text-white mb-4 tb:mb-6 italic">
-            Pick what you want to master.
-          </h2>
-          <p className="text-white/50 text-base tb:text-lg mb-8 tb:mb-10 max-w-lg mx-auto">
-            A course of puzzles. One goal. See how your thinking changes.
-          </p>
-          <SignedIn>
-            <Link href="/course/new">
-              <Button
-                className="bg-white text-black px-8 tb:px-10 h-12 tb:h-14 text-base font-medium hover:bg-white/90"
-                radius="none"
-              >
-                Start Your Course
-              </Button>
-            </Link>
-          </SignedIn>
-          <SignedOut>
-            <Link href="/course/new">
-              <Button
-                className="bg-white text-black px-8 tb:px-10 h-12 tb:h-14 text-base font-medium hover:bg-white/90"
-                radius="none"
-              >
-                Start Your Course
-              </Button>
-            </Link>
-          </SignedOut>
-        </motion.div>
-      </section>
-
-      {/* Attribution */}
-      <div className="py-12 px-6 border-t border-mist">
-        <p className="text-center text-smoke text-sm max-w-lg mx-auto leading-relaxed">
+      {/* Attribution — soft lift from Think gray into white footer band */}
+      <div className="border-t border-mist/60 bg-gradient-to-b from-[#c9ccd2] from-0% via-white via-[min(8vh,3.5rem)] to-white to-100%">
+        <div className="nav-shell py-12">
+        <p className="mx-auto max-w-lg text-center text-sm leading-relaxed text-smoke">
           DramaRama is built on the 5 Elements of Effective Thinking by Edward B. Burger, with deep gratitude to <em>Making Up Your Own Mind</em>.
         </p>
+        </div>
       </div>
 
       <Footer />

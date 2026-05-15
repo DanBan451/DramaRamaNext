@@ -1,21 +1,26 @@
 "use client";
 
 /**
- * PuzzleTypewriter
- * ────────────────
- * Animated typewriter that reveals the Who's Who puzzle
- * line-by-line with a persistent blinking cursor.
- * Adapted from the standalone HTML/CSS/JS demo into React
- * using the site's font stack (Instrument Serif / JetBrains Mono).
+ * PuzzleTypewriter — hero “A quick story” column: short phased typewriter.
+ * Red (`text-primary`) = urgent puzzle beats; blue `#5B9BD5` = contemplative
+ * frame (echoes cool mask tones) on “Most people can’t” + shared with page eyebrow/link.
  */
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { motion } from "framer-motion";
 
-// ── Timing helpers ──────────────────────────────────────────────────────────
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// ── Blinking cursor ─────────────────────────────────────────────────────────
+/** Cool light–mid blue aligned with hero mask blues */
+const HERO_MASK_BLUE = "#5B9BD5";
+
+const COPY_OPEN =
+  "Pick one thing you wish you were better at. Your work. A craft. Something heavy.";
+const COPY_Q1 = "What would change about your situation if you got better at it?";
+const COPY_BEAT1 = "Most people can answer that easily.";
+const COPY_Q2 = "What would change about how you think to make it happen?";
+const COPY_BEAT2 = "Most people can't.";
+const COPY_RES = "That's the puzzle this is built to solve.";
+
 function Cursor({ color = "#111", visible = true }) {
   if (!visible) return null;
   return (
@@ -31,40 +36,31 @@ function Cursor({ color = "#111", visible = true }) {
   );
 }
 
-// ── Main component ──────────────────────────────────────────────────────────
 export default function PuzzleTypewriter({ onReady }) {
-  // Text state for each section
-  const [setting, setSetting] = useState("");
-  const [narrative, setNarrative] = useState("");
-  const [showStudents, setShowStudents] = useState(false);
-  const [s1Visible, setS1Visible] = useState(false);
-  const [s2Visible, setS2Visible] = useState(false);
-  const [quote1, setQuote1] = useState("");
-  const [quote2, setQuote2] = useState("");
-  const [twist, setTwist] = useState("");
-  const [twistVisible, setTwistVisible] = useState(false);
-  const [question, setQuestion] = useState("");
-  const [questionDone, setQuestionDone] = useState(false);
-  const [narrativeTypingDone, setNarrativeTypingDone] = useState(false);
-  const [twistTypingDone, setTwistTypingDone] = useState(false);
+  const [open, setOpen] = useState("");
+  const [openDone, setOpenDone] = useState(false);
 
-  // Which element currently has the cursor
+  const [q1, setQ1] = useState("");
+  const [q1Done, setQ1Done] = useState(false);
+
+  const [beat1, setBeat1] = useState("");
+  const [beat1Done, setBeat1Done] = useState(false);
+
+  const [q2, setQ2] = useState("");
+  const [q2Done, setQ2Done] = useState(false);
+
+  const [beat2, setBeat2] = useState("");
+  const [beat2Done, setBeat2Done] = useState(false);
+
+  const [resolution, setResolution] = useState("");
+  const [resolutionDone, setResolutionDone] = useState(false);
+
   const [cursorAt, setCursorAt] = useState("none");
-
   const hasRun = useRef(false);
 
-  // Typewriter: types text char by char, calling setter each tick
   const typeText = useCallback(async (setter, text, speed = 38) => {
     for (let i = 1; i <= text.length; i++) {
       setter(text.slice(0, i));
-      await wait(speed + (Math.random() * 14 - 7));
-    }
-  }, []);
-
-  // Typewriter: appends `addition` onto an existing `prefix` without re-typing the prefix
-  const typeAppend = useCallback(async (setter, prefix, addition, speed = 38) => {
-    for (let i = 1; i <= addition.length; i++) {
-      setter(prefix + addition.slice(0, i));
       await wait(speed + (Math.random() * 14 - 7));
     }
   }, []);
@@ -74,147 +70,151 @@ export default function PuzzleTypewriter({ onReady }) {
     hasRun.current = true;
 
     (async () => {
-      // (Setting label removed — replaced by the "A quick story" eyebrow above the typewriter.)
       await wait(400);
 
-      const narrativeLine1 =
-        "You have a problem. It\u2019s heavy. You\u2019ve been carrying it.";
-      const narrativeLine2 =
-        "What if it isn\u2019t a problem? What if it\u2019s a puzzle?";
-      const twistFull =
-        "A problem feels like a wall. A puzzle is something you can think your way through.";
-      const questionFull =
-        "The small puzzles aren\u2019t a warm-up. They\u2019re how you become the kind of thinker who can face the big one.";
+      setCursorAt("open");
+      await typeText(setOpen, COPY_OPEN, 13);
+      await wait(280);
+      setOpenDone(true);
 
-      setCursorAt("narrative");
-      await typeText(setNarrative, narrativeLine1, 14);
-      await wait(350);
-      await typeAppend(setNarrative, `${narrativeLine1}\n`, narrativeLine2, 12);
-      await wait(600);
-      setNarrativeTypingDone(true);
+      setCursorAt("q1");
+      await wait(100);
+      await typeText(setQ1, COPY_Q1, 15);
+      await wait(320);
+      setQ1Done(true);
 
-      setCursorAt("twist");
-      setTwistVisible(true);
-      await wait(120);
-      await typeText(setTwist, twistFull, 18);
-      await wait(600);
-      setTwistTypingDone(true);
+      setCursorAt("beat1");
+      await typeText(setBeat1, COPY_BEAT1, 14);
+      await wait(280);
+      setBeat1Done(true);
 
-      setCursorAt("question");
-      await typeText(setQuestion, questionFull, 14);
-      await wait(150);
-      setQuestionDone(true);
+      setCursorAt("q2");
+      await wait(100);
+      await typeText(setQ2, COPY_Q2, 15);
+      await wait(320);
+      setQ2Done(true);
 
-      setCursorAt("question");
+      setCursorAt("beat2");
+      await typeText(setBeat2, COPY_BEAT2, 14);
+      await wait(280);
+      setBeat2Done(true);
+
+      setCursorAt("resolution");
+      await typeText(setResolution, COPY_RES, 13);
+      await wait(160);
+      setResolutionDone(true);
+
+      setCursorAt("none");
       onReady && onReady();
     })();
-  }, [typeText, typeAppend, onReady]);
+  }, [typeText, onReady]);
+
+  const bodyClass =
+    "font-display text-[clamp(1.55rem,3.8vw,1.95rem)] font-medium text-ash leading-[1.68] tracking-tight";
+  const questionClass =
+    "font-display text-[clamp(1.42rem,4.1vw,2.1rem)] font-semibold italic text-primary leading-[1.5] tracking-tight";
+  const blueContemplativeClass =
+    "font-display text-[clamp(1.58rem,3.95vw,2rem)] font-semibold italic leading-[1.68] tracking-tight";
+  const resolutionClass =
+    "font-display text-[clamp(1.72rem,4.25vw,2.2rem)] font-bold text-ash leading-[1.62] tracking-tight";
 
   return (
     <>
-      {/* Inject cursor blink keyframes */}
       <style jsx global>{`
         @keyframes cursorBlink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
+          0%,
+          100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0;
+          }
         }
       `}</style>
 
-      <div className="w-full">
-        {/* Setting slot removed — the eyebrow label above the typewriter serves this role now. */}
-
-        {/* Narrative — lighter tone so it recedes behind the left pitch, but sized so it’s still readable */}
-        <div className="font-display text-[clamp(1.6rem,4.2vw,2.1rem)] font-medium text-ash leading-[1.45] tracking-tight mb-8 min-h-[3rem] whitespace-pre-wrap">
-          {narrativeTypingDone ? (
+      <div className="flex w-full flex-col gap-y-10 tb:gap-y-11">
+        {/* Paragraph 1 — dark body; “heavy” accent */}
+        <div className={`${bodyClass} min-h-[2.5rem]`}>
+          {openDone ? (
             <>
-              You have a problem. It&apos;s heavy. You&apos;ve been carrying it.
-              {"\n"}
-              What if it isn&apos;t a problem? What if it&apos;s a{" "}
-              <em className="italic">puzzle</em>?
+              Pick one thing you wish you were better at. Your work. A craft. Something{" "}
+              <span className="text-primary font-semibold italic">heavy</span>.
             </>
           ) : (
             <>
-              {narrative}
-              <Cursor visible={cursorAt === "narrative"} />
+              {open}
+              <Cursor visible={cursorAt === "open"} />
             </>
           )}
         </div>
 
-        {/* Students (legacy slot — hidden in current sequence) */}
-        {false && showStudents && (
-          <div className="mb-1 flex flex-col">
-            {/* Student 1 — black hair */}
-            <div
-              className="flex items-center gap-4 py-[18px] border-t border-b border-[#f0f0f0] transition-all duration-[550ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
-              style={{
-                opacity: s1Visible ? 1 : 0,
-                transform: s1Visible ? "translateX(0)" : "translateX(-18px)",
-              }}
-            >
-              <div className="w-[11px] h-[11px] rounded-full bg-[#1c1c1c] flex-shrink-0" />
-              <div>
-                <div className="font-mono text-[10px] font-medium tracking-[0.2em] uppercase text-[#888] mb-1">
-                  Black hair
-                </div>
-                <div className="font-display text-[clamp(1rem,2.5vw,1.18rem)] italic text-black leading-[1.4] min-h-[1.4em]">
-                  {quote1}
-                  <Cursor visible={cursorAt === "q1"} />
-                </div>
-              </div>
-            </div>
-
-            {/* Student 2 — red hair */}
-            <div
-              className="flex items-center gap-4 py-[18px] border-b border-[#f0f0f0] transition-all duration-[550ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
-              style={{
-                opacity: s2Visible ? 1 : 0,
-                transform: s2Visible ? "translateX(0)" : "translateX(-18px)",
-              }}
-            >
-              <div className="w-[11px] h-[11px] rounded-full bg-[#E5393C] flex-shrink-0" />
-              <div>
-                <div className="font-mono text-[10px] font-medium tracking-[0.2em] uppercase text-[#888] mb-1">
-                  Red hair
-                </div>
-                <div className="font-display text-[clamp(1rem,2.5vw,1.18rem)] italic text-black leading-[1.4] min-h-[1.4em]">
-                  {quote2}
-                  <Cursor visible={cursorAt === "q2"} />
-                </div>
-              </div>
-            </div>
+        {openDone && (
+          <div className={`${questionClass} min-h-[2.75rem]`}>
+            {q1Done ? <span>{COPY_Q1}</span> : (
+              <>
+                {q1}
+                <Cursor color="#8B0000" visible={cursorAt === "q1"} />
+              </>
+            )}
           </div>
         )}
 
-        {/* Twist — red accent (emotional hook), medium weight to sit under the headline */}
-        <div
-          className="font-display text-[clamp(1.2rem,3vw,1.5rem)] font-medium leading-[1.5] mt-6 mb-6 min-h-[1.5em] transition-opacity duration-500"
-          style={{ color: "#E5393C", opacity: twistVisible ? 1 : 0 }}
-        >
-          {twistTypingDone ? (
-            <>
-              A problem feels like a <em className="italic">wall</em>. A{" "}
-              <em className="italic">puzzle</em> is something you can think your way through.
-            </>
-          ) : (
-            <>
-              {twist}
-              <Cursor color="#E5393C" visible={cursorAt === "twist"} />
-            </>
-          )}
-        </div>
+        {q1Done && (
+          <div className={`${bodyClass} min-h-[1.75rem]`}>
+            {beat1Done ? (
+              COPY_BEAT1
+            ) : (
+              <>
+                {beat1}
+                <Cursor visible={cursorAt === "beat1"} />
+              </>
+            )}
+          </div>
+        )}
 
-        {/* Question — softened from pure black so it reads as supporting, but clearly legible */}
-        <div className="font-display text-[clamp(1.35rem,3.6vw,1.75rem)] font-medium text-ash leading-[1.4] tracking-tight min-h-[2.5rem]">
-          {questionDone ? (
-            <>
-              The small puzzles aren&apos;t a warm-up. They&apos;re how you become the kind of
-              thinker who can face the <span style={{ color: "#2D8FAD" }}>big one</span>.
-            </>
-          ) : (
-            question
-          )}
-          <Cursor color="#2D8FAD" visible={cursorAt === "question"} />
-        </div>
+        {beat1Done && (
+          <div className={`${questionClass} min-h-[2.75rem]`}>
+            {q2Done ? <span>{COPY_Q2}</span> : (
+              <>
+                {q2}
+                <Cursor color="#8B0000" visible={cursorAt === "q2"} />
+              </>
+            )}
+          </div>
+        )}
+
+        {q2Done && (
+          <div
+            className={`${blueContemplativeClass} min-h-[1.5rem]`}
+            style={{ color: HERO_MASK_BLUE }}
+          >
+            {beat2Done ? (
+              COPY_BEAT2
+            ) : (
+              <>
+                {beat2}
+                <Cursor color={HERO_MASK_BLUE} visible={cursorAt === "beat2"} />
+              </>
+            )}
+          </div>
+        )}
+
+        {beat2Done && (
+          <div className={`${resolutionClass} min-h-[2.25rem]`}>
+            {resolutionDone ? (
+              <>
+                That&apos;s the{" "}
+                <span className="text-primary italic text-[1.18em] font-bold">puzzle</span> this is built to
+                solve.
+              </>
+            ) : (
+              <>
+                {resolution}
+                <Cursor color="#8B0000" visible={cursorAt === "resolution"} />
+              </>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

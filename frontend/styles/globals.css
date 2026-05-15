@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Canonical page content band — must match NextUI Navbar `maxWidth="2xl"` wrapper
+   (@nextui-org/theme: max-w-[1536px] + px-6). Anything “full bleed” is outside this;
+   all product copy / grids / CTAs align to these edges.
+   Do not add `max-w-full` on the same element: utilities override this layer and drop the 1536 cap. */
+@layer components {
+  .nav-shell {
+    @apply mx-auto box-border w-full max-w-[1536px] px-6;
+  }
+}
+
 /* Force a white page background BEFORE React paints. Without this, when
    the user's OS is in dark mode the browser briefly paints a black canvas
    between route transitions (Begin → puzzle was the most visible offender)
@@ -10,6 +20,8 @@
 html {
   background-color: #ffffff;
   color-scheme: light;
+  /* Clip sub-pixel / skew / shadow bleed so the doc never shows a horizontal scrollbar. */
+  overflow-x: hidden;
 }
 
 /* Canvas component (ported from Weaponry) — scoped CSS variables.
@@ -30,6 +42,9 @@ html {
 }
 
 :root {
+  /* Fixed DramaRama navbar (NextUI + logo); used for full-viewport sections below the bar. */
+  --navbar-height: 5.75rem;
+
   /* Light Matte Professional Palette */
   
   /* Primary backgrounds */
@@ -496,4 +511,12 @@ html {
 
 .resize-handle:hover::after {
   opacity: 1;
+}
+
+/* Homepage: gentle scroll snap between major folds when #home-page-scroll is present. */
+@supports selector(:has(*)) {
+  body:has(#home-page-scroll) {
+    scroll-snap-type: y proximity;
+    overflow-x: hidden;
+  }
 }

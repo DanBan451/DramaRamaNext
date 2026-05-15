@@ -24,6 +24,7 @@ export interface CoursePuzzleSummary {
   course_id?: string;
   stage3_phase?: "reflect" | "bridge" | null;
   synthesis?: string | null;
+  reflection_answers?: Record<string, string> | null;
 }
 
 export interface CanvasState {
@@ -285,6 +286,90 @@ export async function completePuzzle(
     completed_at: string | null;
     synthesis?: string | null;
   }>(res, "completePuzzle");
+}
+
+export async function saveReflectionAnswers(
+  coursePuzzleId: string,
+  body: {
+    elements_applied: string;
+    most_insightful_element: string;
+    question_at_start: string;
+  },
+  getToken: TokenGetter,
+): Promise<CoursePuzzleSummary> {
+  const res = await authedFetch(
+    `/canvas/${coursePuzzleId}/reflection-answers`,
+    { method: "POST", body: JSON.stringify(body) },
+    getToken,
+  );
+  return asJson<CoursePuzzleSummary>(res, "saveReflectionAnswers");
+}
+
+export interface ForgeFireStarterDraft {
+  element_combination: string[];
+  flow_of_ideas: Record<string, unknown>[];
+  description: string;
+  proposed_names: string[];
+}
+
+export async function forgeFireStarterDraft(
+  coursePuzzleId: string,
+  getToken: TokenGetter,
+): Promise<ForgeFireStarterDraft> {
+  const res = await authedFetch(
+    `/canvas/${coursePuzzleId}/forge-fire-starter`,
+    { method: "POST", body: JSON.stringify({}) },
+    getToken,
+  );
+  return asJson<ForgeFireStarterDraft>(res, "forgeFireStarterDraft");
+}
+
+export async function createFireStarter(
+  body: {
+    course_puzzle_id: string;
+    name: string;
+    description: string;
+    element_combination: string[];
+    flow_of_ideas: Record<string, unknown>[];
+  },
+  getToken: TokenGetter,
+): Promise<{ id: string; name: string }> {
+  const res = await authedFetch(
+    `/fire-starters`,
+    { method: "POST", body: JSON.stringify(body) },
+    getToken,
+  );
+  return asJson<{ id: string; name: string }>(res, "createFireStarter");
+}
+
+export async function listFireStartersForCourse(
+  courseId: string,
+  getToken: TokenGetter,
+): Promise<
+  Array<{
+    id: string;
+    name: string;
+    description: string;
+    element_combination: string[];
+    course_puzzle_id: string;
+    created_at: string | null;
+  }>
+> {
+  const res = await authedFetch(
+    `/fire-starters?course_id=${encodeURIComponent(courseId)}`,
+    { method: "GET" },
+    getToken,
+  );
+  return asJson<
+    Array<{
+      id: string;
+      name: string;
+      description: string;
+      element_combination: string[];
+      course_puzzle_id: string;
+      created_at: string | null;
+    }>
+  >(res, "listFireStartersForCourse");
 }
 
 export async function getDevRedirectTarget(

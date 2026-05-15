@@ -3,7 +3,7 @@
 // Right-side chat panel for the canvas. The panel is *always* visible (the
 // user can collapse it via the page-level toggle). Three stages:
 //
-//   Stage 1 — Think. Guide-only. The bot welcomes the user, explains the
+//   Stage 1 — Forge. Guide-only. The bot welcomes the user, explains the
 //             objective (apply the 5 elements), and refuses to give puzzle
 //             answers or extend the user's flow.
 //
@@ -36,7 +36,7 @@ import { useAuth } from "@clerk/nextjs";
 const TEXTAREA_MIN_PX = 38;
 const TEXTAREA_MAX_PX = 200;
 
-const STAGE_1_WELCOME = `Welcome. This is **Stage 1 — Think**.
+const STAGE_1_WELCOME = `Welcome. This is **Stage 1 — Think on Your Own**.
 
 Your job here is to actually think through the puzzle on the canvas. Drop blocks, draw connections, and apply all five **Elements of Effective Thinking** as you go:
 
@@ -46,24 +46,16 @@ Your job here is to actually think through the puzzle on the canvas. Drop blocks
 🌊 **Water** — Let ideas flow and connect.
 🪨 **Change** — Notice how your thinking is changing.
 
-I'm here to remind you what each element means and how to approach this stage. I won't help you solve the puzzle and I won't extend your ideas — that's *your* work. When you feel ready, hit **Next Stage** at the top.`;
+I'm here to explain what each element means and how to use it in Forge — not which one to pick for this puzzle, and not the answer. When you're ready, use **Continue to Stage 2** at the top.`;
 
 // Stage 2 has no static welcome message anymore. The fan-shape diagnostic
-// engine returns a `chat_message` tuned to the user's actual canvas state,
-// and that message is passed in via the `stage2WelcomeMessage` prop. If
-// it's missing for any reason, fall back to a neutral pointer that does
-// NOT claim anything has already been dropped.
-const STAGE_2_FALLBACK = `You're in **Stage 2 — Redirect**.
+const STAGE_2_FALLBACK = `You're in **Stage 2 — AI Nudge**.
 
-If you don't see any **AI Nudge** blocks yet, they're still being generated and will appear on the canvas shortly. Once they show up (dashed purple borders), pick one and respond on a new block of your own. They're yours — drag, edit, or delete what doesn't help.`;
+If you don't see nudge blocks yet, they're still being generated. Once they show up, extend your thinking from them — they're prompts, not answers.`;
 
 const STAGE_3_REFLECT_WELCOME = `**Time to reflect.**
 
-We've put real work into this puzzle. Before we move on, what actually happened for you?
-
-What surprised you? Where did you get stuck — and what got you unstuck? Drop reflections on the canvas (warm gold border) or talk through them here.
-
-When you want to connect this to your real-world goal, use **"Now bridge to my goal"** below.`;
+Use the reflection panel to answer three short questions, then forge a **Fire Starter** you can bring into Ignite.`;
 
 const STAGE_3_BRIDGE_WELCOME = `**Let's keep bridging this to your goal.**
 

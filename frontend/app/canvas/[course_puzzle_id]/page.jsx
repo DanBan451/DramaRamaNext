@@ -12,6 +12,7 @@ import Link from "next/link";
 import Canvas from "@/components/canvas/Canvas";
 import ElementsSidebar from "@/components/canvas/ElementsSidebar";
 import StageChat from "@/components/canvas/StageChat";
+import ReflectionForgePanel from "@/components/canvas/ReflectionForgePanel";
 import CanvasSkeleton from "@/components/canvas/CanvasSkeleton";
 // Note: `ELEMENTS` is no longer imported here — the new ElementsSidebar
 // component owns its own data import. Don't add it back without a reason.
@@ -27,8 +28,6 @@ import {
   deleteConnection as apiDeleteConnection,
   generateStage2Nudges,
   updateCurrentStage,
-  advanceToBridge as apiAdvanceToBridge,
-  completePuzzle as apiCompletePuzzle,
 } from "@/lib/canvas-api";
 
 // Stage 2 nudge positions are computed server-side now (fan-shape engine).
@@ -79,10 +78,6 @@ export default function CanvasPage() {
   // Stage 3 sub-phase tracking. Set from server on load, updated locally
   // on advance. Null means not in Stage 3 yet.
   const [stage3Phase, setStage3Phase] = useState(null);
-  // Confirmation modals for Stage 3 actions.
-  const [confirmBridge, setConfirmBridge] = useState(false);
-  const [confirmComplete, setConfirmComplete] = useState(false);
-  const [completing, setCompleting] = useState(false);
 
   // Collapsible side panels. Hidden state is local UI only — no need to
   // persist between sessions yet.
@@ -471,7 +466,7 @@ export default function CanvasPage() {
           // Defensive: avoid leaving a misleading "generating" message hanging
           // forever if the server returned no nudges and no chat text.
           setStage2WelcomeMessage(
-            "You're in **Stage 2 — Redirect**. If you don't see any AI nudges yet, try **Next Stage** again in a moment.",
+            "You're in **Stage 2 — AI Nudge**. If you don't see any nudges yet, try **Continue to Stage 3** again in a moment.",
           );
         }
 
@@ -489,43 +484,6 @@ export default function CanvasPage() {
       } finally {
         setSeedingNudges(false);
       }
-    }
-  }
-
-  // ---------- Stage 3 handlers ----------
-
-  async function handleAdvanceToBridge() {
-    setConfirmBridge(false);
-    setStage3Phase("bridge");
-    try {
-      await apiAdvanceToBridge(coursePuzzleId, getToken);
-    } catch (e) {
-      notifyError(e?.message || "Couldn't save bridge phase — try again.");
-    }
-  }
-
-  async function handleCompletePuzzle() {
-    setConfirmComplete(false);
-    setCompleting(true);
-    try {
-      const res = await apiCompletePuzzle(coursePuzzleId, getToken);
-      setCoursePuzzle((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: "completed",
-              synthesis: res.synthesis ?? prev.synthesis,
-              completed_at: res.completed_at ?? prev.completed_at,
-            }
-          : prev,
-      );
-      // Ensure the learner sees the closing note immediately after finishing.
-      // (Many users collapse the chat panel while working.)
-      setChatOpen(true);
-    } catch (e) {
-      notifyError(e?.message || "Couldn't complete puzzle — try again.");
-    } finally {
-      setCompleting(false);
     }
   }
 
@@ -552,6 +510,7 @@ export default function CanvasPage() {
   }
 
   const isCompleted = coursePuzzle.status === "completed";
+  const forgeStage3ReadOnly = stage === 3 && !isCompleted;
 
   return (
     <div className="flex h-screen bg-white overflow-hidden">
@@ -638,7 +597,7 @@ export default function CanvasPage() {
                 className="text-sm font-medium px-3 py-1.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
                 title="Advance to the next stage (no going back)"
               >
-                Next Stage →
+                {stage === 1 ? "Continue to Stage 2 →" : "Continue to Stage 3 →"}
               </button>
             ) : (
               <span className="text-[11px] font-mono text-smoke">
@@ -704,13 +663,13 @@ export default function CanvasPage() {
             selectedElement={selectedElement}
             selectedSubElement={selectedSubElement}
             focusThoughtIds={focusThoughtIds}
-            onCreateThought={isCompleted ? null : handleCreateThought}
-            onUpdateThoughtPosition={isCompleted ? null : handleUpdateThoughtPosition}
-            onUpdateThoughtContent={isCompleted ? null : handleUpdateThoughtContent}
-            onUpdateThoughtTagging={isCompleted ? null : handleUpdateThoughtTagging}
-            onDeleteThought={isCompleted ? null : handleDeleteThought}
-            onCreateConnection={isCompleted ? null : handleCreateConnection}
-            onDeleteConnection={isCompleted ? null : handleDeleteConnection}
+            onCreateThought={forgeStage3ReadOnly || isCompleted ? null : handleCreateThought}
+            onUpdateThoughtPosition={forgeStage3ReadOnly || isCompleted ? null : handleUpdateThoughtPosition}
+            onUpdateThoughtContent={forgeStage3ReadOnly || isCompleted ? null : handleUpdateThoughtContent}
+            onUpdateThoughtTagging={forgeStage3ReadOnly || isCompleted ? null : handleUpdateThoughtTagging}
+            onDeleteThought={forgeStage3ReadOnly || isCompleted ? null : handleDeleteThought}
+            onCreateConnection={forgeStage3ReadOnly || isCompleted ? null : handleCreateConnection}
+            onDeleteConnection={forgeStage3ReadOnly || isCompleted ? null : handleDeleteConnection}
             onClearElement={clearSelection}
           />
         </div>
@@ -719,17 +678,40 @@ export default function CanvasPage() {
       {/* ─── Right: Stage chat panel (collapsible) ─────────────────────── */}
       {chatOpen ? (
         <aside className="w-80 shrink-0">
-          <StageChat
-            stage={stage}
-            coursePuzzleId={coursePuzzleId}
-            onClose={() => setChatOpen(false)}
-            stage2WelcomeMessage={stage2WelcomeMessage}
-            stage3Phase={stage3Phase}
-            onAdvanceToBridge={() => setConfirmBridge(true)}
-            onCompletePuzzle={() => setConfirmComplete(true)}
-            isCompleted={isCompleted}
-            synthesis={coursePuzzle.synthesis}
-          />
+          {stage === 3 && !isCompleted ? (
+            <ReflectionForgePanel
+              coursePuzzleId={coursePuzzleId}
+              initialAnswers={coursePuzzle.reflection_answers}
+              getToken={getToken}
+              onSavedAnswers={async () => {
+                try {
+                  const state = await getCanvasState(coursePuzzleId, getToken);
+                  setCoursePuzzle(state.course_puzzle);
+                } catch (e) {
+                  notifyError(e?.message);
+                }
+              }}
+              onForged={(name) => {
+                setToast(`Fire Starter forged: ${name}. It comes with you into Ignite.`);
+                setCoursePuzzle((prev) =>
+                  prev ? { ...prev, status: "completed" } : prev,
+                );
+                const cid = coursePuzzle?.course_id;
+                if (cid) router.push(`/courses/${cid}/ready`);
+                else router.push("/courses");
+              }}
+            />
+          ) : (
+            <StageChat
+              stage={stage}
+              coursePuzzleId={coursePuzzleId}
+              onClose={() => setChatOpen(false)}
+              stage2WelcomeMessage={stage2WelcomeMessage}
+              stage3Phase={stage3Phase}
+              isCompleted={isCompleted}
+              synthesis={coursePuzzle.synthesis}
+            />
+          )}
         </aside>
       ) : (
         <button
@@ -783,68 +765,6 @@ export default function CanvasPage() {
         </div>
       )}
 
-      {/* ─── Confirm bridge modal ────────────────────────────────────── */}
-      {confirmBridge && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h2 className="font-display text-2xl text-black mb-2">
-              Bridge to your goal?
-            </h2>
-            <p className="text-sm text-smoke mb-6 leading-relaxed">
-              You'll move from reflecting on the puzzle to connecting it back to
-              your real-world goal. You can still chat and add blocks — this just
-              shifts the conversation's focus.
-            </p>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setConfirmBridge(false)}
-                className="px-4 py-2 text-sm text-smoke hover:text-black"
-              >
-                Not yet
-              </button>
-              <button
-                onClick={handleAdvanceToBridge}
-                className="px-4 py-2 text-sm bg-amber-600 text-white rounded-md font-medium hover:bg-amber-700 transition-colors"
-              >
-                Bridge to my goal
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Confirm complete modal ──────────────────────────────────── */}
-      {confirmComplete && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h2 className="font-display text-2xl text-black mb-2">
-              Finish this puzzle?
-            </h2>
-            <p className="text-sm text-smoke mb-6 leading-relaxed">
-              This marks the puzzle complete and locks the canvas. Your closing
-              note will appear above and in the guide — stay as long as you like,
-              then head back to your course when you&apos;re ready.
-            </p>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setConfirmComplete(false)}
-                disabled={completing}
-                className="px-4 py-2 text-sm text-smoke hover:text-black disabled:opacity-40"
-              >
-                Keep working
-              </button>
-              <button
-                onClick={handleCompletePuzzle}
-                disabled={completing}
-                className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-md font-medium hover:bg-emerald-700 transition-colors disabled:opacity-60"
-              >
-                {completing ? "Finishing…" : "I'm done ✓"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {toast && (
         <div className="fixed bottom-4 right-4 z-50 bg-red-600 text-white text-xs px-4 py-2 rounded shadow-lg max-w-sm">
           {toast}
@@ -860,9 +780,9 @@ function StageIndicator({ current }) {
   //   3 (Quintessence) — connect this puzzle back to the larger goal that
   //     prompted the course.
   const stages = [
-    { n: 1, label: "Think" },
-    { n: 2, label: "Redirect" },
-    { n: 3, label: "Quintessence" },
+    { n: 1, label: "Think on Your Own" },
+    { n: 2, label: "AI Nudge" },
+    { n: 3, label: "Reflect" },
   ];
   return (
     <div className="hidden tb:flex items-center gap-1 text-[11px] font-mono">

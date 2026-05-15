@@ -299,7 +299,7 @@ function NewCourseIntakePageInner() {
         console.error(e);
         if (!cancelled) {
           setBootError(
-            "We couldn’t reopen that intake chat. Try starting a fresh course.",
+            "We couldn’t reopen that intake chat. Try starting a fresh goal.",
           );
         }
       } finally {
@@ -333,7 +333,7 @@ function NewCourseIntakePageInner() {
       setMessages([{ role: "assistant", content: OPENING_ASSISTANT_PROMPT }]);
     } catch (e) {
       console.error(e);
-      setBootError(e.message || "Failed to start your course.");
+      setBootError(e.message || "Failed to start your goal.");
     } finally {
       setCreatingCourse(false);
     }
@@ -507,7 +507,7 @@ function NewCourseIntakePageInner() {
       }, 1500);
     } catch (e) {
       console.error(e);
-      setBootError(e.message || "Failed to create course.");
+      setBootError(e.message || "Failed to create goal.");
     } finally {
       setFinalizing(false);
     }
@@ -563,7 +563,7 @@ function NewCourseIntakePageInner() {
   return (
     <div className="min-h-screen w-full bg-white pt-40 pb-12">
         <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase mb-3">
-          New Course
+          New Goal
         </p>
         <h1 className="font-display text-3xl tb:text-4xl text-black leading-snug tracking-tight mb-4">
           <span className="font-serif italic text-change">
@@ -573,9 +573,9 @@ function NewCourseIntakePageInner() {
         </h1>
         <p className="font-serif text-ash text-base leading-relaxed mb-8">
           One short chat: the guide asks a few questions, then proposes a single
-          sentence you can edit. We only create your course after you press{" "}
-          <strong className="font-medium text-black">Create Course</strong> — nothing
-          shows up in your course list before that.
+          sentence you can edit. We only create your goal after you press{" "}
+          <strong className="font-medium text-black">Create Goal</strong> — nothing
+          shows up in your goal list before that.
         </p>
 
         {!intakeStarted ? (
@@ -586,9 +586,9 @@ function NewCourseIntakePageInner() {
               className="bg-primary text-white hover:bg-primary/90 h-12 px-8 font-medium"
               radius="none"
             >
-              {creatingCourse ? "Starting…" : "Start course"}
+              {creatingCourse ? "Starting…" : "Start your goal"}
             </Button>
-            {creatingCourse && <CreativeSpinner label="Starting course" />}
+            {creatingCourse && <CreativeSpinner label="Starting goal" />}
           </div>
         ) : (
           <>
@@ -620,7 +620,7 @@ function NewCourseIntakePageInner() {
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-change" />
                   </span>
                   <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase">
-                    Extracting your course…
+                    Extracting your goal…
                   </p>
                 </div>
               )}
@@ -630,7 +630,7 @@ function NewCourseIntakePageInner() {
               <div className="border-t border-mist pt-6 space-y-4">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-[10px] tracking-[0.2em] text-change uppercase">
-                    {intakeComplete ? "Course created" : "Confirm your course sentence"}
+                    {intakeComplete ? "Goal created" : "Confirm your goal sentence"}
                   </span>
                 </div>
                 <div
@@ -662,7 +662,7 @@ function NewCourseIntakePageInner() {
                       className="bg-primary text-white hover:bg-primary/90 h-12 px-6 font-medium disabled:opacity-40"
                       radius="none"
                     >
-                      {finalizing ? "Creating…" : "Create Course"}
+                      {finalizing ? "Creating…" : "Create Goal"}
                     </Button>
                     {finalizing && (
                       <span className="flex items-center gap-2">
@@ -671,7 +671,7 @@ function NewCourseIntakePageInner() {
                           <span className="relative inline-flex h-2 w-2 rounded-full bg-change" />
                         </span>
                         <span className="font-mono text-[11px] tracking-[0.2em] text-change uppercase">
-                          Building your course…
+                          Building your goal…
                         </span>
                       </span>
                     )}
@@ -685,7 +685,7 @@ function NewCourseIntakePageInner() {
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-change" />
                     </span>
                     <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase">
-                      Course committed. Building puzzles…
+                      Goal committed. Building puzzles…
                     </p>
                   </div>
                 )}
@@ -703,7 +703,7 @@ function NewCourseIntakePageInner() {
                   disabled={streaming || intakeComplete || !courseId}
                   placeholder={
                     intakeComplete
-                      ? "Course created."
+                      ? "Goal created."
                       : streaming
                         ? "Waiting…"
                         : userTurns === 0

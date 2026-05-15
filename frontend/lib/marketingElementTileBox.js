@@ -5,7 +5,7 @@ const MOSAIC_TILE_WASH =
   "after:pointer-events-none after:absolute after:inset-0 after:z-[1] after:bg-[#B8BCC2]/30 after:content-['']";
 
 /**
- * Square image frame used by Sandbox element tiles and Think abstract tiles.
+ * Square image frame used by Forge element tiles and Ignite abstract tiles.
  * Keep in sync whenever element tile sizing changes.
  *
  * @param {"compact" | "desktop"} variant
@@ -18,7 +18,7 @@ export function marketingElementTileBoxClass(variant) {
 }
 
 /**
- * Applied to Sandbox element mosaics and Think abstract mosaics so both panels
+ * Applied to Forge element mosaics and Ignite abstract mosaics so both panels
  * read as one family: imagery sits behind copy (requires `./lib` in Tailwind
  * `content` so these utilities are generated).
  */

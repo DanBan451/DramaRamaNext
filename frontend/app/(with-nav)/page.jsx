@@ -2,21 +2,57 @@
 
 import React, { useState, useRef } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import Footer from "@/components/Footer";
-import PuzzleTypewriter from "@/components/PuzzleTypewriter";
 import SandboxIntroSection from "@/components/SandboxIntroSection";
 import ThinkIntroSection from "@/components/ThinkIntroSection";
 import HomeModeSequence from "@/components/HomeModeSequence";
 import { PUZZLES } from "@/lib/puzzles";
 
+/** Hero right column — Burger trumpet story; half-width block, right-flush to nav CTA edge. */
+const heroEyebrow =
+  "font-mono text-[12px] font-medium uppercase leading-normal tracking-[0.15em] text-accent-blue lp:text-[13px]";
+const heroBody =
+  "w-full font-sans text-[clamp(1.0625rem,1.15vw,1.25rem)] font-medium leading-[1.58] text-[#2a2a2a]";
+const heroHeadlineBlack =
+  "font-display text-[clamp(2.25rem,4.5vw,2.75rem)] font-normal italic leading-[1.08] tracking-[-0.02em] text-[#111111]";
+const heroHeadlineRed =
+  "font-display text-[clamp(2.25rem,4.5vw,2.75rem)] font-normal italic leading-[1.08] tracking-[-0.02em] text-primary";
+
+function HeroRightStoryContent({ ctaClassName }) {
+  return (
+    <>
+      <span className={`${heroEyebrow} mb-10 block`}>A story from Edward Burger</span>
+      <p className={`${heroBody} mb-7`}>
+        A trumpet master sat in on his students. One by one, they played their hardest pieces — fast,
+        intricate, dazzling. They all sounded roughly the same.
+      </p>
+      <p className={`${heroBody} mb-7`}>
+        Then he asked them to play a children&apos;s tune. Three notes. The kind of thing you&apos;d hum to a
+        baby.
+      </p>
+      <p className={`${heroBody} mb-11`}>
+        The students played it. They sounded fine. Then the master played the same tune — and suddenly everyone
+        understood who the master was.
+      </p>
+      <div className="mb-10 flex w-full min-w-0 flex-col gap-2.5">
+        <p className={heroHeadlineBlack}>Complexity hides skill.</p>
+        <p className={heroHeadlineRed}>Simplicity reveals it.</p>
+      </div>
+      <p className={`${heroBody} mb-14`}>
+        DramaRama is built on that idea. You name something you want to get better at. We build small puzzles for
+        it. You play the children&apos;s tune until the muscle is yours — then you bring your real work in, and
+        people hear the difference.
+      </p>
+      <Link href="/login" className={ctaClassName}>
+        Forge Your Mind
+      </Link>
+    </>
+  );
+}
+
 export default function Home() {
-  // selectedPuzzle is kept as state-only because the modal that used it was
-  // gated behind {false && ...} and the legacy /workspace flow it linked to
-  // has been removed. The puzzle list still calls setSelectedPuzzle(p) on
-  // click — we just no-op the modal until the homepage is redesigned.
   const [selectedPuzzle, setSelectedPuzzle] = useState(null);
-  const [puzzleReady, setPuzzleReady] = useState(false);
   const heroRef = useRef(null);
 
   const { scrollYProgress } = useScroll({
@@ -24,35 +60,28 @@ export default function Home() {
     offset: ["start start", "end start"],
   });
 
-  // Scroll animation - white overlay fades in, content fades out
   const whiteOverlayOpacity = useTransform(scrollYProgress, [0, 0.6], [0, 1]);
   const contentOpacity = useTransform(scrollYProgress, [0, 0.4], [1, 0]);
   const contentY = useTransform(scrollYProgress, [0, 0.4], [0, -50]);
 
   return (
     <div id="home-page-scroll" className="min-w-0 overflow-x-hidden bg-white">
-      {/* 100svh fold: flexible hero image + intrinsic-height modes row (split flex so modes never clip). */}
       <section
         ref={heroRef}
         className="snap-start relative flex h-[100svh] max-h-[100svh] min-h-0 flex-col overflow-hidden bg-white supports-[height:100dvh]:h-[100dvh] supports-[height:100dvh]:max-h-[100dvh]"
       >
         <div className="relative min-h-0 flex-1 w-full overflow-hidden">
-          {/* Background Image — focal point nudged down (higher % = puzzle sits lower in frame) */}
           <div
             className="absolute inset-0 bg-cover bg-no-repeat bg-[center_64%]"
             style={{ backgroundImage: "url('/images/header.png')" }}
           />
 
-          {/* Mobile: White overlay for readability */}
           <div className="absolute inset-0 bg-white/90 tb:hidden" />
 
-          {/* LEFT: B&W — fixed split: 1/3 at tb, 1/4 at lp */}
           <div className="absolute inset-y-0 left-0 hidden w-1/3 backdrop-brightness-100 backdrop-saturate-0 tb:block lp:w-1/4" />
 
-          {/* RIGHT: Bright mask from split */}
           <div className="absolute inset-y-0 right-0 hidden backdrop-brightness-150 tb:left-1/3 tb:block lp:left-1/4" />
 
-          {/* Gradient fade — from split */}
           <div
             className="pointer-events-none absolute inset-y-0 right-0 hidden tb:left-1/3 tb:block lp:left-1/4"
             style={{
@@ -61,69 +90,51 @@ export default function Home() {
             }}
           />
 
-          {/* White overlay that fades in as you scroll (image region only) */}
           <motion.div
             className="pointer-events-none absolute inset-0 z-10 bg-white"
             style={{ opacity: whiteOverlayOpacity }}
           />
 
-          {/* Hero Content — story / puzzle: original right column (centered in image band) */}
           <motion.div
             className="absolute inset-0 z-20 flex flex-col tb:block"
             style={{ opacity: contentOpacity, y: contentY }}
           >
-            {/* Mobile: headline — nudged from left toward seam */}
-            <div className="pointer-events-none z-30 mt-auto flex flex-1 flex-col justify-end px-6 pb-10 tb:hidden">
-              <div className="pointer-events-auto pl-[28vw]">
-                <h1 className="font-display text-4xl leading-[1.05] tracking-tight text-black sm:text-5xl">
-                  Become a more effective <em className="italic text-black">thinker</em>.
-                </h1>
+            {/* Tagline under mask — desktop */}
+            <div className="pointer-events-none absolute bottom-0 left-0 z-30 hidden w-1/3 pb-8 pl-6 pr-4 tb:block lp:w-1/4 lp:pb-10 lp:pl-8">
+              <p className="pointer-events-auto max-w-[min(100%,14rem)] font-display text-[clamp(0.8125rem,1.05vw,0.9rem)] font-normal italic leading-snug text-[#3d3d42] lp:max-w-[16rem]">
+                become a more effective thinker.
+              </p>
+            </div>
+
+            {/* Mobile: caption + left-aligned riddle column */}
+            <div className="relative z-30 flex min-h-0 flex-1 flex-col tb:hidden">
+              <div className="flex flex-1 flex-col justify-end nav-shell pb-4">
+                <p className="max-w-[16rem] font-display text-sm font-normal italic leading-snug text-[#3d3d42]">
+                  become a more effective thinker.
+                </p>
+              </div>
+              <div className="border-t border-black/5 bg-white/95 py-8 nav-shell text-left">
+                <div className="ml-auto w-1/2 min-w-0 max-w-full">
+                  <HeroRightStoryContent
+                    ctaClassName="inline-flex items-center justify-center rounded-sm bg-change px-12 py-4 text-base font-semibold text-white shadow-lg outline-none ring-1 ring-black/5 transition-[background-color,box-shadow,transform] duration-200 hover:bg-change/90 hover:shadow-xl hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-change focus-visible:ring-offset-2 lp:px-14 lp:py-[1.125rem] lp:text-lg"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Tablet+: headline starts at B&W seam, extends right; larger type, no accent color */}
-            <div className="pointer-events-none absolute bottom-0 left-1/3 right-0 z-30 hidden pb-8 pl-4 pr-6 tb:block lp:bottom-0 lp:left-1/4 lp:pb-10 lp:pl-5 lp:pr-8">
-              <div className="pointer-events-auto max-w-[min(920px,100%)]">
-                <h1 className="font-display text-[clamp(2.75rem,5vw,4.25rem)] leading-[0.96] tracking-[-0.02em] text-black lp:text-[clamp(3.25rem,5.2vw,4.75rem)] xl:text-[clamp(3.75rem,5.5vw,5.25rem)]">
-                  Become a more
-                  <br />
-                  effective <em className="italic text-black">thinker</em>.
-                </h1>
-              </div>
-            </div>
-
-            <div className="absolute inset-x-0 top-0 bottom-0 mx-auto hidden max-w-[1536px] flex-col px-6 tb:flex tb:px-0 tb:pl-[38%] lp:pl-[40%] tb:pr-5 lp:pr-8 tb:pt-24 tb:pb-6 lp:pt-28 lp:pb-8">
-              <div className="flex min-h-0 w-full min-w-0 max-w-none flex-1 flex-col justify-center tb:pl-[calc(1.5rem+5vw)] lp:pl-[calc(2rem+5vw)]">
-                <span className="mb-6 block font-mono text-[12px] font-medium uppercase tracking-[0.24em] text-[#5B9BD5] lp:text-[14px]">
-                  A quick story
-                </span>
-                <PuzzleTypewriter onReady={() => setPuzzleReady(true)} />
-                <AnimatePresence>
-                  {puzzleReady && (
-                    <motion.div
-                      className="mt-8"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.6, ease: "easeOut" }}
-                    >
-                      <Link
-                        href="#the-sandbox"
-                        className="group inline-flex items-center gap-3 font-display text-xl italic text-[#5B9BD5] transition-colors hover:text-[#4A8FCE] lp:text-2xl"
-                      >
-                        <span className="relative">
-                          Find out how
-                          <span className="absolute left-0 -bottom-0.5 h-px w-full bg-[#5B9BD5]/45 transition-colors group-hover:bg-[#4A8FCE]" />
-                        </span>
-                        <span
-                          aria-hidden
-                          className="inline-block transition-transform duration-300 group-hover:translate-x-1"
-                        >
-                          →
-                        </span>
-                      </Link>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+            {/* Tablet+: right edge matches navbar inner content (centered 1536px band + px-6); left at mask split */}
+            <div
+              className="absolute inset-y-0 left-1/3 z-30 hidden min-h-0 min-w-0 tb:flex tb:flex-col lp:left-1/4"
+              style={{
+                right: "max(1.5rem, calc((100vw - 1536px) / 2 + 1.5rem))",
+              }}
+            >
+              <div className="box-border flex min-h-0 min-w-0 w-full flex-1 flex-col justify-center overflow-x-hidden pl-6 pb-10 pt-[calc(var(--navbar-height)+0.5rem)] lp:pb-12 lp:pl-8">
+                <div className="ml-auto w-1/2 min-w-0 max-w-full">
+                  <HeroRightStoryContent
+                    ctaClassName="inline-flex items-center justify-center rounded-sm bg-change px-12 py-[1.05rem] text-center text-lg font-semibold text-white shadow-lg outline-none ring-1 ring-black/5 transition-[background-color,box-shadow,transform] duration-200 hover:bg-change/90 hover:shadow-xl hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-change focus-visible:ring-offset-2 lp:px-14 lp:py-5"
+                  />
+                </div>
               </div>
             </div>
           </motion.div>
@@ -136,7 +147,6 @@ export default function Home() {
 
       <ThinkIntroSection />
 
-      {/* ── Puzzle Preview removed in Phase 1 ── */}
       {false && (
       <section id="puzzles" className="py-24 tb:py-32 px-6 bg-white">
         <div className="max-w-[1536px] mx-auto">
@@ -195,12 +205,7 @@ export default function Home() {
       </section>
       )}
 
-      {/* Legacy puzzle-modal removed: it linked to the deleted /workspace
-          legacy session flow. The pitch puzzle list still scrolls/animates
-          via PUZZLES; clicking a puzzle is a no-op until the homepage
-          puzzle-CTA is redesigned. */}
-
-      {/* Attribution — soft lift from Think gray into white footer band */}
+      {/* Attribution — soft lift from Ignite gray into white footer band */}
       <div className="border-t border-mist/60 bg-gradient-to-b from-[#c9ccd2] from-0% via-white via-[min(8vh,3.5rem)] to-white to-100%">
         <div className="nav-shell py-12">
         <p className="mx-auto max-w-lg text-center text-sm leading-relaxed text-smoke">

@@ -1237,6 +1237,8 @@ export default function Canvas({
             // owns them once they're on the canvas.
             const isNudge = !!thought.is_nudge;
             const isReflection = thought.kind === "reflection";
+            const isTerrain = !!thought.is_terrain;
+            const isFireStarterNode = !!thought.is_fire_starter_node;
 
             return (
               <div
@@ -1249,6 +1251,8 @@ export default function Canvas({
                 // properties (shadow, ring, border, bg).
                 className={`absolute rounded-xl border shadow-sm transition-[box-shadow,border-color,background-color,transform] duration-300 select-none ${
                   isNudge ? "border-dashed border-2" : isReflection ? "border-2" : ""
+                } ${isTerrain ? "border-2 border-dotted" : ""} ${
+                  isFireStarterNode ? "ring-2 ring-emerald-500/50" : ""
                 } ${
                   bulkSelectMode ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"
                 } ${
@@ -1270,13 +1274,17 @@ export default function Canvas({
                   zIndex: isSelected || dragging === thought.id ? 10 : isTraced ? 6 : 2,
                   backgroundColor: isTraced
                     ? "#fefce8"
-                    : isNudge
-                      ? "#f5f3ff" // soft purple wash (mirrors AI_GUIDE_COLOR.bg-ish)
-                      : isReflection
-                        ? "#fffbeb" // warm amber-50 wash
-                        : elColor
-                          ? elColor.bg
-                          : "#ffffff",
+                    : isTerrain
+                      ? "#faf5f0"
+                      : isFireStarterNode
+                        ? "#ecfdf5"
+                        : isNudge
+                          ? "#f5f3ff" // soft purple wash (mirrors AI_GUIDE_COLOR.bg-ish)
+                          : isReflection
+                            ? "#fffbeb" // warm amber-50 wash
+                            : elColor
+                              ? elColor.bg
+                              : "#ffffff",
                   borderColor: isBulkSelected
                     ? "#f87171"
                     : isTraced
@@ -1285,13 +1293,17 @@ export default function Canvas({
                         ? "var(--red)"
                         : isConnectSource
                           ? "var(--blue-light)"
-                          : isNudge
-                            ? "#a855f7" // purple-500 — distinct from any element color
-                            : isReflection
-                              ? "#d97706" // amber-600 — warm gold
-                              : elColor
-                                ? elColor.border
-                                : "var(--wireframe)",
+                          : isTerrain
+                            ? "#92400e"
+                            : isFireStarterNode
+                              ? "#059669"
+                              : isNudge
+                                ? "#a855f7" // purple-500 — distinct from any element color
+                                : isReflection
+                                  ? "#d97706" // amber-600 — warm gold
+                                  : elColor
+                                    ? elColor.border
+                                    : "var(--wireframe)",
                 }}
                 onClick={(e) => handleBlockClick(e, thought.id)}
                 onMouseDown={(e) => handleBlockMouseDown(e, thought.id)}
@@ -1336,6 +1348,16 @@ export default function Canvas({
                         title="Reflection thought from Stage 3."
                       >
                         Reflection
+                      </span>
+                    )}
+                    {isTerrain && (
+                      <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 border border-stone-200 shrink-0">
+                        Terrain
+                      </span>
+                    )}
+                    {isFireStarterNode && (
+                      <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                        Fire Starter
                       </span>
                     )}
                   </div>

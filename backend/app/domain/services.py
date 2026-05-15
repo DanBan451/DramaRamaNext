@@ -3,6 +3,7 @@ Domain Services - Business logic
 """
 from typing import List, Dict
 import re
+import json
 from app.domain.entities import Response, Element, SubElement, ElementMessage, PROMPTS
 
 
@@ -1226,3 +1227,189 @@ Output ONLY a JSON object. No preamble. No markdown fences. No explanation. Just
 }}
 
 Generate the course now. Output ONLY the JSON object, nothing else."""
+
+
+# ============ Forge canvas: Stage 2 nudges & Fire Starters ============
+
+FORGE_VALID_SUBS_BY_PRIMARY = {
+    "earth": ["earth-1", "earth-2", "earth-3"],
+    "fire": ["fire-1", "fire-2", "fire-3"],
+    "air": ["air-1", "air-2", "air-3"],
+    "water": ["water-1", "water-2", "water-3"],
+    "synthesis": [
+        "earth-1", "earth-2", "earth-3",
+        "fire-1", "fire-2", "fire-3",
+        "air-1", "air-2", "air-3",
+        "water-1", "water-2", "water-3",
+    ],
+}
+
+SUB_ELEMENT_NAMES: Dict[str, str] = {
+    "earth-1": "Start with Simple",
+    "earth-2": "Spotlight the Specific",
+    "earth-3": "Add the Adjective",
+    "fire-1": "Fail Fast",
+    "fire-2": "Fail Again",
+    "fire-3": "Fail Intentionally",
+    "air-1": "Be Your Own Socrates",
+    "air-2": "Ask Basic Questions",
+    "air-3": "Ask Another Question",
+    "water-1": "Run Down All Paths",
+    "water-2": "Embrace Doubt",
+    "water-3": "Never Stop",
+}
+
+
+def build_forge_stage2_nudges_json_prompt(
+    *,
+    title: str,
+    puzzle_text: str,
+    primary_element: str,
+    user_thought_lines: str,
+) -> str:
+    """LLM prompt for 2–3 Forge Stage 2 nudge nodes (Ignite/Forge vocabulary: element, not lens)."""
+    pe = (primary_element or "synthesis").lower()
+    allowed = FORGE_VALID_SUBS_BY_PRIMARY.get(pe, FORGE_VALID_SUBS_BY_PRIMARY["synthesis"])
+    allowed_csv = ", ".join(allowed)
+    return f"""You are helping a learner in **Forge** (training mode) on Edward Burger's *Making Up Your Own Mind*.
+
+They finished **Stage 1 — independent thinking** and entered **Stage 2 — AI nudge**. The puzzle's designated primary **element** (from puzzle design, already chosen) is: **{pe}**.
+
+PUZZLE TITLE: {title}
+PUZZLE PROMPT (do NOT solve it, do NOT reveal or hint at a final answer):
+{puzzle_text}
+
+USER'S EXISTING CANVAS NOTES (Stage 1 thoughts, may be empty):
+{user_thought_lines}
+
+YOUR TASK:
+- Output **exactly 2 or 3** short nudge nodes.
+- Each node is a **question or prompt** that extends their thinking — **never** a solution, **never** a spoiler, **never** a worked answer.
+- Each node MUST use one `sub_element` from this allow-list only: {allowed_csv}
+- Tagging must match the element being trained (prefix before hyphen matches earth/fire/air/water).
+- Use plain, direct language. No meta-jokes. No markdown fences in the JSON.
+
+Return **only** this JSON shape (no other text):
+
+{{
+  "nudges": [
+    {{"content": "string <= 220 chars", "sub_element": "one-of-allowed"}},
+    {{"content": "...", "sub_element": "..."}}
+  ]
+}}
+"""
+
+
+def build_fire_starter_prompt(
+    *,
+    title: str,
+    puzzle_text: str,
+    reflection_answers: dict,
+    thought_flow_lines: str,
+) -> str:
+    """Ask Claude to propose a Fire Starter draft from the full Forge session."""
+    ref_json = json.dumps(reflection_answers or {}, ensure_ascii=False)
+    return f"""You are summarizing a learner's work in **Forge** (training mode).
+
+PUZZLE TITLE: {title}
+PUZZLE PROMPT (do NOT reveal or guess a canonical answer):
+{puzzle_text}
+
+STRUCTURED REFLECTION ANSWERS (JSON):
+{ref_json}
+
+FULL THOUGHT FLOW (ordered notes; elements and content as captured on the canvas):
+{thought_flow_lines}
+
+TASK:
+1. Identify the **combination of elements** (use lowercase ids: earth, fire, air, water, change) that best captures where the deepest insight emerged in their flow. Order most important first. Include 1–4 entries.
+2. Write **flow_of_ideas**: an ordered list of 3–8 objects, each: {{"summary": "short phrase", "element": "earth|fire|air|water|change|null"}}
+3. Write a **description** (2–3 sentences) of the insight that emerged — specific to what they wrote, not generic praise.
+4. Propose **five** distinct, evocative **names** for this Fire Starter (like short titles: "Cold Mirror", "First Spark", "The Pivot").
+
+Rules:
+- Use the word **element**, never "lens".
+- Never reveal a puzzle answer or solution-shaped hint.
+- Return **only** JSON (no markdown fences):
+
+{{
+  "element_combination": ["earth", "fire"],
+  "flow_of_ideas": [{{"summary": "...", "element": "earth"}}],
+  "description": "...",
+  "proposed_names": ["...", "...", "...", "...", "..."]
+}}
+"""
+
+
+def ignite_guide_system_prompt(
+    *,
+    problem_title: str,
+    problem_description: str,
+    fire_starter_name: str | None,
+    fire_starter_elements: str | None,
+) -> str:
+    fs = ""
+    if fire_starter_name and fire_starter_elements:
+        fs = (
+            f"\nThe learner applied a **Fire Starter** named \"{fire_starter_name}\" "
+            f"with element combination: {fire_starter_elements}. Use it as context when helpful.\n"
+        )
+    return f"""You are the AI Guide for **Ignite** (application mode) in DramaRama.
+
+The user places thoughts on a canvas, tags them with **elements** of effective thinking (Earth, Fire, Air, Water, Change), and connects ideas to work a real problem.
+
+CURRENT PROBLEM:
+Title: {problem_title}
+Description:
+{problem_description}
+{fs}
+Rules:
+- Be concise and practical. Reference their actual nodes when possible.
+- Use **element** terminology, never "lens". Never refer to "Sandbox"; this is Ignite.
+- Offer grounded next questions; do not replace their judgment with lectures.
+"""
+
+
+def ignite_node_nudge_prompt(
+    node_content: str,
+    element: str | None,
+    sub_element: str | None,
+) -> str:
+    return f"""Ignite mode — give ONE short follow-up question (max 35 words) about this canvas node.
+Tagged element: {element or 'untagged'}, sub-element: {sub_element or 'none'}.
+Node text:
+{node_content}
+
+Do not solve their problem for them. No "lens" wording. Output only the question."""
+
+
+def ignite_terrain_prompt(title: str, description: str) -> str:
+    return f"""You are mapping a real problem into a thinking terrain for **Ignite**.
+
+Problem title: {title}
+Problem description:
+{description}
+
+Return ONLY JSON (no fences) with this shape:
+{{
+  "nodes": [
+    {{"id": "t1", "content": "short label", "kind": "known|unknown|uncertainty"}},
+    ...
+  ],
+  "connections": [
+    {{"from": "t1", "to": "t2"}}
+  ]
+}}
+Use 4–10 nodes. Each content <= 120 chars. No markdown."""
+
+
+def ignite_match_puzzle_prompt(description: str, candidates_json: str) -> str:
+    return f"""Ignite mode: pick which past Forge puzzle title/description is most similar to this real problem.
+
+PROBLEM:
+{description}
+
+CANDIDATES (JSON array of objects with course_puzzle_id, title, puzzle_text):
+{candidates_json}
+
+Return ONLY JSON: {{"best_course_puzzle_id": "<uuid or null>", "reason": "1-2 sentences"}}"""

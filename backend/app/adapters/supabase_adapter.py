@@ -639,6 +639,7 @@ class SupabaseCoursePuzzleRepository(CoursePuzzleRepository):
             synthesis=row.get("synthesis"),
             synthesis_generated_at=self._parse_dt(row.get("synthesis_generated_at")),
             stage3_phase=row.get("stage3_phase"),
+            reflection_answers=row.get("reflection_answers"),
             created_at=self._parse_dt(row.get("created_at")),
             updated_at=self._parse_dt(row.get("updated_at")),
         )
@@ -780,6 +781,27 @@ class SupabaseCoursePuzzleRepository(CoursePuzzleRepository):
         )
         if not result.data:
             raise ValueError(f"Puzzle {course_puzzle_id} not found")
+        return self._row_to_course_puzzle(result.data[0])
+
+    async def update_reflection_answers(
+        self,
+        puzzle_id: str,
+        reflection_answers: dict,
+    ) -> CoursePuzzle:
+        now_iso = datetime.utcnow().isoformat()
+        result = (
+            self.client.table("course_puzzles")
+            .update(
+                {
+                    "reflection_answers": reflection_answers,
+                    "updated_at": now_iso,
+                }
+            )
+            .eq("id", puzzle_id)
+            .execute()
+        )
+        if not result.data:
+            raise ValueError(f"Puzzle {puzzle_id} not found")
         return self._row_to_course_puzzle(result.data[0])
 
     async def get_with_course(self, course_puzzle_id: str):
@@ -976,6 +998,23 @@ class SupabaseThoughtRepository(ThoughtRepository):
         )
         return [self._row_to_thought(r) for r in result.data]
 
+    async def get_latest_non_nudge_by_created_at(
+        self,
+        course_puzzle_id: str,
+    ) -> Optional[Thought]:
+        result = (
+            self.client.table("thoughts")
+            .select("*")
+            .eq("course_puzzle_id", course_puzzle_id)
+            .eq("is_nudge", False)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if result.data:
+            return self._row_to_thought(result.data[0])
+        return None
+
     async def get_user_thoughts_by_course_puzzle(
         self,
         course_puzzle_id: str,
@@ -1135,3 +1174,45 @@ class SupabaseThoughtConnectionRepository(ThoughtConnectionRepository):
 
     async def delete(self, connection_id: str) -> None:
         self.client.table("thought_connections").delete().eq("id", connection_id).execute()
+
+
+class SupabaseFireStarterRepository:
+    def __init__(self, client):
+        self.client = client
+
+    def create(self, fire_starter: dict) -> dict:
+        result = self.client.table("fire_starters").insert(fire_starter).execute()
+        return result.data[0] if result.data else None
+
+    def list_by_user(self, user_id: str) -> list:
+        result = (
+            self.client.table("fire_starters")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return result.data or []
+
+    def list_by_course(self, course_id: str) -> list:
+        result = (
+            self.client.table("fire_starters")
+            .select("*")
+            .eq("course_id", course_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return result.data or []
+
+    def get(self, fire_starter_id: str) -> dict | None:
+        try:
+            result = (
+                self.client.table("fire_starters")
+                .select("*")
+                .eq("id", fire_starter_id)
+                .single()
+                .execute()
+            )
+            return result.data
+        except Exception:
+            return None

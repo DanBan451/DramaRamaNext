@@ -17,7 +17,9 @@ import { useState } from "react";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 
 const textLinkClass =
-  "font-display text-black text-lg font-normal leading-snug lp:text-xl";
+  "font-display text-black text-lg font-normal leading-snug lp:text-xl transition-[letter-spacing,color] duration-200 hover:tracking-[0.02em]";
+const textLinkUnderline =
+  "relative after:absolute after:left-0 after:bottom-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-current after:transition-transform after:duration-200 hover:after:scale-x-100";
 
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -31,19 +33,19 @@ export const Navbar = () => {
   const practicePath = "/the-practice";
 
   const authNavItems = [
-    { name: "Think", path: "/courses" },
+    { name: "Workspace", path: "/courses" },
     { name: "Profile", path: "/profile" },
   ];
 
   const signedOutMenuItems = [
     { name: "The Practice", path: practicePath },
     { name: "Login", path: "/login" },
-    { name: "Start a Course", path: "/login" },
+    { name: "Forge Your Mind", path: "/login", cta: true },
   ];
 
   const signedInMenuItems = [
     { name: "The Practice", path: practicePath },
-    { name: "Think", path: "/courses" },
+    { name: "Workspace", path: "/courses" },
     { name: "Profile", path: "/profile" },
   ];
 
@@ -98,24 +100,24 @@ export const Navbar = () => {
         className="m-0 hidden min-w-0 min-h-0 list-none flex-row flex-nowrap items-center gap-x-[clamp(1.5rem,2.5vw,3rem)] p-0 sm:flex"
       >
         <NavbarItem as="div" className={textNavItemClass(practicePath)}>
-          <Link className={textLinkClass} href={practicePath}>
+          <Link className={`${textLinkClass} ${textLinkUnderline}`} href={practicePath}>
             The Practice
           </Link>
         </NavbarItem>
 
         <SignedOut>
           <NavbarItem as="div" className={textNavItemClass("/login")}>
-            <Link className={textLinkClass} href="/login">
+            <Link className={`${textLinkClass} ${textLinkUnderline}`} href="/login">
               Login
             </Link>
           </NavbarItem>
           <NavbarItem as="div">
             <Link href="/login">
               <Button
-                className="rounded-sm bg-primary px-5 py-4 text-base font-medium text-white transition-colors hover:bg-primary/90"
+                className="rounded-sm bg-change px-5 py-4 text-base font-semibold text-white shadow-sm transition-[background-color,box-shadow,transform] duration-200 hover:bg-change/90 hover:shadow-md"
                 radius="sm"
               >
-                Start a Course
+                Forge Your Mind
               </Button>
             </Link>
           </NavbarItem>
@@ -124,7 +126,7 @@ export const Navbar = () => {
         <SignedIn>
           {authNavItems.map((item) => (
             <NavbarItem as="div" key={item.path} className={textNavItemClass(item.path)}>
-              <Link className={textLinkClass} href={item.path}>
+              <Link className={`${textLinkClass} ${textLinkUnderline}`} href={item.path}>
                 {item.name}
               </Link>
             </NavbarItem>
@@ -146,10 +148,10 @@ export const Navbar = () => {
         <SignedOut>
           {signedOutMenuItems.map((item, index) => (
             <NavbarMenuItem key={`${item.name}-${index}`}>
-              {item.name === "Start a Course" ? (
+              {item.cta ? (
                 <Link
                   href={item.path}
-                  className="mt-2 flex w-full max-w-xs items-center justify-center bg-primary px-6 py-4 text-base font-medium text-white transition-colors hover:bg-primary/90"
+                  className="mt-2 flex w-full max-w-xs items-center justify-center bg-change px-6 py-4 text-base font-semibold text-white shadow-sm transition-[background-color,box-shadow] duration-200 hover:bg-change/90"
                   size="lg"
                   onClick={() => setIsMenuOpen(false)}
                 >
@@ -157,7 +159,7 @@ export const Navbar = () => {
                 </Link>
               ) : (
                 <Link
-                  className={`w-full text-xl py-2 ${
+                  className={`w-full text-xl py-2 transition-[letter-spacing] duration-200 hover:tracking-wide ${
                     isActive(item.path)
                       ? `font-bold ${textColor} ${borderColor}`
                       : `${textMuted} ${hoverBorder}`

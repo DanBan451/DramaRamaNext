@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from mangum import Mangum
 
 from app.api.routes import router as api_router
+from app.api.ignite_routes import router as ignite_router
 from app.core.config import settings
 
 # Route app logs through Uvicorn's configured logger so they reliably show up in
@@ -111,6 +112,7 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(api_router, prefix="/api")
+app.include_router(ignite_router, prefix="/api")
 
 @app.get("/health")
 async def health_check():

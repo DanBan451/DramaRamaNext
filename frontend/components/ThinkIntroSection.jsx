@@ -6,7 +6,7 @@ import {
   marketingMosaicImageTreatmentClass,
 } from "@/lib/marketingElementTileBox";
 
-/** Same matte field as `SandboxIntroSection` (`#B8BCC2`). */
+/** Same matte field as Forge detail section (`#B8BCC2`). */
 const SECTION_BG = "bg-[#B8BCC2]";
 
 const THINK_ABSTRACT_SRCS = [
@@ -23,7 +23,7 @@ const THINK_ABSTRACT_SRCS = [
   "/abstracts-2/addedone.png",
 ];
 
-/** Three vertical columns: 4 | 4 | 3 (same tile sizing as Sandbox element images). */
+/** Three vertical columns: 4 | 4 | 3 (same tile sizing as Forge element images). */
 const THINK_ABSTRACT_COLUMNS = [
   THINK_ABSTRACT_SRCS.slice(0, 4),
   THINK_ABSTRACT_SRCS.slice(4, 8),
@@ -51,18 +51,18 @@ const THINK_TILE_SHADOWS = [
 const STEPS = [
   {
     n: "01",
-    title: "The AI maps the terrain.",
-    body: "It reads what you wrote and lays out the shape: what you know, what you don't, what's connected. You start with structure, not a blank page.",
+    title: "You describe the real problem.",
+    body: "Type the actual thing you\u2019re stuck on — the production bug, the parenting moment, the decision you can\u2019t make. Plain language.",
   },
   {
     n: "02",
-    title: "You think on the canvas.",
-    body: "Add your thoughts. Connect ideas. Ask the AI when you're stuck.",
+    title: "The platform builds the terrain.",
+    body: "The AI reads your problem and lays it out on a canvas as connected nodes: what you know, what you don\u2019t, what\u2019s uncertain. You start with structure, not a blank page.",
   },
   {
     n: "03",
-    title: "You look through your lenses.",
-    body: "The lenses you named in the Sandbox come with you. Pick one when the puzzle looks foggy.",
+    title: "A Fire Starter ignites.",
+    body: "The platform pattern-matches your problem to a Forge puzzle you\u2019ve completed, pulls the Fire Starter you earned from it, and applies it to the terrain — adding tagged nodes that walk you down the flow of ideas that worked before. Then you think alongside it, with AI tools at your side.",
   },
 ];
 
@@ -127,7 +127,7 @@ function ThinkCopy() {
   const eyebrow =
     "font-mono text-xs font-medium uppercase tracking-[0.2em] tb:text-[0.8125rem] lp:text-sm";
   const h2 =
-    "font-display text-[clamp(1.65rem,3.2vw,2.35rem)] font-normal leading-[1.08] tracking-[-0.02em] text-black";
+    "font-display text-[clamp(1.65rem,3.2vw,2.35rem)] font-normal italic leading-[1.08] tracking-[-0.02em] text-black";
   const intro =
     "mt-3 max-w-[min(100%,38rem)] font-sans text-base leading-relaxed text-[#2a2d33] tb:mt-4 tb:text-[1.0625rem] lp:leading-[1.65] text-pretty";
   const stepGap = "gap-y-3.5 tb:gap-y-4";
@@ -137,25 +137,25 @@ function ThinkCopy() {
   return (
     <div className={`relative z-10 flex min-w-0 flex-col items-stretch text-left ${copyBand}`}>
       <header className="w-full shrink-0 text-left">
-        <p className={`${eyebrow} mb-2 text-accent-blue`}>Think</p>
-        <h2 id="think-heading" className={h2}>
-          A place to use your mind.
+        <p className={`${eyebrow} mb-2 text-accent-blue`}>IGNITE</p>
+        <h2 id="ignite-heading" className={h2}>
+          A place to use the muscle.
         </h2>
         <p className={`${intro} text-left`}>
-          You sharpened the muscles in the Sandbox. You named lenses along the way. Think is where you look
-          through them — at the real puzzle inside your goal.
+          You trained in the Forge. You earned Fire Starters along the way. Ignite is where you bring a real
+          problem inside your goal and let those weapons do work.
         </p>
       </header>
 
       <div className={`mt-7 flex w-full min-w-0 shrink-0 flex-col items-stretch ${stepGap} tb:mt-8`}>
-        <p className="sr-only">How Think works in three steps</p>
+        <p className="sr-only">How Ignite works in three steps</p>
         {STEPS.map((step) => (
           <ThinkStepRow key={step.n} step={step} />
         ))}
       </div>
 
       <p className="mt-8 max-w-[28rem] text-left font-sans text-sm italic leading-relaxed text-smoke tb:mt-10 tb:text-[0.9375rem]">
-        Same practice. Real puzzle. Your lenses do the seeing.
+        Same practice. Real problem. Your Fire Starters do the cutting.
       </p>
 
       <footer className="mt-[clamp(1.5rem,3vh,2.25rem)] flex w-full shrink-0 flex-col items-stretch pb-[clamp(0.25rem,1vh,0.5rem)] tb:mt-8">
@@ -163,13 +163,7 @@ function ThinkCopy() {
           href="/courses"
           className="group self-start flex w-[min(100%,28rem)] max-w-full items-center justify-center gap-3 bg-change px-10 py-4 text-clarity shadow-lg outline-none ring-1 ring-black/5 transition-[background-color,box-shadow,transform] duration-200 hover:bg-change/90 hover:shadow-xl hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-change focus-visible:ring-offset-2 focus-visible:ring-offset-[#B8BCC2] tb:py-[1.125rem] lp:max-w-sm lp:py-5"
         >
-          <span className="text-center text-sm font-bold uppercase tracking-[0.14em]">Open the canvas</span>
-          <span
-            aria-hidden
-            className="text-sm font-bold uppercase tracking-[0.14em] transition-transform duration-200 group-hover:translate-x-1"
-          >
-            →
-          </span>
+          <span className="text-center text-base font-semibold tracking-tight">Open Ignite →</span>
         </Link>
       </footer>
     </div>
@@ -186,8 +180,8 @@ export default function ThinkIntroSection() {
 
   return (
     <section
-      id="think-intro"
-      aria-labelledby="think-heading"
+      id="ignite-intro"
+      aria-labelledby="ignite-heading"
       className={`relative snap-start w-full overflow-x-hidden border-t border-transparent ${SECTION_BG} ${sectionH}`}
     >
       {/* Desktop: left abstracts + right copy, inside `nav-shell` (same band as navbar). */}
@@ -201,7 +195,7 @@ export default function ThinkIntroSection() {
           <div
             className={`flex min-h-0 min-w-0 flex-col items-stretch justify-start overflow-x-hidden ${verticalPad}`}
           >
-            {/* Match Sandbox right column: band is `ml-auto` / items-end so right edge = nav-shell inner right */}
+            {/* Match Forge right column: band is `ml-auto` / items-end so right edge = nav-shell inner right */}
             <div className="flex w-full min-w-0 max-w-full flex-col items-end justify-start overflow-x-hidden">
               <ThinkCopy />
             </div>

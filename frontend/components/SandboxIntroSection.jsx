@@ -10,21 +10,21 @@ const STEPS = [
   {
     n: "01",
     title: "We build the puzzles.",
-    body: "12 puzzles made for your goal. Each one trains a way of thinking you'll need in your real work.",
+    body: "Whimsical, witty, designed for your goal. Each one is built to trigger your imagination and reveal structure when you apply the 5 Elements.",
   },
   {
     n: "02",
     title: "You think them through.",
-    body: "You work the puzzles. The AI guides you with questions, not answers.",
+    body: "Three stages: you wrestle with the puzzle on your own, the AI nudges you when you\u2019re stuck, and you reflect on what shifted. The AI never gives you the answer.",
   },
   {
     n: "03",
-    title: "You name a lens.",
-    body: "When something clicks, you name it. The lens you earn on a small puzzle is yours to carry — ready to look through when the real puzzle gets foggy.",
+    title: "You earn a Fire Starter.",
+    body: "When you complete a puzzle, the platform studies how you thought through it and crystallizes the combination of elements that worked into a Fire Starter — your own weapon, named by you. It comes with you into Ignite.",
   },
 ];
 
-/** Same drop treatment on every element tile (Think abstracts use varied shadows). */
+/** Same drop treatment on every element tile (Ignite abstracts use varied shadows). */
 const ELEMENT_TILE_SHADOW =
   "shadow-[0_6px_20px_rgba(0,0,0,0.12)] ring-1 ring-black/5 transition-shadow duration-200 group-hover:shadow-[0_8px_26px_rgba(0,0,0,0.16)]";
 
@@ -96,7 +96,7 @@ function ElementsMosaic({ compact }) {
   return (
     <div className={`flex min-h-0 w-full min-w-0 max-w-full flex-col items-stretch text-right ${compact ? "" : "h-full"}`}>
       <p className="mb-3 self-end font-mono text-xs font-medium uppercase tracking-[0.2em] text-accent-blue tb:mb-4 tb:text-[0.8125rem] lp:text-sm">
-        The five muscles you train
+        THE FIVE MUSCLES YOU TRAIN
       </p>
       <nav
         className={`ml-auto grid ${gridW} max-w-full shrink-0 auto-rows-auto grid-cols-2 ${gapX} ${gapY} justify-items-end ${compact ? "" : "min-h-0 flex-1 content-start"}`}
@@ -118,12 +118,12 @@ function LeftColumnContent() {
   const eyebrow =
     "font-mono text-xs font-medium uppercase tracking-[0.2em] tb:text-[0.8125rem] lp:text-sm";
   const h2 =
-    "font-display text-[clamp(1.65rem,3.2vw,2.35rem)] font-normal leading-[1.08] tracking-[-0.02em] text-black";
+    "font-display text-[clamp(1.65rem,3.2vw,2.35rem)] font-normal italic leading-[1.08] tracking-[-0.02em] text-black";
   const intro =
     "mt-3 max-w-[min(100%,38rem)] font-sans text-base leading-relaxed text-[#2a2d33] tb:mt-4 tb:text-[1.0625rem] lp:leading-[1.65]";
   /** Footnote-style — not a second “card”; reads apart from the numbered step blocks. */
   const attr =
-    "mt-6 border-t border-black/10 pt-5 font-sans text-sm leading-relaxed text-[#4a5058] text-pretty tb:mt-7 tb:pt-6 tb:text-[0.9375rem] lp:leading-[1.6]";
+    "mt-6 border-t border-black/10 pt-5 font-sans text-sm italic leading-relaxed text-smoke text-pretty tb:mt-7 tb:pt-6 tb:text-[0.8125rem] lp:leading-[1.6]";
   const stepGap = "gap-y-3.5 tb:gap-y-4";
 
   /** Same width as the Burger attribution block — flex stretch was ignoring max-width on the steps stack. */
@@ -132,15 +132,15 @@ function LeftColumnContent() {
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col items-start">
       <header className={`min-w-0 shrink-0 text-left ${proseBand}`}>
-        <p className={`${eyebrow} mb-2 text-accent-blue`}>The Sandbox</p>
-        <h2 id="sandbox-heading" className={h2}>
-          A place to make up your mind.
+        <p className={`${eyebrow} mb-2 text-accent-blue`}>THE FORGE</p>
+        <h2 id="forge-heading" className={h2}>
+          A place to build the muscle.
         </h2>
         <p className={intro}>
           Most of us were taught that some people are simply better thinkers. That&apos;s not how it works.
           Effective thinking is a practice — a set of moves you can learn, train, and grow into. Edward B.
-          Burger calls it <em className="not-italic font-medium text-void">Making Up Your Own Mind</em>. We built
-          the Sandbox so you can practice it on the goal you&apos;re pursuing.
+          Burger calls it <em className="not-italic font-medium text-void">Making Up Your Own Mind</em>. The Forge
+          is where you practice it on whimsical puzzles built specifically for your goal.
         </p>
         <p className={`${attr} w-full`}>
           Based on the work of Edward B. Burger —{" "}
@@ -150,7 +150,7 @@ function LeftColumnContent() {
       </header>
 
       <div className={`mt-7 flex min-w-0 shrink-0 flex-col text-left ${proseBand} ${stepGap} tb:mt-8`}>
-        <p className="sr-only">How the Sandbox works in three steps</p>
+        <p className="sr-only">How the Forge works in three steps</p>
         {STEPS.map((step) => (
           <StepBlockRow key={step.n} step={step} />
         ))}
@@ -163,14 +163,8 @@ function LeftColumnContent() {
           href="/course/new"
           className="group inline-flex w-full max-w-md items-center justify-center gap-3 bg-change px-10 py-4 text-clarity shadow-lg outline-none ring-1 ring-black/5 transition-[background-color,box-shadow,transform] duration-200 hover:bg-change/90 hover:shadow-xl hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-change focus-visible:ring-offset-2 focus-visible:ring-offset-[#B8BCC2] tb:py-[1.125rem] lp:max-w-sm lp:py-5"
         >
-          <span className="text-center text-sm font-bold uppercase tracking-[0.14em]">
-            Enter The Sandbox
-          </span>
-          <span
-            aria-hidden
-            className="text-sm font-bold uppercase tracking-[0.14em] transition-transform duration-200 group-hover:translate-x-1"
-          >
-            →
+          <span className="text-center text-base font-semibold tracking-tight">
+            Enter the Forge →
           </span>
         </Link>
       </footer>
@@ -187,8 +181,8 @@ export default function SandboxIntroSection() {
 
   return (
     <section
-      id="the-sandbox"
-      aria-labelledby="sandbox-heading"
+      id="the-forge"
+      aria-labelledby="forge-heading"
       className={`snap-start w-full overflow-x-hidden border-t border-transparent bg-[#B8BCC2] ${sectionH} lp:overflow-hidden`}
     >
       {/* Desktop: same content width as navbar (`nav-shell`); 55 / 45 inside that band */}

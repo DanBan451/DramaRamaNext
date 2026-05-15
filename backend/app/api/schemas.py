@@ -191,6 +191,7 @@ class CoursePuzzleResponse(BaseModel):
     current_stage: int = 1
     stage3_phase: Optional[str] = None  # 'reflect' | 'bridge' | None
     synthesis: Optional[str] = None
+    reflection_answers: Optional[dict] = None
 
 
 class CoursePuzzlesResponse(BaseModel):
@@ -346,3 +347,38 @@ class CompletePuzzleResponse(BaseModel):
     status: str  # "completed"
     completed_at: Optional[datetime] = None
     synthesis: Optional[str] = None
+
+
+class ReflectionAnswersSaveRequest(BaseModel):
+    """Three Forge Stage 3 reflection prompts answered in the UI."""
+
+    elements_applied: str
+    most_insightful_element: str
+    question_at_start: str
+
+
+class ForgeFireStarterDraftResponse(BaseModel):
+    element_combination: List[str]
+    flow_of_ideas: List[dict]
+    description: str
+    proposed_names: List[str]
+
+
+class FireStarterCreateRequest(BaseModel):
+    course_puzzle_id: str
+    name: str
+    description: str
+    element_combination: List[str]
+    flow_of_ideas: List[dict]
+
+
+class FireStarterResponse(BaseModel):
+    id: str
+    user_id: str
+    course_id: str
+    course_puzzle_id: str
+    name: str
+    description: str
+    element_combination: List[str]
+    flow_of_ideas: List[dict]
+    created_at: Optional[datetime] = None

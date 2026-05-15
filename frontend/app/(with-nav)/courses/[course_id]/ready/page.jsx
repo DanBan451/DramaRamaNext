@@ -281,7 +281,14 @@ export default function CourseReadyPage() {
         </div>
       );
     }
-    return <ReadyView headlinePhrase={headlinePhrase} puzzles={puzzles} />;
+    return (
+      <ReadyView
+        headlinePhrase={headlinePhrase}
+        puzzles={puzzles}
+        courseId={courseId}
+        getToken={getToken}
+      />
+    );
   }
 
   // generating | awaiting_puzzles
@@ -327,7 +334,31 @@ function LoadingView({ headlinePhrase, phrase }) {
   );
 }
 
-function ReadyView({ headlinePhrase, puzzles }) {
+function ReadyView({ headlinePhrase, puzzles, courseId, getToken }) {
+  const [fireStarters, setFireStarters] = useState(null);
+
+  useEffect(() => {
+    if (!courseId || !getToken) return;
+    let c = false;
+    (async () => {
+      try {
+        const token = await getToken();
+        const res = await fetch(
+          `/api/backend-api/fire-starters?course_id=${encodeURIComponent(courseId)}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!res.ok) throw new Error("fire starters");
+        const data = await res.json();
+        if (!c) setFireStarters(Array.isArray(data) ? data : []);
+      } catch {
+        if (!c) setFireStarters([]);
+      }
+    })();
+    return () => {
+      c = true;
+    };
+  }, [courseId, getToken]);
+
   return (
     <div className="min-h-screen bg-white pt-40 pb-16">
       <div className="max-w-[1536px] mx-auto px-6">
@@ -341,15 +372,54 @@ function ReadyView({ headlinePhrase, puzzles }) {
           </h1>
         </div>
 
-        {/* Puzzle cards are deliberately generic — no element coloring or
-            labeling here. The user discovers each puzzle's primary element
-            through their own work on the canvas; the element identity is
-            only revealed in Stage 2 (Redirect). */}
         <div className="grid grid-cols-1 tb:grid-cols-2 lp:grid-cols-3 gap-6">
           {puzzles.map((p) => (
             <PuzzleCard key={p.id} puzzle={p} />
           ))}
         </div>
+
+        <section className="mt-16 max-w-4xl">
+          <h2 className="font-display text-2xl text-black mb-4">Your Fire Starters</h2>
+          {fireStarters === null ? (
+            <p className="text-sm text-smoke">Loading…</p>
+          ) : fireStarters.length === 0 ? (
+            <p className="text-sm text-smoke italic">
+              Complete a Forge session to earn your first Fire Starter.
+            </p>
+          ) : (
+            <div className="grid gap-4 tb:grid-cols-2">
+              {fireStarters.map((fs) => (
+                <div
+                  key={fs.id}
+                  className="border border-mist rounded-lg p-4 bg-white shadow-sm"
+                >
+                  <h3 className="font-display text-xl text-black mb-2">{fs.name}</h3>
+                  <p className="text-sm text-ash leading-relaxed mb-3">{fs.description}</p>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {(fs.element_combination || []).map((el) => (
+                      <span
+                        key={el}
+                        className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-mist text-smoke"
+                      >
+                        {el}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-[10px] font-mono text-smoke uppercase tracking-wider">
+                    Earned{" "}
+                    {fs.created_at
+                      ? new Date(fs.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })
+                      : "—"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         <div className="mt-16">
           <Link
@@ -372,7 +442,8 @@ function PuzzleCard({ puzzle }) {
   const stage = Number(puzzle.current_stage) || 1;
   const isCompleted = puzzle.status === "completed";
   const inProgress = puzzle.status === "in_progress" && !isCompleted;
-  const stageLabel = stage === 2 ? "Stage 2 — Redirect" : stage === 3 ? "Stage 3 — Quintessence" : null;
+  const stageLabel =
+    stage === 2 ? "Stage 2 — AI Nudge" : stage === 3 ? "Stage 3 — Reflect" : null;
   return (
     <div className={`relative bg-white border border-mist border-l-4 p-6 rounded-r-lg shadow-sm transition-all flex flex-col ${
       isCompleted

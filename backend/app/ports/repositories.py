@@ -269,6 +269,15 @@ class CoursePuzzleRepository(ABC):
         Single transaction."""
         ...
 
+    @abstractmethod
+    async def update_reflection_answers(
+        self,
+        puzzle_id: str,
+        reflection_answers: dict,
+    ) -> CoursePuzzle:
+        """Persist Stage 3 structured reflection answers as JSONB."""
+        ...
+
 
 class ThoughtRepository(ABC):
     @abstractmethod
@@ -337,6 +346,14 @@ class ThoughtRepository(ABC):
         kind: str,
     ) -> List[Thought]:
         """Return thoughts of a given kind for a course_puzzle."""
+        ...
+
+    @abstractmethod
+    async def get_latest_non_nudge_by_created_at(
+        self,
+        course_puzzle_id: str,
+    ) -> Optional[Thought]:
+        """Most recent user-authored thought (is_nudge=false) by created_at."""
         ...
 
     @abstractmethod

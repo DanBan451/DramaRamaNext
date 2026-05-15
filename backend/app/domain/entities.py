@@ -2,9 +2,10 @@
 Domain Entities - Core business objects
 """
 from pydantic import BaseModel
-from typing import Literal, Optional, List
+from typing import Literal, Optional, List, Any
 from datetime import datetime
 from enum import Enum
+from uuid import UUID
 import json
 
 class Element(str, Enum):
@@ -300,6 +301,9 @@ class CoursePuzzle(BaseModel):
     # Stage 3 sub-phase: 'reflect' or 'bridge'
     stage3_phase: Optional[Literal["reflect", "bridge"]] = None
 
+    # Structured answers for the three Forge reflection questions (Stage 3)
+    reflection_answers: Optional[dict[str, Any]] = None
+
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -342,4 +346,16 @@ class ThoughtConnection(BaseModel):
     from_thought_id: str
     to_thought_id: str
 
+    created_at: Optional[datetime] = None
+
+
+class FireStarter(BaseModel):
+    id: Optional[UUID] = None
+    user_id: UUID
+    course_id: UUID
+    course_puzzle_id: UUID
+    name: str
+    description: str
+    element_combination: List[str]
+    flow_of_ideas: List[dict]
     created_at: Optional[datetime] = None

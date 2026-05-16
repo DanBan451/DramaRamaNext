@@ -223,7 +223,7 @@ export default function IgniteProblemPage() {
     return (
       <div className="p-8">
         <p className="text-red-600 text-sm">{error}</p>
-        <button className="mt-4 underline text-sm" onClick={() => router.push("/courses")}>
+        <button className="mt-4 underline text-sm" onClick={() => router.push("/goals")}>
           Back
         </button>
       </div>
@@ -231,11 +231,13 @@ export default function IgniteProblemPage() {
   }
 
   return (
-    <div className="flex h-screen bg-white overflow-hidden">
-      <aside className="w-64 shrink-0 border-r border-mist flex flex-col">
+    <div
+      className="mt-[var(--navbar-height)] flex min-h-0 h-[calc(100svh-var(--navbar-height))] max-h-[calc(100svh-var(--navbar-height))] supports-[height:100dvh]:h-[calc(100dvh-var(--navbar-height))] supports-[height:100dvh]:max-h-[calc(100dvh-var(--navbar-height))] bg-white overflow-hidden"
+    >
+      <aside className="w-64 shrink-0 border-r border-mist flex flex-col min-h-0">
         <div className="p-3 border-b border-mist">
           <button
-            onClick={() => router.push("/courses")}
+            onClick={() => router.push("/goals")}
             className="text-sm text-ash hover:text-black"
           >
             ← Goals
@@ -260,24 +262,26 @@ export default function IgniteProblemPage() {
           thoughtsByElement={{}}
         />
       </aside>
-      <div className="flex-1 min-w-0 flex flex-col">
-        <Canvas
-          coursePuzzleId={String(id)}
-          thoughts={thoughts}
-          connections={connections}
-          selectedElement={selectedElement}
-          selectedSubElement={selectedSubElement}
-          onCreateThought={handleCreateThought}
-          onUpdateThoughtPosition={handleUpdateThoughtPosition}
-          onUpdateThoughtContent={null}
-          onUpdateThoughtTagging={null}
-          onDeleteThought={handleDeleteThought}
-          onCreateConnection={handleCreateConnection}
-          onDeleteConnection={handleDeleteConnection}
-          onClearElement={clearSelection}
-        />
+      <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+        <div className="flex-1 relative min-h-0 overflow-hidden">
+          <Canvas
+            coursePuzzleId={String(id)}
+            thoughts={thoughts}
+            connections={connections}
+            selectedElement={selectedElement}
+            selectedSubElement={selectedSubElement}
+            onCreateThought={handleCreateThought}
+            onUpdateThoughtPosition={handleUpdateThoughtPosition}
+            onUpdateThoughtContent={null}
+            onUpdateThoughtTagging={null}
+            onDeleteThought={handleDeleteThought}
+            onCreateConnection={handleCreateConnection}
+            onDeleteConnection={handleDeleteConnection}
+            onClearElement={clearSelection}
+          />
+        </div>
       </div>
-      <aside className="w-80 shrink-0 border-l border-mist flex flex-col bg-white">
+      <aside className="w-80 shrink-0 border-l border-mist flex flex-col bg-white min-h-0 z-10">
         <div className="px-3 py-2 border-b border-mist text-[11px] font-mono uppercase text-smoke">
           Ignite guide
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   saveReflectionAnswers,
   forgeFireStarterDraft,
@@ -8,29 +8,33 @@ import {
 } from "@/lib/canvas-api";
 
 const Q1 =
-  "Which Elements of Effective Thinking did you apply to this puzzle?";
+  "We saw these elements on your canvas — does this match what you practiced? Add or adjust anything.";
 const Q2 =
   "Which element, when you applied it, produced the most insight?";
-const Q3 = "What question should you have asked at the beginning?";
+const Q3 =
+  "Looking back at when you first opened this puzzle, what is the one question you wish you had asked yourself?";
 
 export default function ReflectionForgePanel({
   coursePuzzleId,
   initialAnswers,
+  canvasElementsSummary = "",
   getToken,
   onSavedAnswers,
   onForged,
+  layout = "bottom",
 }) {
   const [step, setStep] = useState(1);
-  const [a1, setA1] = useState(initialAnswers?.elements_applied || "");
+  const [a1, setA1] = useState(
+    initialAnswers?.elements_applied || canvasElementsSummary || "",
+  );
   const [a2, setA2] = useState(initialAnswers?.most_insightful_element || "");
   const [a3, setA3] = useState(initialAnswers?.question_at_start || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-
   const [draft, setDraft] = useState(null);
-  const [draftLoading, setDraftLoading] = useState(false);
   const [selectedName, setSelectedName] = useState(null);
   const [customName, setCustomName] = useState("");
+
   const hasSaved =
     initialAnswers?.elements_applied &&
     initialAnswers?.most_insightful_element &&
@@ -40,6 +44,36 @@ export default function ReflectionForgePanel({
   const question = step === 1 ? Q1 : step === 2 ? Q2 : Q3;
   const value = step === 1 ? a1 : step === 2 ? a2 : a3;
   const setValue = step === 1 ? setA1 : step === 2 ? setA2 : setA3;
+
+  const shellClass =
+    layout === "bottom"
+      ? "flex flex-col bg-white border-t border-mist max-h-[42vh] shrink-0"
+      : "h-full flex flex-col bg-white border-l border-mist";
+
+  useEffect(() => {
+    if (initialAnswers?.elements_applied || a1.trim()) return;
+    if (canvasElementsSummary) setA1(canvasElementsSummary);
+  }, [canvasElementsSummary, initialAnswers?.elements_applied, a1]);
+
+  async function startForgeDraft() {
+    setPhase("forging");
+    setError(null);
+    try {
+      const d = await forgeFireStarterDraft(coursePuzzleId, getToken);
+      setDraft(d);
+      if (d.proposed_names?.length) setSelectedName(d.proposed_names[0]);
+      setPhase("modal");
+    } catch (e) {
+      setPhase(hasSaved ? "ready_to_forge" : "questions");
+      setError(e?.message || "Could not draft Fire Starter.");
+    }
+  }
+
+  useEffect(() => {
+    if (phase !== "ready_to_forge") return;
+    startForgeDraft();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function submitAllReflections() {
     setSaving(true);
@@ -55,26 +89,11 @@ export default function ReflectionForgePanel({
         getToken,
       );
       onSavedAnswers?.();
-      setPhase("ready_to_forge");
+      await startForgeDraft();
     } catch (e) {
       setError(e?.message || "Could not save reflections.");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function runForgeDraft() {
-    setDraftLoading(true);
-    setError(null);
-    try {
-      const d = await forgeFireStarterDraft(coursePuzzleId, getToken);
-      setDraft(d);
-      if (d.proposed_names?.length) setSelectedName(d.proposed_names[0]);
-      setPhase("modal");
-    } catch (e) {
-      setError(e?.message || "Could not draft Fire Starter.");
-    } finally {
-      setDraftLoading(false);
     }
   }
 
@@ -102,15 +121,31 @@ export default function ReflectionForgePanel({
     }
   }
 
+  if (phase === "forging" || phase === "ready_to_forge") {
+    return (
+      <div className={shellClass}>
+        <div className="px-4 py-6 flex flex-col items-center justify-center gap-3 flex-1 min-h-[8rem]">
+          <p className="text-sm text-black text-center leading-relaxed">
+            Forging your Fire Starter from this session…
+          </p>
+          <div className="h-1.5 w-32 rounded-full bg-mist overflow-hidden">
+            <div className="h-full w-1/2 rounded-full bg-change animate-pulse" />
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+        </div>
+      </div>
+    );
+  }
+
   if (phase === "modal" && draft) {
     return (
-      <div className="h-full flex flex-col bg-white border-l border-mist">
-        <div className="px-4 py-3 border-b border-mist">
+      <div className={shellClass}>
+        <div className="px-4 py-3 border-b border-mist shrink-0">
           <h3 className="text-[11px] font-mono tracking-[0.2em] uppercase text-smoke">
             Name Your Fire Starter
           </h3>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0">
           <div>
             <p className="text-xs font-mono uppercase text-smoke mb-1">Insight</p>
             <p className="text-sm text-black leading-relaxed whitespace-pre-wrap">
@@ -119,7 +154,7 @@ export default function ReflectionForgePanel({
           </div>
           <div>
             <p className="text-xs font-mono uppercase text-smoke mb-2">Pick a name</p>
-            <div className="grid gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
               {draft.proposed_names.map((n) => (
                 <button
                   key={n}
@@ -152,22 +187,12 @@ export default function ReflectionForgePanel({
           </div>
           {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
-        <div className="p-3 border-t border-mist flex gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setPhase("ready_to_forge");
-              setDraft(null);
-            }}
-            className="flex-1 text-sm py-2 border border-mist rounded-md"
-          >
-            Back
-          </button>
+        <div className="p-3 border-t border-mist flex gap-2 shrink-0">
           <button
             type="button"
             disabled={saving}
             onClick={saveFireStarter}
-            className="flex-1 text-sm py-2 bg-primary text-white rounded-md font-medium disabled:opacity-50"
+            className="flex-1 text-sm py-2.5 bg-change text-white rounded-md font-semibold hover:bg-change/90 disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save Fire Starter"}
           </button>
@@ -176,55 +201,37 @@ export default function ReflectionForgePanel({
     );
   }
 
-  if (phase === "ready_to_forge") {
-    return (
-      <div className="h-full flex flex-col bg-white border-l border-mist">
-        <div className="px-4 py-3 border-b border-mist">
-          <h3 className="text-[11px] font-mono tracking-[0.2em] uppercase text-smoke">
-            Stage 3 — Reflect
-          </h3>
-        </div>
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-          <p className="text-sm text-black leading-relaxed">
-            Reflections saved. When you&apos;re ready, forge a named insight from
-            this session — it travels with you into Ignite.
-          </p>
-          {error && <p className="text-xs text-red-600">{error}</p>}
-        </div>
-        <div className="p-3 border-t border-mist">
-          <button
-            type="button"
-            disabled={draftLoading}
-            onClick={runForgeDraft}
-            className="w-full py-2.5 rounded-md bg-violet-700 text-white text-sm font-semibold hover:bg-violet-800 disabled:opacity-50"
-          >
-            {draftLoading ? "Forging…" : "Forge Your Fire Starter"}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="h-full flex flex-col bg-white border-l border-mist">
-      <div className="px-4 py-3 border-b border-mist">
+    <div className={shellClass}>
+      <div className="px-4 py-3 border-b border-mist shrink-0">
         <h3 className="text-[11px] font-mono tracking-[0.2em] uppercase text-smoke">
           Stage 3 — Reflect
         </h3>
         <p className="text-[10px] font-mono text-smoke mt-1">Question {step} of 3</p>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-0">
         <p className="text-sm text-black leading-relaxed font-medium">{question}</p>
+        {step === 1 && canvasElementsSummary && !initialAnswers?.elements_applied && (
+          <p className="text-xs text-smoke leading-relaxed">
+            From your canvas: <span className="text-black">{canvasElementsSummary}</span>
+          </p>
+        )}
         <textarea
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          rows={6}
+          rows={layout === "bottom" ? 3 : 6}
           className="w-full border border-mist rounded-md px-3 py-2 text-sm resize-none"
-          placeholder="Type your answer…"
+          placeholder={
+            step === 1
+              ? "Confirm or edit what you practiced…"
+              : step === 2
+                ? "e.g. Air — asking what the manager actually reads each day…"
+                : "e.g. What is the simplest version of this I can solve first?"
+          }
         />
         {error && <p className="text-xs text-red-600">{error}</p>}
       </div>
-      <div className="p-3 border-t border-mist flex gap-2">
+      <div className="p-3 border-t border-mist flex gap-2 shrink-0">
         {step > 1 && (
           <button
             type="button"
@@ -246,7 +253,7 @@ export default function ReflectionForgePanel({
           }}
           className="flex-1 py-2 rounded-md bg-change text-white text-sm font-medium disabled:opacity-40"
         >
-          {step < 3 ? "Next" : saving ? "Saving…" : "Submit reflections"}
+          {step < 3 ? "Next" : saving ? "Saving…" : "Submit & forge"}
         </button>
       </div>
     </div>

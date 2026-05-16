@@ -509,7 +509,12 @@ class SupabaseCourseRepository(CourseRepository):
             .limit(limit)
             .execute()
         )
-        return [self._row_to_course(row) for row in result.data]
+        # Belt-and-suspenders: exclude drafts here too. PostgREST `neq` can still
+        # return drafts in odd cases; without this, pydantic rejects intake_status=draft.
+        rows = [
+            row for row in (result.data or []) if row.get("intake_status") != "draft"
+        ]
+        return [self._row_to_course(row) for row in rows]
 
     async def append_intake_message(self, course_id: str, message: IntakeMessage) -> Course:
         # Read-modify-write. Simpler than a Postgres function and adequate

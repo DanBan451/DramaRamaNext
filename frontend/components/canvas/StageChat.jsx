@@ -49,7 +49,7 @@ Your job here is to actually think through the puzzle on the canvas. Drop blocks
 I'm here to explain what each element means and how to use it in Forge — not which one to pick for this puzzle, and not the answer. When you're ready, use **Continue to Stage 2** at the top.`;
 
 // Stage 2 has no static welcome message anymore. The fan-shape diagnostic
-const STAGE_2_FALLBACK = `You're in **Stage 2 — AI Nudge**.
+const STAGE_2_FALLBACK = `You're in **Stage 2 — Push Further**.
 
 If you don't see nudge blocks yet, they're still being generated. Once they show up, extend your thinking from them — they're prompts, not answers.`;
 
@@ -390,9 +390,9 @@ export default function StageChat({
             isCompleted
               ? "Ask about this puzzle, the closing note, or your goals…"
               : stage === 1
-                ? "Ask about an element or this stage…"
+                ? 'e.g. "What does Earth mean here?" or "How do I tag a thought?"'
                 : stage === 2
-                  ? "Ask away — I'll just nudge you back to the flow."
+                  ? 'e.g. "Which nudge should I answer first?" or "Can you explain this nudge?"'
                   : stage3Phase === "bridge"
                     ? "How does this connect to your goal?"
                     : "What did you notice? What surprised you?"
@@ -405,7 +405,7 @@ export default function StageChat({
         <button
           type="submit"
           disabled={streaming || !draft.trim()}
-          className="px-3 py-2 bg-primary text-white text-sm rounded-md font-medium hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors self-end"
+          className="px-3 py-2 bg-change text-white text-sm rounded-md font-medium hover:bg-change/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors self-end"
         >
           {streaming ? "…" : "Send"}
         </button>

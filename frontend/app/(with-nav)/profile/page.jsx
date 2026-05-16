@@ -229,7 +229,7 @@ export default function ProfilePage() {
             </Button>
             <Button
               as={Link}
-              href="/courses"
+              href="/goals"
               className="bg-transparent border border-mist text-black px-6 hover:bg-mist"
               radius="none"
             >

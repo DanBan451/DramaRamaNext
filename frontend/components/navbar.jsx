@@ -17,9 +17,7 @@ import { useState } from "react";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 
 const textLinkClass =
-  "font-display text-black text-lg font-normal leading-snug lp:text-xl transition-[letter-spacing,color] duration-200 hover:tracking-[0.02em]";
-const textLinkUnderline =
-  "relative after:absolute after:left-0 after:bottom-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-current after:transition-transform after:duration-200 hover:after:scale-x-100";
+  "font-display text-black text-lg font-normal leading-snug lp:text-xl transition-colors duration-200";
 
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -27,13 +25,11 @@ export const Navbar = () => {
 
   const textColor = "text-black";
   const textMuted = "text-smoke";
-  const borderColor = "border-b-black";
-  const hoverBorder = "hover:border-b-smoke";
 
   const practicePath = "/the-practice";
 
   const authNavItems = [
-    { name: "Workspace", path: "/courses" },
+    { name: "Workspace", path: "/goals" },
     { name: "Profile", path: "/profile" },
   ];
 
@@ -45,7 +41,7 @@ export const Navbar = () => {
 
   const signedInMenuItems = [
     { name: "The Practice", path: practicePath },
-    { name: "Workspace", path: "/courses" },
+    { name: "Workspace", path: "/goals" },
     { name: "Profile", path: "/profile" },
   ];
 
@@ -56,9 +52,9 @@ export const Navbar = () => {
   };
 
   const textNavItemClass = (path) =>
-    `${
-      isActive(path) ? `border-b-2 ${borderColor}` : `border-b-2 border-b-transparent ${hoverBorder}`
-    } pb-1 transition-all`;
+    isActive(path)
+      ? "font-semibold text-black"
+      : "text-smoke hover:text-black";
 
   return (
     <NextUINavbar
@@ -100,14 +96,14 @@ export const Navbar = () => {
         className="m-0 hidden min-w-0 min-h-0 list-none flex-row flex-nowrap items-center gap-x-[clamp(1.5rem,2.5vw,3rem)] p-0 sm:flex"
       >
         <NavbarItem as="div" className={textNavItemClass(practicePath)}>
-          <Link className={`${textLinkClass} ${textLinkUnderline}`} href={practicePath}>
+          <Link className={textLinkClass} href={practicePath}>
             The Practice
           </Link>
         </NavbarItem>
 
         <SignedOut>
           <NavbarItem as="div" className={textNavItemClass("/login")}>
-            <Link className={`${textLinkClass} ${textLinkUnderline}`} href="/login">
+            <Link className={textLinkClass} href="/login">
               Login
             </Link>
           </NavbarItem>
@@ -126,7 +122,7 @@ export const Navbar = () => {
         <SignedIn>
           {authNavItems.map((item) => (
             <NavbarItem as="div" key={item.path} className={textNavItemClass(item.path)}>
-              <Link className={`${textLinkClass} ${textLinkUnderline}`} href={item.path}>
+              <Link className={textLinkClass} href={item.path}>
                 {item.name}
               </Link>
             </NavbarItem>
@@ -159,11 +155,9 @@ export const Navbar = () => {
                 </Link>
               ) : (
                 <Link
-                  className={`w-full text-xl py-2 transition-[letter-spacing] duration-200 hover:tracking-wide ${
-                    isActive(item.path)
-                      ? `font-bold ${textColor} ${borderColor}`
-                      : `${textMuted} ${hoverBorder}`
-                  }`}
+                  className={`w-full text-xl py-2 transition-colors ${
+                    isActive(item.path) ? `font-semibold ${textColor}` : textMuted
+                  } hover:text-black`}
                   href={item.path}
                   size="lg"
                   onClick={() => setIsMenuOpen(false)}
@@ -179,11 +173,9 @@ export const Navbar = () => {
           {signedInMenuItems.map((item, index) => (
             <NavbarMenuItem key={`${item.name}-${index}`}>
               <Link
-                className={`w-full text-xl py-2 ${
-                  isActive(item.path)
-                    ? `font-bold ${textColor} ${borderColor}`
-                    : `${textMuted} ${hoverBorder}`
-                }`}
+                className={`w-full text-xl py-2 transition-colors ${
+                  isActive(item.path) ? `font-semibold ${textColor}` : textMuted
+                } hover:text-black`}
                 href={item.path}
                 size="lg"
                 onClick={() => setIsMenuOpen(false)}

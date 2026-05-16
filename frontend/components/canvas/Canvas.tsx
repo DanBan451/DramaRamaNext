@@ -78,6 +78,8 @@ interface CanvasProps {
   onDeleteConnection: ((connectionId: string) => Promise<void>) | null;
 
   onClearElement?: () => void;
+  /** When true, canvas is view-only: pan/zoom and trace only. */
+  viewOnly?: boolean;
 }
 
 interface DraftBlock {
@@ -116,9 +118,11 @@ export default function Canvas({
   onCreateConnection,
   onDeleteConnection,
   onClearElement,
+  viewOnly = false,
 }: CanvasProps) {
   void _coursePuzzleId;
   void _onUpdateThoughtContent;
+  const canMutate = !viewOnly;
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<DraftBlock | null>(null);
@@ -468,6 +472,7 @@ export default function Canvas({
   }
 
   function startConnection(e: React.MouseEvent, thoughtId: string) {
+    if (viewOnly) return;
     e.stopPropagation();
     // If a connection is already in flight (user clicked another connector
     // first), treat THIS click as the destination — connector→connector
@@ -579,6 +584,7 @@ export default function Canvas({
 
   // Block drag handlers
   function handleBlockMouseDown(e: React.MouseEvent, thoughtId: string) {
+    if (viewOnly) return;
     if ((e.target as HTMLElement).closest("[data-connector]")) return;
     e.stopPropagation();
     const canvas = canvasRef.current;
@@ -807,7 +813,7 @@ export default function Canvas({
               Cancel
             </button>
           </div>
-        ) : (
+        ) : !viewOnly ? (
           <button
             onClick={() => {
               setBulkSelectMode(true);
@@ -819,11 +825,13 @@ export default function Canvas({
           >
             Multi-Select
           </button>
-        )}
+        ) : null}
         <div className="px-3 py-1.5 bg-white border border-[var(--wireframe)] rounded-lg text-xs text-[var(--text-muted)]">
-          {selectedSubElement
-            ? "Click canvas to place tagged thought"
-            : "Click canvas to place a thought"}
+          {viewOnly
+            ? "View only — review your canvas while you reflect"
+            : selectedSubElement
+              ? "Click canvas to place tagged thought"
+              : "Click canvas to place a thought"}
         </div>
       </div>
 
@@ -1149,13 +1157,20 @@ export default function Canvas({
                     stroke="transparent"
                     strokeWidth={20}
                     fill="none"
-                    style={{ pointerEvents: "stroke", cursor: "pointer" }}
-                    onMouseEnter={() => setHoveredConnection(conn.id)}
-                    onMouseLeave={() => setHoveredConnection(null)}
-                    onClick={(e) => { e.stopPropagation(); deleteConnectionLocal(conn.id); }}
+                    style={{
+                      pointerEvents: canMutate ? "stroke" : "none",
+                      cursor: canMutate ? "pointer" : "default",
+                    }}
+                    onMouseEnter={() => canMutate && setHoveredConnection(conn.id)}
+                    onMouseLeave={() => canMutate && setHoveredConnection(null)}
+                    onClick={(e) => {
+                      if (!canMutate) return;
+                      e.stopPropagation();
+                      deleteConnectionLocal(conn.id);
+                    }}
                   />
                   {/* × delete button shown at bezier midpoint on hover */}
-                  {isHovered && (
+                  {canMutate && isHovered && (
                     <g
                       style={{ cursor: "pointer" }}
                       onMouseEnter={() => setHoveredConnection(conn.id)}
@@ -1339,7 +1354,7 @@ export default function Canvas({
                         className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200 shrink-0"
                         title="AI-generated nudge — drag, edit, or delete it like your own thoughts."
                       >
-                        AI Nudge
+                        Nudge
                       </span>
                     )}
                     {isReflection && (

@@ -136,7 +136,7 @@ export default function HomeModeSequence() {
               Use those muscles on the real problem you&apos;re facing.
             </p>
             <div className="mt-6">
-              <OutlinedButton href="/courses" align="right">
+              <OutlinedButton href="/goals" align="right">
                 Open Ignite <span aria-hidden>→</span>
               </OutlinedButton>
             </div>
@@ -173,7 +173,7 @@ export default function HomeModeSequence() {
                 Use those muscles on the real problem you&apos;re facing.
               </p>
               <div className="mt-6">
-                <OutlinedButton href="/courses" align="right">
+                <OutlinedButton href="/goals" align="right">
                   Open Ignite <span aria-hidden>→</span>
                 </OutlinedButton>
               </div>

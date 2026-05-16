@@ -67,6 +67,25 @@ def _verify_problem(problem_id: str, user_id: str) -> dict:
     return row
 
 
+@router.get("/ignite")
+async def list_ignite_problems(
+    course_id: str | None = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """List active Ignite problems for the signed-in user."""
+    user = current_user["db_user"]
+    q = (
+        client.table("ignite_problems")
+        .select("id, title, description, course_id, status, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", desc=True)
+    )
+    if course_id:
+        q = q.eq("course_id", course_id)
+    res = q.execute()
+    return {"problems": res.data or []}
+
+
 @router.post("/ignite")
 async def create_ignite_problem(
     payload: dict,

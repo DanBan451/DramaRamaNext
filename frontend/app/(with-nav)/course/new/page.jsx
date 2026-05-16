@@ -268,7 +268,7 @@ function NewCourseIntakePageInner() {
         const data = await res.json();
         const course = data.course;
         if (course.intake_status === "complete") {
-          router.replace(`/courses/${course.id}/ready`);
+          router.replace(`/goals/${course.id}/ready`);
           return;
         }
 
@@ -503,7 +503,7 @@ function NewCourseIntakePageInner() {
       setIntakeComplete(true);
       // Redirect to the ready page where puzzles are generated
       setTimeout(() => {
-        router.push(`/courses/${courseId}/ready`);
+        router.push(`/goals/${courseId}/ready`);
       }, 1500);
     } catch (e) {
       console.error(e);

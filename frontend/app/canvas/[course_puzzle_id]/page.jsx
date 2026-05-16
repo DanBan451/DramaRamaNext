@@ -16,6 +16,7 @@ import ReflectionForgePanel from "@/components/canvas/ReflectionForgePanel";
 import CanvasSkeleton from "@/components/canvas/CanvasSkeleton";
 // Note: `ELEMENTS` is no longer imported here — the new ElementsSidebar
 // component owns its own data import. Don't add it back without a reason.
+import { getElement } from "@/lib/elements";
 import {
   getCanvasState,
   createThought,
@@ -55,6 +56,7 @@ export default function CanvasPage() {
   const [selectedElement, setSelectedElement] = useState(null);
   const [selectedSubElement, setSelectedSubElement] = useState(null);
   const [toast, setToast] = useState(null);
+  const [completionOverlay, setCompletionOverlay] = useState(null);
 
   // Stage state (1 = think, 2 = extend, 3 = synthesize). Currently
   // client-only — the backend doesn't persist stage yet (Phase 5+).
@@ -111,8 +113,18 @@ export default function CanvasPage() {
   }, [toast]);
 
   const notifyError = useCallback((msg) => {
-    setToast(msg || "Couldn't save — try again.");
+    setToast({ message: msg || "Couldn't save — try again.", type: "error" });
   }, []);
+
+  const canvasElementsSummary = useMemo(() => {
+    const names = new Set();
+    for (const t of thoughts) {
+      if (t.is_nudge || !t.element) continue;
+      const el = getElement(t.element);
+      if (el) names.add(el.name);
+    }
+    return Array.from(names).join(", ");
+  }, [thoughts]);
 
   // Initial load
   useEffect(() => {
@@ -157,7 +169,7 @@ export default function CanvasPage() {
     const hasNudges = thoughts.some((t) => t.is_nudge);
     if (!hasNudges || stage2WelcomeMessage) return;
     setStage2WelcomeMessage(
-      "Welcome back — your **AI Nudge** blocks are still on the canvas. Continue where you left off: pick a nudge, answer it on a fresh block, or edit what no longer fits. When you're ready, use **Next Stage** above.",
+      "Welcome back — your **Push Further** nudge blocks are still on the canvas. Continue where you left off: pick a nudge, answer it on a fresh block, or edit what no longer fits. When you're ready, use **Next Stage** above.",
     );
   }, [loading, coursePuzzleId, stage, thoughts, stage2WelcomeMessage]);
 
@@ -428,7 +440,7 @@ export default function CanvasPage() {
       // Make the chat explicit about what's happening BEFORE any nodes exist.
       // (Stage 2 welcome fallback must never claim nodes were dropped early.)
       setStage2WelcomeMessage(
-        "Generating **AI Nudge** blocks now — I'll populate them onto your canvas in a moment.",
+        "Generating **Push Further** nudge blocks now — I'll populate them onto your canvas in a moment.",
       );
       try {
         const response = await generateStage2Nudges(coursePuzzleId, getToken);
@@ -460,13 +472,13 @@ export default function CanvasPage() {
           setStage2WelcomeMessage(chat_message);
         } else if (nudges?.length) {
           setStage2WelcomeMessage(
-            "Done — I just populated a few **AI Nudge** blocks onto your canvas (dashed purple borders).",
+            "Done — I just populated a few **Push Further** nudge blocks onto your canvas (dashed purple borders).",
           );
         } else {
           // Defensive: avoid leaving a misleading "generating" message hanging
           // forever if the server returned no nudges and no chat text.
           setStage2WelcomeMessage(
-            "You're in **Stage 2 — AI Nudge**. If you don't see any nudges yet, try **Continue to Stage 3** again in a moment.",
+            "You're in **Stage 2 — Push Further**. If you don't see any nudges yet, try **Continue to Stage 3** again in a moment.",
           );
         }
 
@@ -497,10 +509,10 @@ export default function CanvasPage() {
       <div className="p-8">
         <div className="text-red-600 text-sm mb-4">Error: {error}</div>
         <button
-          onClick={() => router.push("/courses")}
+          onClick={() => router.push("/goals")}
           className="text-sm underline text-gray-700"
         >
-          Back to Your Courses
+          Back to your goals
         </button>
       </div>
     );
@@ -523,12 +535,12 @@ export default function CanvasPage() {
               to miss. */}
           <div className="px-3 py-3 border-b border-mist flex items-center gap-2">
             <button
-              onClick={() => router.push("/courses")}
+              onClick={() => router.push("/goals")}
               className="flex-1 flex items-center gap-2 text-sm text-ash hover:text-black hover:bg-mist/60 rounded-md px-2.5 py-2 transition-colors"
-              title="Back to your courses"
+              title="Back to your goals"
             >
               <span aria-hidden>←</span>
-              <span className="font-medium">Back to courses</span>
+              <span className="font-medium">Back to goals</span>
             </button>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -594,7 +606,7 @@ export default function CanvasPage() {
             ) : stage < 3 ? (
               <button
                 onClick={() => setConfirmAdvance(true)}
-                className="text-sm font-medium px-3 py-1.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
+                className="text-sm font-medium px-3 py-1.5 bg-change text-white rounded-md hover:bg-change/90 transition-colors"
                 title="Advance to the next stage (no going back)"
               >
                 {stage === 1 ? "Continue to Stage 2 →" : "Continue to Stage 3 →"}
@@ -627,10 +639,10 @@ export default function CanvasPage() {
                 </div>
                 {coursePuzzle.course_id && (
                   <Link
-                    href={`/courses/${coursePuzzle.course_id}/ready`}
+                    href={`/goals/${coursePuzzle.course_id}/ready`}
                     className="text-sm font-medium text-emerald-800 underline underline-offset-2 hover:text-emerald-950 w-fit"
                   >
-                    Back to course →
+                    Back to goal →
                   </Link>
                 )}
               </div>
@@ -671,17 +683,15 @@ export default function CanvasPage() {
             onCreateConnection={forgeStage3ReadOnly || isCompleted ? null : handleCreateConnection}
             onDeleteConnection={forgeStage3ReadOnly || isCompleted ? null : handleDeleteConnection}
             onClearElement={clearSelection}
+            viewOnly={forgeStage3ReadOnly}
           />
-        </div>
-      </div>
 
-      {/* ─── Right: Stage chat panel (collapsible) ─────────────────────── */}
-      {chatOpen ? (
-        <aside className="w-80 shrink-0">
-          {stage === 3 && !isCompleted ? (
+          {stage === 3 && !isCompleted && (
             <ReflectionForgePanel
+              layout="bottom"
               coursePuzzleId={coursePuzzleId}
               initialAnswers={coursePuzzle.reflection_answers}
+              canvasElementsSummary={canvasElementsSummary}
               getToken={getToken}
               onSavedAnswers={async () => {
                 try {
@@ -691,29 +701,42 @@ export default function CanvasPage() {
                   notifyError(e?.message);
                 }
               }}
-              onForged={(name) => {
-                setToast(`Fire Starter forged: ${name}. It comes with you into Ignite.`);
-                setCoursePuzzle((prev) =>
-                  prev ? { ...prev, status: "completed" } : prev,
-                );
-                const cid = coursePuzzle?.course_id;
-                if (cid) router.push(`/courses/${cid}/ready`);
-                else router.push("/courses");
+              onForged={async (name) => {
+                try {
+                  const state = await getCanvasState(coursePuzzleId, getToken);
+                  const cp = state.course_puzzle;
+                  setCoursePuzzle(cp);
+                  setCompletionOverlay({
+                    name,
+                    synthesis: cp?.synthesis || null,
+                    courseId: cp?.course_id || coursePuzzle?.course_id,
+                  });
+                } catch (e) {
+                  notifyError(e?.message);
+                  const cid = coursePuzzle?.course_id;
+                  if (cid) router.push(`/goals/${cid}/ready`);
+                  else router.push("/goals");
+                }
               }}
             />
-          ) : (
-            <StageChat
-              stage={stage}
-              coursePuzzleId={coursePuzzleId}
-              onClose={() => setChatOpen(false)}
-              stage2WelcomeMessage={stage2WelcomeMessage}
-              stage3Phase={stage3Phase}
-              isCompleted={isCompleted}
-              synthesis={coursePuzzle.synthesis}
-            />
           )}
+        </div>
+      </div>
+
+      {/* ─── Right: Stage chat panel (collapsible) ─────────────────────── */}
+      {chatOpen && !(stage === 3 && !isCompleted) ? (
+        <aside className="w-80 shrink-0">
+          <StageChat
+            stage={stage}
+            coursePuzzleId={coursePuzzleId}
+            onClose={() => setChatOpen(false)}
+            stage2WelcomeMessage={stage2WelcomeMessage}
+            stage3Phase={stage3Phase}
+            isCompleted={isCompleted}
+            synthesis={coursePuzzle.synthesis}
+          />
         </aside>
-      ) : (
+      ) : !(stage === 3 && !isCompleted) ? (
         <button
           onClick={() => setChatOpen(true)}
           className="w-9 shrink-0 border-l border-mist flex items-start justify-center pt-4 hover:bg-mist/40 transition-colors group"
@@ -722,6 +745,40 @@ export default function CanvasPage() {
         >
           <span className="text-smoke group-hover:text-change text-sm">«</span>
         </button>
+      ) : null}
+
+      {completionOverlay && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-xl w-full max-h-[85vh] overflow-y-auto p-6">
+            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-700 mb-2">
+              Puzzle complete — our closing note
+            </p>
+            <h2 className="font-display text-2xl text-black mb-3">
+              Fire Starter forged: {completionOverlay.name}
+            </h2>
+            {completionOverlay.synthesis ? (
+              <p className="text-sm text-black leading-relaxed whitespace-pre-wrap mb-6">
+                {completionOverlay.synthesis}
+              </p>
+            ) : (
+              <p className="text-sm text-smoke mb-6">
+                Your insight is saved. You can revisit this puzzle anytime from your goal workspace.
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                const cid = completionOverlay.courseId;
+                setCompletionOverlay(null);
+                if (cid) router.push(`/goals/${cid}/ready`);
+                else router.push("/goals");
+              }}
+              className="w-full py-2.5 rounded-md bg-change text-white text-sm font-semibold hover:bg-change/90"
+            >
+              Back to goal →
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ─── Confirm-advance modal ─────────────────────────────────────── */}
@@ -754,7 +811,7 @@ export default function CanvasPage() {
               <button
                 onClick={advanceStage}
                 disabled={seedingNudges}
-                className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary/90 font-medium disabled:opacity-60"
+                className="px-4 py-2 text-sm bg-change text-white rounded-md hover:bg-change/90 font-medium disabled:opacity-60"
               >
                 {seedingNudges
                   ? "Dropping nudges…"
@@ -766,8 +823,12 @@ export default function CanvasPage() {
       )}
 
       {toast && (
-        <div className="fixed bottom-4 right-4 z-50 bg-red-600 text-white text-xs px-4 py-2 rounded shadow-lg max-w-sm">
-          {toast}
+        <div
+          className={`fixed bottom-4 right-4 z-50 text-white text-xs px-4 py-2 rounded shadow-lg max-w-sm ${
+            toast.type === "success" ? "bg-emerald-700" : "bg-red-600"
+          }`}
+        >
+          {toast.message}
         </div>
       )}
     </div>
@@ -781,7 +842,7 @@ function StageIndicator({ current }) {
   //     prompted the course.
   const stages = [
     { n: 1, label: "Think on Your Own" },
-    { n: 2, label: "AI Nudge" },
+    { n: 2, label: "Push Further" },
     { n: 3, label: "Reflect" },
   ];
   return (
@@ -794,9 +855,9 @@ function StageIndicator({ current }) {
             <span
               className={`inline-flex items-center gap-1 px-2 py-1 rounded ${
                 isCurrent
-                  ? "bg-change text-white"
+                  ? "bg-primary text-white"
                   : isDone
-                    ? "bg-change/15 text-change"
+                    ? "bg-primary/15 text-primary"
                     : "bg-mist text-smoke"
               }`}
             >

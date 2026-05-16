@@ -20,7 +20,9 @@
 html {
   background-color: #ffffff;
   color-scheme: light;
-  /* Clip sub-pixel / skew / shadow bleed so the doc never shows a horizontal scrollbar. */
+  /* Always reserve vertical scrollbar space — prevents goal title / nav-shell shifting when
+     a shorter route hides the scrollbar (scrollbar-gutter alone is unreliable with overflow-x). */
+  overflow-y: scroll;
   overflow-x: hidden;
 }
 

@@ -19,6 +19,8 @@ export interface Thought {
   is_nudge?: boolean;
   /** Ignite: terrain mapping nodes */
   is_terrain?: boolean;
+  /** Ignite: fact | history | constraint | uncertainty */
+  terrain_type?: string;
   /** Ignite: nodes from applied Fire Starter */
   is_fire_starter_node?: boolean;
   // Stage 3 adds 'reflection' kind. 'thought' = Stage 1, 'nudge' = Stage 2,

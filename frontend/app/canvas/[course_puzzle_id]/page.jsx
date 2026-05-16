@@ -556,6 +556,7 @@ export default function CanvasPage() {
             <ElementsSidebar
               selectedElement={selectedElement}
               selectedSubElement={selectedSubElement}
+              onCollapse={() => setSidebarOpen(false)}
               onSelect={(el, sub) => {
                 if (selectedSubElement === sub) {
                   setSelectedElement(null);

@@ -31,7 +31,9 @@ import {
   getSubElement,
   getElementColor,
 } from "@/lib/elements";
+import { TERRAIN_TYPE_STYLES } from "@/lib/canvas-palette";
 import Timer from "@/components/canvas/Timer";
+import ElementEmoji from "@/components/elements/ElementEmoji";
 import type { Thought, Connection } from "@/types/canvas";
 
 const CANVAS_INITIAL = 32000;
@@ -207,26 +209,13 @@ export default function Canvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusThoughtIds, thoughts]);
 
-  // Center viewport on mount: if there are existing thoughts, center on
-  // their centroid; otherwise center on the canvas. This handles puzzles
-  // whose thoughts were saved against an older, smaller CANVAS_INITIAL.
+  // Center viewport on mount (Weaponry parity: always open on canvas center).
   useEffect(() => {
     if (!containerRef.current) return;
-    if (thoughts.length > 0) {
-      let sumX = 0;
-      let sumY = 0;
-      for (const t of thoughts) {
-        sumX += t.pos_x + BLOCK_WIDTH / 2;
-        sumY += t.pos_y + BLOCK_MIN_HEIGHT / 2;
-      }
-      const cx = sumX / thoughts.length;
-      const cy = sumY / thoughts.length;
-      containerRef.current.scrollLeft = cx - containerRef.current.clientWidth / 2;
-      containerRef.current.scrollTop = cy - containerRef.current.clientHeight / 2;
-    } else {
-      containerRef.current.scrollLeft = CANVAS_INITIAL / 2 - containerRef.current.clientWidth / 2;
-      containerRef.current.scrollTop = CANVAS_INITIAL / 2 - containerRef.current.clientHeight / 2;
-    }
+    containerRef.current.scrollLeft =
+      CANVAS_INITIAL / 2 - containerRef.current.clientWidth / 2;
+    containerRef.current.scrollTop =
+      CANVAS_INITIAL / 2 - containerRef.current.clientHeight / 2;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -765,7 +754,7 @@ export default function Canvas({
       {/* Toolbar */}
       <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
         {connectingFrom && (
-          <div className="px-3 py-1.5 bg-[var(--blue-wash)] border border-[var(--blue-light)] rounded-lg text-xs text-[var(--text-primary)]">
+          <div className="px-3 py-1.5 border border-mist bg-white rounded-lg text-xs text-[var(--text-primary)]">
             Click a block to connect — or{" "}
             <button onClick={() => setConnectingFrom(null)} className="underline">
               cancel
@@ -778,20 +767,20 @@ export default function Canvas({
               setTracedPath(new Set());
               setTracedConnections(new Set());
             }}
-            className="px-3 py-1.5 bg-yellow-50 border border-yellow-300 rounded-lg text-xs text-yellow-700 hover:bg-yellow-100 transition-colors"
+            className="rounded-lg border border-mist bg-white px-3 py-1.5 text-xs text-smoke transition-colors hover:bg-[#F5F5F5]"
           >
             Clear trace
           </button>
         )}
         {bulkSelectMode ? (
           <div className="flex items-center gap-1.5">
-            <span className="px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600">
+            <span className="rounded-lg border border-mist bg-[#FAFAFA] px-3 py-1.5 text-xs text-smoke">
               {bulkSelected.size} selected
             </span>
             <button
               onClick={bulkDeleteSelected}
               disabled={bulkSelected.size === 0}
-              className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600 transition-colors disabled:opacity-40"
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-40"
             >
               Delete Selected
             </button>
@@ -906,22 +895,14 @@ export default function Canvas({
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     {subEl && detailElColor ? (
-                      <span
-                        className="w-6 h-6 rounded-md flex items-center justify-center text-sm font-bold"
-                        style={{ backgroundColor: detailElColor.light, color: detailElColor.text }}
-                      >
+                      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-mist text-sm font-bold text-smoke">
                         {subEl.symbol}
                       </span>
                     ) : el ? (
-                      <span className="text-sm">{el.emoji}</span>
+                      <ElementEmoji emoji={el.emoji} className="text-sm" />
                     ) : null}
                     {subEl && (
-                      <span
-                        className="text-xs font-medium"
-                        style={{ color: detailElColor?.text || "var(--text-secondary)" }}
-                      >
-                        {subEl.name}
-                      </span>
+                      <span className="text-xs font-medium text-smoke">{subEl.name}</span>
                     )}
                     {!el && (
                       <span className="text-xs text-[var(--text-muted)] italic">
@@ -946,16 +927,16 @@ export default function Canvas({
                       onClick={() =>
                         startConnection({ stopPropagation: () => {} } as React.MouseEvent, thought.id)
                       }
-                      className="px-3 py-1.5 border border-[var(--wireframe)] text-[var(--text-secondary)] rounded-lg text-xs hover:border-[var(--blue-light)] hover:text-[var(--blue)] transition-colors"
+                      className="rounded-lg border border-mist bg-white px-3 py-1.5 text-xs text-smoke transition-colors hover:bg-[#F5F5F5]"
                     >
                       Connect →
                     </button>
                     <button
                       onClick={() => tracePathToOrigin(thought.id)}
-                      className={`px-3 py-1.5 border rounded-lg text-xs transition-colors ${
+                      className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
                         tracedPath.has(thought.id)
-                          ? "border-yellow-400 text-yellow-700 bg-yellow-50"
-                          : "border-[var(--wireframe)] text-[var(--text-secondary)] hover:border-yellow-300 hover:text-yellow-600 hover:bg-yellow-50"
+                          ? "border-[#333333] bg-[#FAFAFA] text-[#2A2A2A]"
+                          : "border-mist bg-white text-smoke hover:bg-[#F5F5F5]"
                       }`}
                       title="Highlight path from this thought back to the starting idea"
                     >
@@ -963,7 +944,7 @@ export default function Canvas({
                     </button>
                     <button
                       onClick={() => deleteThought(thought.id)}
-                      className="px-3 py-1.5 border border-[var(--wireframe)] text-[var(--text-muted)] rounded-lg text-xs hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      className="rounded-lg border border-mist bg-white px-3 py-1.5 text-xs text-smoke transition-colors hover:bg-[#F5F5F5]"
                       title="Delete thought (Backspace)"
                     >
                       Delete
@@ -987,7 +968,7 @@ export default function Canvas({
                       <button
                         key={c.id}
                         onClick={() => deleteConnectionLocal(c.id)}
-                        className="px-2 py-0.5 text-xs bg-[var(--bg-subtle)] rounded text-[var(--text-muted)] hover:bg-red-50 hover:text-red-500 transition-colors"
+                        className="rounded bg-mist px-2 py-0.5 text-xs text-smoke transition-colors hover:bg-[#F5F5F5]"
                         title="Click to remove connection"
                       >
                         {c.from_thought_id === thought.id ? "→" : "←"}{" "}
@@ -1034,7 +1015,7 @@ export default function Canvas({
           <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="canvas-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.06" />
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#EEEEEE" strokeWidth="0.5" />
               </pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#canvas-grid)" />
@@ -1050,35 +1031,11 @@ export default function Canvas({
           >
             <defs>
               <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                <polygon points="0 0, 10 3.5, 0 7" fill="#8ab4f8" />
+                <polygon points="0 0, 10 3.5, 0 7" fill="#333333" />
               </marker>
               <marker id="arrowhead-pending" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                <polygon points="0 0, 10 3.5, 0 7" fill="#8ab4f8" opacity={0.5} />
+                <polygon points="0 0, 10 3.5, 0 7" fill="#666666" opacity={0.6} />
               </marker>
-              <linearGradient id="flow-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#4db6ac" />
-                <stop offset="50%" stopColor="#8ab4f8" />
-                <stop offset="100%" stopColor="#4db6ac" />
-              </linearGradient>
-              <linearGradient id="trace-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#facc15" />
-                <stop offset="50%" stopColor="#fbbf24" />
-                <stop offset="100%" stopColor="#f59e0b" />
-              </linearGradient>
-              <marker id="arrowhead-trace" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b" />
-              </marker>
-              <marker id="arrowhead-delete" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444" />
-              </marker>
-              <style>{`
-                @keyframes flowDash {
-                  to { stroke-dashoffset: -24; }
-                }
-                .flow-line {
-                  animation: flowDash 1.5s linear infinite;
-                }
-              `}</style>
             </defs>
             {connections.map((conn) => {
               const from = thoughtMap.get(conn.from_thought_id);
@@ -1112,42 +1069,14 @@ export default function Canvas({
               const my = 0.125 * fromPos.y + 0.375 * cy1 + 0.375 * cy2 + 0.125 * toAnchor.y;
               return (
                 <g key={conn.id}>
-                  {/* Soft glow underneath. */}
                   <path
                     d={d}
-                    stroke={isTraced ? "#facc15" : isHovered ? "#ef4444" : "#4db6ac"}
-                    strokeWidth={isTraced ? 5 : isHovered ? 5 : 3}
+                    stroke={isHovered ? "#2A2A2A" : "#333333"}
+                    strokeWidth={isTraced ? 3 : isHovered ? 2.5 : 1.75}
                     fill="none"
-                    opacity={isTraced ? 0.4 : isHovered ? 0.25 : 0.15}
                     strokeLinecap="round"
-                  />
-                  {/* SOLID base line that owns the arrowhead marker. This
-                      MUST stay fully opaque — the dashed overlay below has
-                      gaps that, if visible at the endpoint, make the arrow
-                      tip look detached from the line. Keeping the base
-                      solid + opaque guarantees a continuous visual stroke
-                      from source to arrow tip regardless of dash phase. */}
-                  <path
-                    d={d}
-                    stroke={isTraced ? "#f59e0b" : isHovered ? "#ef4444" : "#8ab4f8"}
-                    strokeWidth={isTraced ? 3 : 2}
-                    fill="none"
-                    strokeLinecap="butt"
-                    markerEnd={isTraced ? "url(#arrowhead-trace)" : isHovered ? "url(#arrowhead-delete)" : "url(#arrowhead)"}
+                    markerEnd="url(#arrowhead)"
                     opacity={1}
-                  />
-                  {/* Animated dashed overlay — purely decorative shimmer.
-                      No marker (the base owns it) and trimmed opacity so
-                      the solid base remains the dominant visual line. */}
-                  <path
-                    d={d}
-                    stroke={isTraced ? "url(#trace-gradient)" : isHovered ? "#ef4444" : "url(#flow-gradient)"}
-                    strokeWidth={isTraced ? 3 : 2}
-                    fill="none"
-                    strokeDasharray="12 12"
-                    strokeLinecap="round"
-                    opacity={isTraced ? 0.7 : isHovered ? 0.5 : 0.4}
-                    className="flow-line"
                   />
                   {/* Wide transparent hit-target so the line is easy to hover/click.
                       pointerEvents="stroke" scopes events to the stroke area only,
@@ -1177,13 +1106,13 @@ export default function Canvas({
                       onMouseLeave={() => setHoveredConnection(null)}
                       onClick={(e) => { e.stopPropagation(); deleteConnectionLocal(conn.id); }}
                     >
-                      <circle cx={mx} cy={my} r={11} fill="white" stroke="#ef4444" strokeWidth={1.5} />
+                      <circle cx={mx} cy={my} r={11} fill="white" stroke="#333333" strokeWidth={1.5} />
                       <text
                         x={mx}
                         y={my}
                         textAnchor="middle"
                         dominantBaseline="middle"
-                        fill="#ef4444"
+                        fill="#333333"
                         fontSize={15}
                         fontWeight="bold"
                         style={{ pointerEvents: "none", userSelect: "none" }}
@@ -1220,7 +1149,7 @@ export default function Canvas({
               return (
                 <path
                   d={d}
-                  stroke="#8ab4f8"
+                  stroke="#666666"
                   strokeWidth={2}
                   fill="none"
                   strokeDasharray="6 6"
@@ -1254,6 +1183,9 @@ export default function Canvas({
             const isReflection = thought.kind === "reflection";
             const isTerrain = !!thought.is_terrain;
             const isFireStarterNode = !!thought.is_fire_starter_node;
+            const terrainType = (thought.terrain_type || "fact").toLowerCase();
+            const terrainStyle =
+              TERRAIN_TYPE_STYLES[terrainType] || TERRAIN_TYPE_STYLES.uncertainty;
 
             return (
               <div
@@ -1264,21 +1196,21 @@ export default function Canvas({
                 // the block to lag ~300ms behind the cursor while dragging,
                 // visibly trailing its connection arrows. Only animate cosmetic
                 // properties (shadow, ring, border, bg).
-                className={`absolute rounded-xl border shadow-sm transition-[box-shadow,border-color,background-color,transform] duration-300 select-none ${
-                  isNudge ? "border-dashed border-2" : isReflection ? "border-2" : ""
-                } ${isTerrain ? "border-2 border-dotted" : ""} ${
-                  isFireStarterNode ? "ring-2 ring-emerald-500/50" : ""
+                className={`absolute rounded-xl border border-[#E5E5E5] bg-white shadow-sm transition-[box-shadow,border-color,background-color,transform] duration-300 select-none ${
+                  isNudge || isReflection ? "border-dashed" : ""
+                } ${isTerrain ? "border-dashed" : ""} ${
+                  isFireStarterNode ? "border-2 border-[#CCCCCC]" : ""
                 } ${
                   bulkSelectMode ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"
                 } ${
                   isBulkSelected
-                    ? "shadow-md ring-2 ring-red-400"
+                    ? "shadow-md ring-2 ring-[#333333]"
                     : isTraced
-                      ? "shadow-lg ring-2 ring-yellow-400"
+                      ? "shadow-lg ring-2 ring-[#666666]"
                       : isSelected
-                        ? "shadow-md ring-1 ring-[var(--red-light)]"
+                        ? "shadow-md ring-1 ring-[#333333]"
                         : isConnectSource
-                          ? "shadow-md ring-1 ring-[var(--blue-light)]"
+                          ? "shadow-md ring-1 ring-[#999999]"
                           : "hover:shadow-md"
                 }`}
                 style={{
@@ -1287,38 +1219,28 @@ export default function Canvas({
                   width: BLOCK_WIDTH,
                   minHeight: BLOCK_MIN_HEIGHT,
                   zIndex: isSelected || dragging === thought.id ? 10 : isTraced ? 6 : 2,
-                  backgroundColor: isTraced
-                    ? "#fefce8"
-                    : isTerrain
-                      ? "#faf5f0"
-                      : isFireStarterNode
-                        ? "#ecfdf5"
-                        : isNudge
-                          ? "#f5f3ff" // soft purple wash (mirrors AI_GUIDE_COLOR.bg-ish)
-                          : isReflection
-                            ? "#fffbeb" // warm amber-50 wash
-                            : elColor
-                              ? elColor.bg
-                              : "#ffffff",
-                  borderColor: isBulkSelected
-                    ? "#f87171"
+                  borderLeftWidth: isTerrain ? 4 : undefined,
+                  borderLeftColor: isTerrain ? terrainStyle.stripe : undefined,
+                  backgroundColor: isFireStarterNode
+                    ? "#FAF8F5"
                     : isTraced
-                      ? "#facc15"
+                      ? "#FAFAFA"
+                      : "#ffffff",
+                  borderColor: isBulkSelected
+                    ? "#333333"
+                    : isTraced
+                      ? "#666666"
                       : isSelected
-                        ? "var(--red)"
+                        ? "#333333"
                         : isConnectSource
-                          ? "var(--blue-light)"
+                          ? "#999999"
                           : isTerrain
-                            ? "#92400e"
+                            ? "#E5E5E5"
                             : isFireStarterNode
-                              ? "#059669"
-                              : isNudge
-                                ? "#a855f7" // purple-500 — distinct from any element color
-                                : isReflection
-                                  ? "#d97706" // amber-600 — warm gold
-                                  : elColor
-                                    ? elColor.border
-                                    : "var(--wireframe)",
+                              ? "#CCCCCC"
+                              : isNudge || isReflection
+                                ? "#DDDDDD"
+                                : "#E5E5E5",
                 }}
                 onClick={(e) => handleBlockClick(e, thought.id)}
                 onMouseDown={(e) => handleBlockMouseDown(e, thought.id)}
@@ -1327,21 +1249,15 @@ export default function Canvas({
                   {/* Header */}
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      {subEl && elColor ? (
-                        <span
-                          className="w-6 h-6 rounded-md flex items-center justify-center text-sm font-bold shrink-0"
-                          style={{ backgroundColor: elColor.light, color: elColor.text }}
-                        >
+                      {subEl && elColor && !isTerrain && !isFireStarterNode ? (
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-mist text-sm font-bold text-smoke">
                           {subEl.symbol}
                         </span>
                       ) : el ? (
-                        <span className="text-sm">{el.emoji}</span>
+                        <ElementEmoji emoji={el.emoji} className="text-sm" />
                       ) : null}
                       {subEl && (
-                        <span
-                          className="text-xs font-medium truncate"
-                          style={{ color: elColor?.text || "var(--text-secondary)" }}
-                        >
+                        <span className="truncate text-xs font-medium text-smoke">
                           {subEl.name}
                         </span>
                       )}
@@ -1351,7 +1267,7 @@ export default function Canvas({
                     </div>
                     {isNudge && (
                       <span
-                        className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200 shrink-0"
+                        className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-mist text-smoke border border-mist shrink-0"
                         title="AI-generated nudge — drag, edit, or delete it like your own thoughts."
                       >
                         Nudge
@@ -1359,19 +1275,21 @@ export default function Canvas({
                     )}
                     {isReflection && (
                       <span
-                        className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 shrink-0"
+                        className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-mist text-smoke border border-mist shrink-0"
                         title="Reflection thought from Stage 3."
                       >
                         Reflection
                       </span>
                     )}
                     {isTerrain && (
-                      <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 border border-stone-200 shrink-0">
-                        Terrain
+                      <span
+                        className={`shrink-0 rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider ${terrainStyle.pill}`}
+                      >
+                        {terrainStyle.label}
                       </span>
                     )}
                     {isFireStarterNode && (
-                      <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                      <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-[#DDDDDD] bg-[#FAF8F5] text-[#2A2A2A] shrink-0">
                         Fire Starter
                       </span>
                     )}
@@ -1391,7 +1309,7 @@ export default function Canvas({
                       onClick={(e) => startConnection(e, thought.id)}
                       className="w-5 h-5 rounded-full border-2 bg-white hover:scale-110 transition-all"
                       style={{
-                        borderColor: elColor ? elColor.border : "var(--wireframe)",
+                        borderColor: "#CCCCCC",
                       }}
                       title="Drag to connect to another thought"
                     />
@@ -1422,8 +1340,8 @@ export default function Canvas({
                     width: BLOCK_WIDTH,
                     minHeight: BLOCK_MIN_HEIGHT,
                     zIndex: 15,
-                    backgroundColor: draftElColor ? draftElColor.bg : "#f9fafb",
-                    borderColor: draftElColor ? draftElColor.border : "#d1d5db",
+                    backgroundColor: "#FAFAFA",
+                    borderColor: "#DDDDDD",
                   }}
                   onClick={(e) => e.stopPropagation()}
                   onDoubleClick={(e) => e.stopPropagation()}
@@ -1434,16 +1352,10 @@ export default function Canvas({
                       <div className="flex items-center gap-1.5">
                         {draftSubEl && draftElColor ? (
                           <>
-                            <span
-                              className="w-6 h-6 rounded-md flex items-center justify-center text-sm font-bold"
-                              style={{ backgroundColor: draftElColor.light, color: draftElColor.text }}
-                            >
+                            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-mist text-sm font-bold text-smoke">
                               {draftSubEl.symbol}
                             </span>
-                            <span
-                              className="text-xs font-medium"
-                              style={{ color: draftElColor.text }}
-                            >
+                            <span className="text-xs font-medium text-smoke">
                               {draftSubEl.name}
                             </span>
                           </>

@@ -57,7 +57,7 @@ export default function RootLayout({ children }) {
           rel="stylesheet" 
         />
       </head>
-      <body className="bg-white antialiased overflow-x-hidden">
+      <body className="bg-white antialiased overflow-x-hidden min-h-full">
         <Providers themeProps={{ attribute: "class", defaultTheme: "light" }}>
           {children}
         </Providers>

@@ -36,6 +36,7 @@ export function mapIgniteThoughtToCanvas(
     kind: "thought",
     is_terrain: !!row.is_terrain,
     is_fire_starter_node: !!row.is_fire_starter_node,
+    terrain_type: row.terrain_type ? String(row.terrain_type) : undefined,
     created_at: String(row.created_at ?? new Date().toISOString()),
   };
 }

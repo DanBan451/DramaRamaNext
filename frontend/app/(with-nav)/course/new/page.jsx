@@ -562,11 +562,11 @@ function NewCourseIntakePageInner() {
 
   return (
     <div className="min-h-screen w-full bg-white pt-40 pb-12">
-        <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase mb-3">
+        <p className="font-mono text-[11px] tracking-[0.2em] text-black uppercase mb-3">
           New Goal
         </p>
         <h1 className="font-display text-3xl tb:text-4xl text-black leading-snug tracking-tight mb-4">
-          <span className="font-serif italic text-change">
+          <span className="font-serif italic text-primary">
             I want to think more effectively in
           </span>{" "}
           <span className="text-black">…</span>
@@ -583,7 +583,7 @@ function NewCourseIntakePageInner() {
             <Button
               onClick={startIntake}
               isDisabled={creatingCourse}
-              className="bg-primary text-white hover:bg-primary/90 h-12 px-8 font-medium"
+              className="bg-change text-white hover:bg-change/90 h-12 px-8 font-medium"
               radius="none"
             >
               {creatingCourse ? "Starting…" : "Start your goal"}
@@ -616,10 +616,10 @@ function NewCourseIntakePageInner() {
               {streaming && markerSeen && (
                 <div className="flex items-center gap-2 py-2">
                   <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full rounded-full bg-change opacity-60 animate-ping" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-change" />
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-60 animate-ping" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
                   </span>
-                  <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase">
+                  <p className="font-mono text-[11px] tracking-[0.2em] text-primary uppercase">
                     Extracting your goal…
                   </p>
                 </div>
@@ -629,14 +629,14 @@ function NewCourseIntakePageInner() {
             {extractionComplete || intakeComplete ? (
               <div className="border-t border-mist pt-6 space-y-4">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-[10px] tracking-[0.2em] text-change uppercase">
+                  <span className="font-mono text-[10px] tracking-[0.2em] text-primary uppercase">
                     {intakeComplete ? "Goal created" : "Confirm your goal sentence"}
                   </span>
                 </div>
                 <div
                   className={`rounded-lg px-4 py-3 min-h-[3.25rem] flex flex-wrap items-baseline gap-x-2 gap-y-2 bg-white border-2 ${
                     justUnlockedLabel
-                      ? "border-change/50 shadow-[0_0_0_4px_rgba(123,97,255,0.12)]"
+                      ? "border-primary/50 shadow-[0_0_0_4px_rgba(139,0,0,0.12)]"
                       : "border-black/15"
                   } transition-shadow`}
                 >
@@ -659,7 +659,7 @@ function NewCourseIntakePageInner() {
                     <Button
                       onClick={handleCreateCourse}
                       isDisabled={!String(courseLabel || "").trim() || finalizing}
-                      className="bg-primary text-white hover:bg-primary/90 h-12 px-6 font-medium disabled:opacity-40"
+                      className="bg-change text-white hover:bg-change/90 h-12 px-6 font-medium disabled:opacity-40"
                       radius="none"
                     >
                       {finalizing ? "Creating…" : "Create Goal"}
@@ -667,10 +667,10 @@ function NewCourseIntakePageInner() {
                     {finalizing && (
                       <span className="flex items-center gap-2">
                         <span className="relative flex h-2 w-2">
-                          <span className="absolute inline-flex h-full w-full rounded-full bg-change opacity-60 animate-ping" />
-                          <span className="relative inline-flex h-2 w-2 rounded-full bg-change" />
+                          <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-60 animate-ping" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
                         </span>
-                        <span className="font-mono text-[11px] tracking-[0.2em] text-change uppercase">
+                        <span className="font-mono text-[11px] tracking-[0.2em] text-primary uppercase">
                           Building your goal…
                         </span>
                       </span>
@@ -681,10 +681,10 @@ function NewCourseIntakePageInner() {
                 {intakeComplete && (
                   <div className="flex items-center gap-2 pt-2">
                     <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full rounded-full bg-change opacity-60 animate-ping" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-change" />
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-60 animate-ping" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
                     </span>
-                    <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase">
+                    <p className="font-mono text-[11px] tracking-[0.2em] text-primary uppercase">
                       Goal committed. Building puzzles…
                     </p>
                   </div>
@@ -793,11 +793,11 @@ function MessageBubble({ role, content, streaming }) {
   const showThinking = streaming && !visible;
   return (
     <div className="flex w-full flex-col items-start">
-      <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase mb-1">
+      <p className="font-mono text-[11px] tracking-[0.2em] text-primary uppercase mb-1">
         AI {streaming ? "· typing" : ""}
       </p>
       <div
-        className={`${BUBBLE_MAX} bg-change/10 border border-change/20 rounded-lg px-4 py-3 text-black text-base leading-relaxed whitespace-pre-wrap break-words`}
+        className={`${BUBBLE_MAX} bg-primary/10 border border-primary/20 rounded-lg px-4 py-3 text-black text-base leading-relaxed whitespace-pre-wrap break-words`}
       >
         {showThinking ? (
           <span className="inline-flex items-center gap-1 text-smoke italic">
@@ -810,7 +810,7 @@ function MessageBubble({ role, content, streaming }) {
           <>
             {visible}
             {streaming && (
-              <span className="inline-block w-1.5 h-4 align-text-bottom ml-0.5 bg-change/70 animate-pulse" />
+              <span className="inline-block w-1.5 h-4 align-text-bottom ml-0.5 bg-primary/70 animate-pulse" />
             )}
           </>
         )}

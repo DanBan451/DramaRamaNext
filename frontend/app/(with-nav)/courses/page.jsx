@@ -123,7 +123,7 @@ export default function CoursesPage() {
             <Button
               as={Link}
               href="/course/new"
-              className="shrink-0 self-start bg-primary text-white hover:bg-primary/90 font-semibold px-8 py-6 text-base"
+              className="shrink-0 self-start bg-change text-white hover:bg-change/90 font-semibold px-8 py-6 text-base shadow-sm"
               radius="none"
             >
               New Goal
@@ -148,7 +148,7 @@ export default function CoursesPage() {
               <Button
                 as={Link}
                 href="/course/new"
-                className="mt-10 bg-primary text-white hover:bg-primary/90 font-semibold px-10 py-6 text-base"
+                className="mt-10 bg-change text-white hover:bg-change/90 font-semibold px-10 py-6 text-base shadow-sm"
                 radius="none"
               >
                 Forge Your Mind

@@ -489,7 +489,7 @@ function PuzzleCard({ puzzle }) {
         ) : (
           <Link href={`/canvas/${puzzle.id}`}>
             <Button
-              className="bg-primary text-white hover:bg-primary/90 font-medium"
+              className="bg-change text-white hover:bg-change/90 font-medium"
               radius="none"
             >
               {inProgress ? "Resume →" : "Begin →"}

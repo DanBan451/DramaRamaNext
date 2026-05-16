@@ -7,8 +7,6 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from fastapi.responses import StreamingResponse
-
 from app.core.security import get_current_user
 from app.core.rate_limiter import rate_limit_user
 from app.adapters.supabase_adapter import (
@@ -18,11 +16,12 @@ from app.adapters.supabase_adapter import (
     SupabaseFireStarterRepository,
 )
 from app.adapters.claude_adapter import ClaudeStreamingAdapter
-from app.api.streaming import sse_stream
+from app.api.streaming import sse_stream, streaming_sse_response
 from app.domain.services import (
     ignite_guide_system_prompt,
     ignite_node_nudge_prompt,
-    ignite_terrain_prompt,
+    build_terrain_mapping_prompt,
+    build_fire_starter_application_prompt,
     ignite_match_puzzle_prompt,
 )
 
@@ -35,6 +34,125 @@ course_repo = SupabaseCourseRepository()
 puzzle_repo = SupabaseCoursePuzzleRepository()
 fire_starter_repo = SupabaseFireStarterRepository(client)
 llm = ClaudeStreamingAdapter()
+
+
+CANVAS_CENTER = 15800.0
+TERRAIN_BASE_X = CANVAS_CENTER - 1100.0
+TERRAIN_BASE_Y = CANVAS_CENTER - 520.0
+FS_BASE_X = CANVAS_CENTER + 900.0
+FS_BASE_Y = CANVAS_CENTER
+TERRAIN_TYPE_Y = {
+    "fact": 0,
+    "history": 240,
+    "constraint": 480,
+    "uncertainty": 720,
+}
+VALID_TERRAIN_TYPES = ("fact", "history", "constraint", "uncertainty")
+
+
+def _element_code_to_storage(element_code: str) -> tuple[str | None, str | None]:
+    """Map fire_1_0 style codes to (element, sub_element) for DB storage."""
+    code = (element_code or "").strip().lower()
+    if not code:
+        return None, None
+    if code == "change":
+        return "change", None
+    parts = code.split("_")
+    if len(parts) >= 2 and parts[0] in ("earth", "fire", "air", "water"):
+        el = parts[0]
+        try:
+            idx = int(parts[1])
+            return el, f"{el}-{idx}"
+        except ValueError:
+            pass
+    if code in ("earth", "fire", "air", "water"):
+        return code, f"{code}-1"
+    return None, None
+
+
+def _terrain_positions(nodes: list[dict]) -> list[tuple[float, float]]:
+    type_counters: dict[str, int] = {t: 0 for t in VALID_TERRAIN_TYPES}
+    positions: list[tuple[float, float]] = []
+    for n in nodes:
+        tt = (n.get("terrain_type") or "fact").lower()
+        if tt not in VALID_TERRAIN_TYPES:
+            tt = "uncertainty"
+        row = type_counters[tt]
+        type_counters[tt] += 1
+        x = TERRAIN_BASE_X + (row % 2) * 300.0
+        y = TERRAIN_BASE_Y + TERRAIN_TYPE_Y.get(tt, 0) + (row // 2) * 120.0
+        positions.append((x, y))
+    return positions
+
+
+def _fire_starter_position(flow_order: int) -> tuple[float, float]:
+    order = max(1, int(flow_order))
+    return FS_BASE_X + (order - 1) * 380.0, FS_BASE_Y
+
+
+def _terrain_type_counts(nodes: list[dict]) -> dict[str, int]:
+    counts = {t: 0 for t in VALID_TERRAIN_TYPES}
+    for n in nodes:
+        tt = (n.get("terrain_type") or "fact").lower()
+        if tt in counts:
+            counts[tt] += 1
+    return counts
+
+
+def _build_ignite_opening_message(
+    *,
+    terrain_nodes: list[dict],
+    matched_puzzle_title: str,
+    fire_starter_name: str,
+    match_reasoning: str,
+    insights_after_applying: str,
+    suggested_next_step: str,
+) -> str:
+    counts = _terrain_type_counts(terrain_nodes)
+    n = len(terrain_nodes)
+    parts_desc: list[str] = []
+    if counts["fact"]:
+        parts_desc.append(
+            f"{counts['fact']} fact{'s' if counts['fact'] != 1 else ''} about what's happening"
+        )
+    if counts["history"]:
+        parts_desc.append(
+            f"{counts['history']} piece{'s' if counts['history'] != 1 else ''} of history"
+        )
+    if counts["constraint"]:
+        parts_desc.append(
+            f"{counts['constraint']} constraint{'s' if counts['constraint'] != 1 else ''}"
+        )
+    if counts["uncertainty"]:
+        parts_desc.append(
+            f"{counts['uncertainty']} uncertaint{'ies' if counts['uncertainty'] != 1 else 'y'}"
+        )
+    terrain_list = ", ".join(parts_desc) if parts_desc else "the pieces of your situation"
+
+    part1 = (
+        f"I read your problem and laid out what I'm seeing. On the left, I've mapped {n} terrain "
+        f"piece{'s' if n != 1 else ''} — {terrain_list}. The facts are the ground. The history tells "
+        "me what's been tried. The constraint is what's holding you back from acting freely. The "
+        "uncertainty is where the puzzle still has shape — that's where the work is."
+    )
+
+    part2 = (
+        f"I looked across the Forge sessions you've completed and matched this to **{matched_puzzle_title}**. "
+        f"{match_reasoning.strip()} That's why I'm applying your Fire Starter, **{fire_starter_name}**."
+    )
+
+    part3 = (
+        "With the Fire Starter applied to your terrain, here's what comes into focus: "
+        f"{insights_after_applying.strip()}"
+    )
+
+    part4 = (
+        "This isn't the answer. It's a way of seeing the problem you didn't have a minute ago. "
+        f"{suggested_next_step.strip()} From here: extend the chain, drop your own thoughts, fail fast, "
+        "ask the AI to fan out a node. The terrain is yours. The Fire Starter is yours. Go to work."
+    )
+
+    return f"{part1}\n\n{part2}\n\n{part3}\n\n{part4}"
 
 
 def _parse_json_obj(raw: str) -> dict:
@@ -83,7 +201,42 @@ async def list_ignite_problems(
     if course_id:
         q = q.eq("course_id", course_id)
     res = q.execute()
-    return {"problems": res.data or []}
+    problems = res.data or []
+    if not problems:
+        return {"problems": []}
+
+    ids = [p["id"] for p in problems]
+    th_res = (
+        client.table("ignite_thoughts")
+        .select("ignite_problem_id, is_terrain, is_fire_starter_node")
+        .in_("ignite_problem_id", ids)
+        .execute()
+    )
+    user_counts: dict[str, int] = {pid: 0 for pid in ids}
+    for row in th_res.data or []:
+        pid = row.get("ignite_problem_id")
+        if not pid:
+            continue
+        if row.get("is_terrain") or row.get("is_fire_starter_node"):
+            continue
+        user_counts[str(pid)] = user_counts.get(str(pid), 0) + 1
+
+    # Re-fetch with applied_fire_starter_id for status pills
+    q2 = (
+        client.table("ignite_problems")
+        .select(
+            "id, title, description, course_id, status, created_at, applied_fire_starter_id"
+        )
+        .eq("user_id", user.id)
+        .in_("id", ids)
+        .order("created_at", desc=True)
+    )
+    if course_id:
+        q2 = q2.eq("course_id", course_id)
+    enriched = q2.execute().data or problems
+    for p in enriched:
+        p["user_thought_count"] = user_counts.get(str(p["id"]), 0)
+    return {"problems": enriched}
 
 
 @router.post("/ignite")
@@ -126,10 +279,10 @@ async def create_ignite_problem(
     problem = ins.data[0]
     pid = problem["id"]
 
-    # --- Terrain ---
+    # --- Terrain mapping ---
     try:
         raw_terrain = await llm.generate_text(
-            prompt=ignite_terrain_prompt(title, description),
+            prompt=build_terrain_mapping_prompt(title, description),
             system="Return ONLY JSON.",
             max_tokens=2000,
         )
@@ -138,20 +291,27 @@ async def create_ignite_problem(
         logger.error("terrain gen failed: %s", e)
         terrain = {
             "nodes": [
-                {"id": "t1", "content": "What you know", "kind": "known"},
-                {"id": "t2", "content": "What you don't know", "kind": "unknown"},
+                {"content": title[:120], "terrain_type": "fact"},
+                {"content": description[:140], "terrain_type": "uncertainty"},
             ],
-            "connections": [{"from": "t1", "to": "t2"}],
+            "connections": [{"from_index": 0, "to_index": 1}],
         }
 
-    temp_to_real: dict[str, str] = {}
-    nodes = terrain.get("nodes") or []
-    base_x, base_y = 15800.0, 15800.0
-    for i, n in enumerate(nodes):
-        nid = str(n.get("id") or f"t{i}")
-        content = (n.get("content") or "Note")[:200]
-        x = base_x + (i % 3) * 320
-        y = base_y + (i // 3) * 200
+    terrain_nodes = terrain.get("nodes") or []
+    if not terrain_nodes:
+        terrain_nodes = [
+            {"content": title[:120], "terrain_type": "fact"},
+            {"content": "What remains unclear", "terrain_type": "uncertainty"},
+        ]
+
+    terrain_positions = _terrain_positions(terrain_nodes)
+    terrain_ids: list[str] = []
+    for i, n in enumerate(terrain_nodes):
+        content = (n.get("content") or "Note")[:220]
+        tt = (n.get("terrain_type") or "fact").lower()
+        if tt not in VALID_TERRAIN_TYPES:
+            tt = "uncertainty"
+        px, py = terrain_positions[i] if i < len(terrain_positions) else (TERRAIN_BASE_X, TERRAIN_BASE_Y)
         row = (
             client.table("ignite_thoughts")
             .insert(
@@ -161,29 +321,39 @@ async def create_ignite_problem(
                     "content": content,
                     "element": None,
                     "sub_element": None,
-                    "pos_x": x,
-                    "pos_y": y,
+                    "pos_x": px,
+                    "pos_y": py,
                     "is_terrain": True,
                     "is_fire_starter_node": False,
+                    "terrain_type": tt,
                     "flow_order": i + 1,
                 }
             )
             .execute()
         )
-        temp_to_real[nid] = row.data[0]["id"]
+        terrain_ids.append(row.data[0]["id"])
 
     for c in terrain.get("connections") or []:
-        fa, tb = c.get("from"), c.get("to")
-        if fa in temp_to_real and tb in temp_to_real:
+        try:
+            fi = int(c.get("from_index"))
+            ti = int(c.get("to_index"))
+        except (TypeError, ValueError):
+            continue
+        if 0 <= fi < len(terrain_ids) and 0 <= ti < len(terrain_ids) and fi != ti:
             client.table("ignite_thought_connections").insert(
                 {
                     "ignite_problem_id": pid,
-                    "from_thought_id": temp_to_real[fa],
-                    "to_thought_id": temp_to_real[tb],
+                    "from_thought_id": terrain_ids[fi],
+                    "to_thought_id": terrain_ids[ti],
                 }
             ).execute()
 
-    # --- Match puzzle ---
+    terrain_summary = [
+        {"content": n.get("content"), "terrain_type": n.get("terrain_type")}
+        for n in terrain_nodes
+    ]
+
+    # --- Match Forge puzzle ---
     puzzles = await puzzle_repo.get_by_course(course_id)
     candidates = []
     for p in puzzles:
@@ -195,15 +365,14 @@ async def create_ignite_problem(
                     "course_puzzle_id": str(p.id),
                     "title": p.title,
                     "puzzle_text": p.puzzle_text,
+                    "primary_element": p.primary_element,
                 }
             )
 
     matched_puzzle_id = None
-    applied_fs = None
+    fs_row = starters[0]
     if not candidates:
-        fs_row = starters[0]
         matched_puzzle_id = str(fs_row.get("course_puzzle_id"))
-        applied_fs = fs_row
     else:
         try:
             raw_m = await llm.generate_text(
@@ -224,50 +393,126 @@ async def create_ignite_problem(
             (s for s in starters if str(s.get("course_puzzle_id")) == str(matched_puzzle_id)),
             starters[0],
         )
-        applied_fs = fs_row
-        combo = fs_row.get("element_combination") or []
-        if isinstance(combo, str):
-            try:
-                combo = json.loads(combo)
-            except Exception:
-                combo = []
-        anchor_tid = next(iter(temp_to_real.values()), None)
-        prev = anchor_tid
-        ox = base_x + 400
-        oy = base_y
-        for j, el in enumerate(combo[:6]):
-            el_s = str(el).lower()
-            sub = f"{el_s}-1" if el_s in ("earth", "fire", "air", "water") else "earth-1"
-            content = f"Apply {el_s}: extend from your Fire Starter"
-            nrow = (
-                client.table("ignite_thoughts")
-                .insert(
-                    {
-                        "ignite_problem_id": pid,
-                        "user_id": user.id,
-                        "content": content[:220],
-                        "element": el_s if el_s != "change" else "change",
-                        "sub_element": sub,
-                        "pos_x": ox + j * 300,
-                        "pos_y": oy,
-                        "is_terrain": False,
-                        "is_fire_starter_node": True,
-                        "flow_order": 100 + j,
-                    }
-                )
-                .execute()
-            )
-            nid = nrow.data[0]["id"]
-            if prev:
-                client.table("ignite_thought_connections").insert(
-                    {
-                        "ignite_problem_id": pid,
-                        "from_thought_id": prev,
-                        "to_thought_id": nid,
-                    }
-                ).execute()
-            prev = nid
 
+    combo = fs_row.get("element_combination") or []
+    if isinstance(combo, str):
+        try:
+            combo = json.loads(combo)
+        except Exception:
+            combo = []
+
+    puzzle = await puzzle_repo.get_by_id(str(matched_puzzle_id)) if matched_puzzle_id else None
+    ptitle = puzzle.title if puzzle else "your Forge session"
+    puzzle_text = puzzle.puzzle_text if puzzle else ""
+    primary_el = puzzle.primary_element if puzzle else "synthesis"
+    fs_name = fs_row.get("name") or "your Fire Starter"
+    fs_desc = fs_row.get("description") or ""
+
+    # --- Apply Fire Starter (applied thinking moves) ---
+    fs_payload: dict = {}
+    try:
+        raw_fs = await llm.generate_text(
+            prompt=build_fire_starter_application_prompt(
+                problem_title=title,
+                problem_description=description,
+                terrain_json=json.dumps(terrain_summary, ensure_ascii=False),
+                puzzle_title=ptitle,
+                puzzle_text=puzzle_text,
+                primary_element=primary_el,
+                fire_starter_name=fs_name,
+                fire_starter_description=fs_desc,
+                element_combination_json=json.dumps(combo, ensure_ascii=False),
+            ),
+            system="Return ONLY JSON.",
+            max_tokens=2500,
+        )
+        fs_payload = _parse_json_obj(raw_fs)
+    except Exception as e:
+        logger.error("fire starter application failed: %s", e)
+        fs_payload = {}
+
+    fs_nodes = fs_payload.get("nodes") or []
+    if not fs_nodes and combo:
+        for j, el in enumerate(combo[:6]):
+            el_s = str(el)
+            el_base, sub = _element_code_to_storage(el_s)
+            fs_nodes.append(
+                {
+                    "element": el_s,
+                    "element_display": el_s,
+                    "content": f"Applied move for {el_s} on this problem.",
+                    "flow_order": j + 1,
+                }
+            )
+            if el_base:
+                fs_nodes[-1]["_element"] = el_base
+                fs_nodes[-1]["_sub_element"] = sub
+
+    anchor_idx = 0
+    try:
+        anchor_idx = int(fs_payload.get("anchor_terrain_index", 0))
+    except (TypeError, ValueError):
+        anchor_idx = 0
+    if not terrain_ids:
+        anchor_idx = 0
+    elif anchor_idx < 0 or anchor_idx >= len(terrain_ids):
+        anchor_idx = 0
+
+    fs_nodes_sorted = sorted(fs_nodes, key=lambda n: int(n.get("flow_order") or 0))
+    fs_ids: list[str] = []
+    prev_fs_id: str | None = None
+    for n in fs_nodes_sorted[:8]:
+        el_code = str(n.get("element") or "")
+        el_base, sub = _element_code_to_storage(el_code)
+        if n.get("_element"):
+            el_base = n.get("_element")
+            sub = n.get("_sub_element")
+        content = (n.get("content") or "")[:400]
+        if not content.strip():
+            continue
+        flow_order = int(n.get("flow_order") or len(fs_ids) + 1)
+        px, py = _fire_starter_position(flow_order)
+        nrow = (
+            client.table("ignite_thoughts")
+            .insert(
+                {
+                    "ignite_problem_id": pid,
+                    "user_id": user.id,
+                    "content": content,
+                    "element": el_base,
+                    "sub_element": sub,
+                    "pos_x": px,
+                    "pos_y": py,
+                    "is_terrain": False,
+                    "is_fire_starter_node": True,
+                    "terrain_type": None,
+                    "flow_order": flow_order,
+                }
+            )
+            .execute()
+        )
+        nid = nrow.data[0]["id"]
+        fs_ids.append(nid)
+        if prev_fs_id:
+            client.table("ignite_thought_connections").insert(
+                {
+                    "ignite_problem_id": pid,
+                    "from_thought_id": prev_fs_id,
+                    "to_thought_id": nid,
+                }
+            ).execute()
+        prev_fs_id = nid
+
+    if fs_ids and terrain_ids:
+        client.table("ignite_thought_connections").insert(
+            {
+                "ignite_problem_id": pid,
+                "from_thought_id": terrain_ids[anchor_idx],
+                "to_thought_id": fs_ids[0],
+            }
+        ).execute()
+
+    if matched_puzzle_id:
         client.table("ignite_problems").update(
             {
                 "applied_fire_starter_id": fs_row["id"],
@@ -275,19 +520,33 @@ async def create_ignite_problem(
             }
         ).eq("id", pid).execute()
 
-        puzzle = await puzzle_repo.get_by_id(str(matched_puzzle_id))
-        ptitle = puzzle.title if puzzle else "your Forge session"
-        fs_name = fs_row.get("name") or "your Fire Starter"
-        combo_s = ", ".join(str(x) for x in (combo or []))
-        msg = (
-            f"I matched your problem to your Forge session on **{ptitle}**. "
-            f"I'm applying your Fire Starter **{fs_name}** — it uses {combo_s or 'your saved element mix'}. "
-            "Here's where I think your thinking should start: follow the highlighted chain from your terrain."
+    match_reasoning = (
+        fs_payload.get("match_reasoning")
+        or "The structural shape of your real problem echoes the thinking pattern you trained in Forge."
+    )
+    insights = (
+        fs_payload.get("insights_after_applying")
+        or "The Fire Starter reframes which parts of the terrain matter most and which paths are dead ends."
+    )
+    next_step = (
+        fs_payload.get("suggested_next_step")
+        or "Walk the chain on the right, then add your own thoughts where the terrain still has gaps."
+    )
+
+    if fs_ids:
+        msg = _build_ignite_opening_message(
+            terrain_nodes=terrain_nodes,
+            matched_puzzle_title=ptitle,
+            fire_starter_name=fs_name,
+            match_reasoning=str(match_reasoning),
+            insights_after_applying=str(insights),
+            suggested_next_step=str(next_step),
         )
     else:
         msg = (
-            "I couldn't match a specific Forge puzzle, but your latest Fire Starter is loaded as context. "
-            "Start from the terrain nodes and extend outward."
+            "I mapped your terrain on the left. I couldn't apply a Fire Starter chain just now — "
+            "start from the terrain pieces and add your own thoughts; try creating the problem again "
+            "if the chain is missing."
         )
 
     client.table("ignite_chat_messages").insert(
@@ -354,11 +613,12 @@ async def ignite_guide_stream(
     if not user_message:
         raise HTTPException(status_code=400, detail="user_message required")
 
-    fs_name = fs_elems = None
+    fs_name = fs_elems = fs_desc = fs_flow = matched_title = None
     if prob.get("applied_fire_starter_id"):
         fs = fire_starter_repo.get(str(prob["applied_fire_starter_id"]))
         if fs:
             fs_name = fs.get("name")
+            fs_desc = fs.get("description") or ""
             ec = fs.get("element_combination") or []
             if isinstance(ec, str):
                 try:
@@ -366,12 +626,64 @@ async def ignite_guide_stream(
                 except Exception:
                     ec = []
             fs_elems = ", ".join(str(x) for x in ec)
+            flow = fs.get("flow_of_ideas") or []
+            if isinstance(flow, str):
+                try:
+                    flow = json.loads(flow)
+                except Exception:
+                    flow = []
+            fs_flow = json.dumps(flow, ensure_ascii=False)[:3000]
+
+    if prob.get("matched_course_puzzle_id"):
+        mp = await puzzle_repo.get_by_id(str(prob["matched_course_puzzle_id"]))
+        if mp:
+            matched_title = mp.title
+
+    th = (
+        client.table("ignite_thoughts")
+        .select("content, is_terrain, is_fire_starter_node, terrain_type, flow_order, element")
+        .eq("ignite_problem_id", ignite_problem_id)
+        .order("flow_order")
+        .execute()
+    )
+    terrain_lines = []
+    fs_lines = []
+    for t in th.data or []:
+        content = (t.get("content") or "").strip()
+        if not content:
+            continue
+        if t.get("is_terrain"):
+            tt = t.get("terrain_type") or "fact"
+            terrain_lines.append(f"- [{tt}] {content}")
+        elif t.get("is_fire_starter_node"):
+            el = t.get("element") or ""
+            order = t.get("flow_order") or ""
+            fs_lines.append(f"- ({order}) [{el}] {content}")
+
+    opening_msg = ""
+    first_asst = (
+        client.table("ignite_chat_messages")
+        .select("content")
+        .eq("ignite_problem_id", ignite_problem_id)
+        .eq("role", "assistant")
+        .order("created_at")
+        .limit(1)
+        .execute()
+    )
+    if first_asst.data:
+        opening_msg = (first_asst.data[0].get("content") or "").strip()
 
     system = ignite_guide_system_prompt(
         problem_title=prob.get("title") or "",
         problem_description=prob.get("description") or "",
         fire_starter_name=fs_name,
         fire_starter_elements=fs_elems,
+        fire_starter_description=fs_desc,
+        fire_starter_flow=fs_flow,
+        matched_puzzle_title=matched_title,
+        terrain_summary="\n".join(terrain_lines) if terrain_lines else None,
+        applied_fs_nodes="\n".join(fs_lines) if fs_lines else None,
+        opening_guide_message=opening_msg or None,
     )
     messages = []
     for m in history:
@@ -389,7 +701,7 @@ async def ignite_guide_stream(
         ):
             yield ev
 
-    return StreamingResponse(gen(), media_type="text/event-stream")
+    return streaming_sse_response(gen)
 
 
 @router.post("/ignite/{ignite_problem_id}/nudge")

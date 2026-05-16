@@ -5,10 +5,17 @@
 // chat panel) so the page doesn't visibly reflow when content arrives.
 // Uses Tailwind's `animate-pulse` on muted gray blocks.
 
-export default function CanvasSkeleton() {
+export default function CanvasSkeleton({ withNavbar = false }) {
+  const rootClass = withNavbar
+    ? "mt-[var(--navbar-height)] flex min-h-0 h-[calc(100svh-var(--navbar-height))] max-h-[calc(100svh-var(--navbar-height))] supports-[height:100dvh]:h-[calc(100dvh-var(--navbar-height))] supports-[height:100dvh]:max-h-[calc(100dvh-var(--navbar-height))] bg-white overflow-hidden"
+    : "flex h-screen bg-white overflow-hidden";
+
+  const chatAsideClass = withNavbar
+    ? "w-[380px] shrink-0 border-l border-mist p-4 space-y-4 hidden lp:block"
+    : "w-80 shrink-0 border-l border-mist p-4 space-y-4 hidden lp:block";
+
   return (
-    <div className="flex h-screen bg-white overflow-hidden">
-      {/* Left sidebar skeleton */}
+    <div className={rootClass}>
       <aside className="w-64 shrink-0 border-r border-mist p-4 space-y-4">
         <div className="h-3 w-20 bg-mist rounded animate-pulse" />
         <div className="space-y-2">
@@ -22,19 +29,30 @@ export default function CanvasSkeleton() {
         </div>
       </aside>
 
-      {/* Center column skeleton */}
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Header */}
-        <header className="border-b border-mist p-4 space-y-2">
-          <div className="h-3 w-32 bg-mist rounded animate-pulse" />
-          <div className="h-6 w-2/3 bg-mist rounded animate-pulse" />
-          <div className="h-3 w-3/4 bg-mist/70 rounded animate-pulse" />
-          <div className="h-3 w-1/2 bg-mist/70 rounded animate-pulse" />
+        <header
+          className={
+            withNavbar
+              ? "shrink-0 border-b border-mist h-10 flex items-center gap-3 px-3"
+              : "border-b border-mist p-4 space-y-2"
+          }
+        >
+          {withNavbar ? (
+            <>
+              <div className="h-3 w-16 bg-mist rounded animate-pulse shrink-0" />
+              <div className="h-3 flex-1 max-w-md bg-mist/70 rounded animate-pulse" />
+            </>
+          ) : (
+            <>
+              <div className="h-3 w-32 bg-mist rounded animate-pulse" />
+              <div className="h-6 w-2/3 bg-mist rounded animate-pulse" />
+              <div className="h-3 w-3/4 bg-mist/70 rounded animate-pulse" />
+              <div className="h-3 w-1/2 bg-mist/70 rounded animate-pulse" />
+            </>
+          )}
         </header>
 
-        {/* Canvas surface */}
-        <div className="flex-1 relative bg-mist/20">
-          {/* Faint dot grid */}
+        <div className="flex-1 relative bg-mist/20 min-h-0">
           <div
             className="absolute inset-0 opacity-40"
             style={{
@@ -43,7 +61,6 @@ export default function CanvasSkeleton() {
               backgroundSize: "24px 24px",
             }}
           />
-          {/* A few placeholder thought blocks pulsing in scattered spots */}
           <div
             className="absolute bg-white border border-mist rounded-xl shadow-sm h-24 w-44 animate-pulse"
             style={{ top: "18%", left: "14%" }}
@@ -63,10 +80,9 @@ export default function CanvasSkeleton() {
         </div>
       </div>
 
-      {/* Right chat skeleton */}
-      <aside className="w-80 shrink-0 border-l border-mist p-4 space-y-4 hidden lp:block">
+      <aside className={chatAsideClass}>
         <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-change/40" />
+          <div className="h-2 w-2 rounded-full bg-smoke/60" />
           <div className="h-3 w-28 bg-mist rounded animate-pulse" />
         </div>
         <div className="flex gap-2">

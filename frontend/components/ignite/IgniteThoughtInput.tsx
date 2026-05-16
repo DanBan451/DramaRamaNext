@@ -22,7 +22,7 @@ export default function IgniteThoughtInput({
         type="button"
         disabled={disabled || !value.trim()}
         onClick={onSubmit}
-        className="px-3 py-2 bg-primary text-white text-sm rounded-md disabled:opacity-40"
+        className="rounded-md bg-change px-3 py-2 text-sm text-white transition-colors hover:bg-change/90 disabled:opacity-40"
       >
         Add
       </button>

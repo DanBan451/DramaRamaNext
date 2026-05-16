@@ -5,7 +5,21 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import CreativeSpinner from "@/components/CreativeSpinner";
+import GoalWorkspaceHeader from "@/components/goal-workspace/GoalWorkspaceHeader";
+import GoalWorkspaceShell from "@/components/goal-workspace/GoalWorkspaceShell";
+import {
+  GOAL_WORKSPACE_BACK,
+  GOAL_WORKSPACE_SUPPORTING,
+} from "@/components/goal-workspace/goalWorkspaceCopy";
+import { eyebrowClass } from "@/components/goals/goalWorkspaceStyles";
+import { readCachedGoalTitle, writeCachedGoalTitle } from "@/lib/goal-title-cache";
 import { Button } from "@nextui-org/button";
+import {
+  headlineLgClass,
+  primaryCtaClass,
+  statLineClass,
+  tertiaryCtaClass,
+} from "@/components/goals/goalWorkspaceStyles";
 
 const ROTATING_PHRASES = [
   "Reading what you said.",
@@ -106,6 +120,10 @@ export default function CourseReadyPage() {
         const data = await res.json();
         if (cancelled) return;
         setCourse(data.course);
+        writeCachedGoalTitle(
+          courseId,
+          courseHeadlineInPhrase(data.course),
+        );
 
         const status = data.course?.course_status;
         if (status === "ready" || status === "active" || status === "completed") {
@@ -251,8 +269,36 @@ export default function CourseReadyPage() {
     }
   }
 
-  if (!isLoaded || !course) {
+  const cachedTitle = readCachedGoalTitle(courseId);
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-white pt-24 flex items-center justify-center">
+        <CreativeSpinner label="Loading course" />
+      </div>
+    );
+  }
+
+  if (!course) {
     if (loadError) return <ErrorScreen message={loadError} />;
+    if (cachedTitle) {
+      return (
+        <GoalWorkspaceShell
+          header={
+            <GoalWorkspaceHeader
+              backHref={`/goals/${courseId}`}
+              backLabel={GOAL_WORKSPACE_BACK.modes}
+              goalTitle={cachedTitle}
+              supportingLine={GOAL_WORKSPACE_SUPPORTING.forge}
+            />
+          }
+        >
+          <div className="nav-shell flex min-h-[40vh] items-center justify-center">
+            <CreativeSpinner label="Loading course" />
+          </div>
+        </GoalWorkspaceShell>
+      );
+    }
     return (
       <div className="min-h-screen bg-white pt-24 flex items-center justify-center">
         <CreativeSpinner label="Loading course" />
@@ -274,17 +320,11 @@ export default function CourseReadyPage() {
   }
 
   if (status === "ready" || status === "active" || status === "completed") {
-    if (!puzzles) {
-      return (
-        <div className="min-h-screen bg-white pt-24 flex items-center justify-center">
-          <CreativeSpinner label="Loading puzzles" />
-        </div>
-      );
-    }
     return (
       <ReadyView
         headlinePhrase={headlinePhrase}
         puzzles={puzzles}
+        puzzlesLoading={!puzzles}
         courseId={courseId}
         getToken={getToken}
       />
@@ -334,7 +374,7 @@ function LoadingView({ headlinePhrase, phrase }) {
   );
 }
 
-function ReadyView({ headlinePhrase, puzzles, courseId, getToken }) {
+function ReadyView({ headlinePhrase, puzzles, puzzlesLoading, courseId, getToken }) {
   const [fireStarters, setFireStarters] = useState(null);
 
   useEffect(() => {
@@ -360,24 +400,32 @@ function ReadyView({ headlinePhrase, puzzles, courseId, getToken }) {
   }, [courseId, getToken]);
 
   return (
-    <div className="min-h-screen bg-white pt-40 pb-16">
-      <div className="max-w-[1536px] mx-auto px-6">
-        <div className="mb-10 max-w-3xl">
-          <p className="font-mono text-[11px] tracking-[0.2em] text-change uppercase mb-4">
-            Your Course
-          </p>
-          <h1 className="font-display text-4xl tb:text-5xl text-black leading-[1.1] tracking-tight">
-            <span className="text-smoke">Becoming a more effective thinker <em className="italic">in</em></span>{" "}
-            <span className="text-black font-serif italic">{headlinePhrase}</span>
-          </h1>
-        </div>
+    <GoalWorkspaceShell
+      header={
+        <GoalWorkspaceHeader
+          backHref={`/goals/${courseId}`}
+          backLabel={GOAL_WORKSPACE_BACK.modes}
+          goalTitle={headlinePhrase}
+          supportingLine={GOAL_WORKSPACE_SUPPORTING.forge}
+        />
+      }
+    >
+      <div className="nav-shell">
+        <p className={`${eyebrowClass} mb-8`}>The Forge</p>
 
-        <div className="grid grid-cols-1 tb:grid-cols-2 lp:grid-cols-3 gap-6">
-          {puzzles.map((p) => (
-            <PuzzleCard key={p.id} puzzle={p} />
-          ))}
-        </div>
+        {puzzlesLoading ? (
+          <div className="flex min-h-[40vh] items-center justify-center">
+            <CreativeSpinner label="Loading puzzles" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 tb:grid-cols-2 lp:grid-cols-3 [&>*]:h-full">
+            {puzzles.map((p) => (
+              <PuzzleCard key={p.id} puzzle={p} />
+            ))}
+          </div>
+        )}
 
+        {!puzzlesLoading ? (
         <section className="mt-16 max-w-4xl">
           <h2 className="font-display text-2xl text-black mb-4">Your Fire Starters</h2>
           {fireStarters === null ? (
@@ -420,17 +468,9 @@ function ReadyView({ headlinePhrase, puzzles, courseId, getToken }) {
             </div>
           )}
         </section>
-
-        <div className="mt-16">
-          <Link
-            href="/goals"
-            className="font-mono text-[11px] tracking-[0.2em] uppercase text-smoke hover:text-change transition-colors"
-          >
-            ← Back to your goals
-          </Link>
-        </div>
+        ) : null}
       </div>
-    </div>
+    </GoalWorkspaceShell>
   );
 }
 
@@ -444,16 +484,21 @@ function PuzzleCard({ puzzle }) {
   const inProgress = puzzle.status === "in_progress" && !isCompleted;
   const stageLabel =
     stage === 2 ? "Stage 2 — Push Further" : stage === 3 ? "Stage 3 — Reflect" : null;
+  const href = `/canvas/${puzzle.id}`;
+  const ctaLabel = isCompleted ? "Review →" : inProgress ? "Resume →" : "Begin →";
+  const ctaClass = isCompleted ? tertiaryCtaClass : primaryCtaClass;
+
   return (
-    <div className={`relative bg-white border border-mist border-l-4 p-6 rounded-r-lg shadow-sm transition-all flex flex-col ${
-      isCompleted
-        ? "border-l-emerald-400 opacity-80"
-        : "border-l-smoke/60 hover:shadow-md hover:-translate-y-0.5"
-    }`}>
+    <Link
+      href={href}
+      className={`relative flex h-full min-h-[14rem] flex-col rounded-xl border bg-white p-6 shadow-sm no-underline text-inherit transition-all ${
+        isCompleted
+          ? "border-mist border-l-4 border-l-emerald-500 opacity-90"
+          : "border-black/10 hover:-translate-y-0.5 hover:shadow-md"
+      }`}
+    >
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="font-mono text-[11px] tracking-[0.2em] uppercase text-smoke">
-          Puzzle {roman}
-        </p>
+        <p className={statLineClass}>Puzzle {roman}</p>
         {isCompleted && (
           <span
             className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200"
@@ -470,34 +515,14 @@ function PuzzleCard({ puzzle }) {
           </span>
         )}
       </div>
-      <h3 className="font-display text-2xl text-black leading-snug mb-3">
+      <h3 className={`${headlineLgClass} mb-3 line-clamp-3 text-[1.375rem] leading-snug`}>
         {puzzle.title}
       </h3>
-      <p className="font-serif italic text-ash text-base leading-relaxed mb-5 flex-1">
+      <p className="mb-5 flex-1 font-sans text-base font-medium leading-[1.55] text-[#2a2a2a] line-clamp-4">
         {puzzle.puzzle_text}
       </p>
-      <div className="flex items-center gap-3">
-        {isCompleted ? (
-          <Link href={`/canvas/${puzzle.id}`}>
-            <Button
-              className="bg-mist text-smoke hover:bg-mist/80 font-medium"
-              radius="none"
-            >
-              Review →
-            </Button>
-          </Link>
-        ) : (
-          <Link href={`/canvas/${puzzle.id}`}>
-            <Button
-              className="bg-primary text-white hover:bg-primary/90 font-medium"
-              radius="none"
-            >
-              {inProgress ? "Resume →" : "Begin →"}
-            </Button>
-          </Link>
-        )}
-      </div>
-    </div>
+      <span className={`${ctaClass} mt-auto pt-6`}>{ctaLabel}</span>
+    </Link>
   );
 }
 

@@ -10,6 +10,7 @@ export interface IgniteThoughtRow {
   pos_x: number | null;
   pos_y: number | null;
   is_terrain?: boolean;
+  terrain_type?: string;
   is_fire_starter_node?: boolean;
   flow_order: number | null;
   created_at: string;

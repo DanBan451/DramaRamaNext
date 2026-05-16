@@ -4,59 +4,48 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
-import { Button } from "@nextui-org/button";
 import CreativeSpinner from "@/components/CreativeSpinner";
+import GoalListCard from "@/components/goals/GoalListCard";
+import {
+  bodyClass,
+  headlineLgClass,
+  primaryCtaClass,
+} from "@/components/goals/goalWorkspaceStyles";
 import { readBackendErrorMessage } from "@/lib/read-backend-error";
 import Footer from "@/components/Footer";
 
-const STATUS_LABEL = {
-  draft: "Intake not started",
-  in_progress: "Intake · not finalized",
-  complete: "Intake complete",
-  abandoned: "Abandoned",
-};
+const READY_COURSE_STATUSES = new Set(["ready", "active", "completed"]);
 
-function intakeCourseHref(course) {
-  const sid = course.intake_status;
-  if (sid === "draft" || sid === "in_progress") {
-    return `/course/new?resume=${encodeURIComponent(course.id)}`;
+async function fetchCardStats(courseId, headers) {
+  try {
+    const [puzzleRes, fsRes] = await Promise.all([
+      fetch(`/api/backend-api/course/${courseId}/puzzles`, { headers }),
+      fetch(
+        `/api/backend-api/fire-starters?course_id=${encodeURIComponent(courseId)}`,
+        { headers },
+      ),
+    ]);
+    let puzzleCount = 0;
+    let fireStarterCount = 0;
+    if (puzzleRes.ok) {
+      const data = await puzzleRes.json();
+      puzzleCount = (data.puzzles || []).length;
+    }
+    if (fsRes.ok) {
+      const data = await fsRes.json();
+      fireStarterCount = Array.isArray(data) ? data.length : 0;
+    }
+    return { puzzleCount, fireStarterCount };
+  } catch {
+    return null;
   }
-  return `/goals/${course.id}/ready`;
 }
-
-/** Card title — never vague "Untitled" for unfinished drafts. */
-function courseCardTitle(course) {
-  const st = course.intake_status || "";
-  const preview = (course.intake_preview || "").trim();
-  const label = (course.course_label || "").trim();
-  const crisp = (course.crisp_statement || "").trim();
-
-  if (st === "complete") {
-    return label || crisp || "Goal";
-  }
-  if (preview) return preview;
-  if (st === "draft") return "Continue intake · not started yet";
-  return "Continue intake · finish to unlock puzzles";
-}
-
-/** Status pill for finalized goals — matches course_status. */
-const COURSE_BADGE = {
-  awaiting_puzzles: { label: "Generating", classes: "bg-mist text-smoke" },
-  generating: { label: "Generating", classes: "bg-mist text-smoke" },
-  ready: { label: "Ready", classes: "bg-earth/10 text-earth" },
-  active: { label: "In Progress", classes: "bg-air/10 text-air" },
-  completed: { label: "Completed ✓", classes: "bg-earth/15 text-earth" },
-  generation_failed: {
-    label: "Needs retry",
-    classes: "bg-primary/10 text-primary",
-  },
-  abandoned: { label: "Abandoned", classes: "bg-mist text-smoke" },
-};
 
 export default function GoalsPage() {
   const router = useRouter();
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const [courses, setCourses] = useState([]);
+  const [cardStats, setCardStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -93,6 +82,40 @@ export default function GoalsPage() {
     })();
   }, [isLoaded, isSignedIn, getToken]);
 
+  useEffect(() => {
+    if (!courses.length || !isSignedIn) return;
+    const readyCourses = courses.filter(
+      (c) =>
+        c.intake_status === "complete" &&
+        READY_COURSE_STATUSES.has(c.course_status),
+    );
+    if (!readyCourses.length) {
+      setCardStats({});
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const token = await getToken();
+      const headers = { Authorization: `Bearer ${token}` };
+      const pairs = await Promise.all(
+        readyCourses.map(async (c) => {
+          const stats = await fetchCardStats(c.id, headers);
+          return [c.id, stats];
+        }),
+      );
+      if (!cancelled) {
+        setCardStats(
+          Object.fromEntries(pairs.filter(([, stats]) => stats != null)),
+        );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [courses, isSignedIn, getToken]);
+
   if (!isLoaded || loading) {
     return (
       <div className="min-h-screen bg-white pt-24 flex items-center justify-center">
@@ -103,55 +126,50 @@ export default function GoalsPage() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <div className="flex-1 pt-40 pb-16">
+      <div className="flex-1 pb-16 pt-[calc(var(--navbar-height,5rem)+2.5rem)]">
         <div className="nav-shell">
-          <div className="mb-10 flex flex-col gap-6 tb:flex-row tb:items-start tb:justify-between">
-            <div className="max-w-2xl">
-              <h1 className="font-display text-4xl italic leading-tight tracking-tight text-black lp:text-5xl">
+          <header className="mb-12 flex flex-col gap-8 tb:flex-row tb:items-start tb:justify-between">
+            <div className="min-w-0 max-w-4xl flex-1">
+              <h1
+                className={`${headlineLgClass} text-[clamp(2.5rem,5vw,4rem)] leading-[1.05] text-black`}
+              >
                 Your Goals
               </h1>
-              <p className="mt-4 font-sans text-base leading-relaxed text-[#4a4a4f] tb:text-lg">
+              <p
+                className={`${bodyClass} mt-5 max-w-2xl text-[clamp(1.0625rem,1.15vw,1.25rem)]`}
+              >
                 Each goal is a workspace. Train in the Forge. Apply in Ignite.
               </p>
             </div>
-            <Button
-              as={Link}
-              href="/course/new"
-              className="shrink-0 self-start bg-primary text-white hover:bg-primary/90 font-semibold px-8 py-6 text-base"
-              radius="none"
-            >
+            <Link href="/course/new" className={`${primaryCtaClass} shrink-0 self-start`}>
               New Goal
-            </Button>
-          </div>
+            </Link>
+          </header>
 
           {error ? (
-            <div className="rounded-lg border border-primary/20 bg-primary/5 py-16 text-center">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 py-16 text-center">
               <p className="mb-2 font-medium text-primary">
                 Couldn&apos;t load your goals
               </p>
               <p className="text-sm text-smoke">{error}</p>
             </div>
           ) : courses.length === 0 ? (
-            <div className="mx-auto max-w-lg rounded-lg border border-change/25 bg-white px-8 py-16 text-center shadow-sm">
-              <h2 className="font-display text-3xl italic text-black">
+            <div className="mx-auto max-w-xl px-6 py-20 text-center">
+              <h2 className={`${headlineLgClass} text-[clamp(2rem,3.5vw,2.75rem)]`}>
                 Start with one goal.
               </h2>
-              <p className="mt-4 font-sans text-base leading-relaxed text-[#4a4a4f]">
-                Pick one thing you want to get better at thinking through. The Forge will be built for it.
+              <p className={`${bodyClass} mx-auto mt-6 max-w-md`}>
+                Pick one thing you want to get better at thinking through. We&apos;ll build a
+                workspace for it — puzzles to train on, a canvas to apply what you learn.
               </p>
-              <Button
-                as={Link}
-                href="/course/new"
-                className="mt-10 bg-primary text-white hover:bg-primary/90 font-semibold px-10 py-6 text-base"
-                radius="none"
-              >
-                Forge Your Mind
-              </Button>
+              <Link href="/course/new" className={`${primaryCtaClass} mt-10`}>
+                Forge Your Mind →
+              </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-6 tb:grid-cols-2 lp:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 tb:grid-cols-2 lp:grid-cols-3 [&>*]:h-full">
               {courses.map((c) => (
-                <GoalWorkspaceCard key={c.id} course={c} />
+                <GoalListCard key={c.id} course={c} stats={cardStats[c.id]} />
               ))}
             </div>
           )}
@@ -159,73 +177,5 @@ export default function GoalsPage() {
       </div>
       <Footer />
     </div>
-  );
-}
-
-function GoalWorkspaceCard({ course }) {
-  const title = courseCardTitle(course);
-  const hubHref = `/goals/${course.id}`;
-  const isUnfinishedIntake =
-    course.intake_status === "draft" ||
-    course.intake_status === "in_progress";
-  const created = course.created_at
-    ? new Date(course.created_at).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
-    : "";
-
-  const badge =
-    course.intake_status === "complete"
-      ? COURSE_BADGE[course.course_status]
-      : null;
-  const subStatus =
-    course.intake_status === "complete"
-      ? null
-      : STATUS_LABEL[course.intake_status] || course.intake_status;
-
-  const statusPillLabel = badge?.label || subStatus;
-  const statusPillClasses = badge
-    ? `${badge.classes} rounded-full px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider`
-    : `rounded-full px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider ${
-        isUnfinishedIntake ? "bg-fire/10 text-fire" : "bg-mist text-smoke"
-      }`;
-
-  return (
-    <Link
-      href={hubHref}
-      className={
-        isUnfinishedIntake
-          ? "flex flex-col rounded-r-lg border border-mist border-l-4 border-l-fire bg-white p-6 shadow-md transition-shadow hover:shadow-lg no-underline"
-          : "flex flex-col rounded-r-lg border border-mist border-l-4 border-l-change bg-white p-6 shadow-md transition-shadow hover:shadow-lg no-underline"
-      }
-    >
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-smoke">
-          {course.domain || "—"}
-        </span>
-        {statusPillLabel ? (
-          <span className={statusPillClasses}>{statusPillLabel}</span>
-        ) : null}
-      </div>
-
-      <h3 className="font-display text-xl font-semibold leading-snug text-black line-clamp-3 mb-1">
-        {title}
-      </h3>
-
-      {isUnfinishedIntake && (
-        <p className="mb-3 text-xs font-mono uppercase tracking-wide text-fire">
-          No puzzles until you finalize this intake
-        </p>
-      )}
-
-      <p className="mt-auto text-xs font-mono text-change uppercase tracking-wider">
-        Open workspace →
-      </p>
-      {created ? (
-        <p className="mt-2 text-xs font-mono text-smoke">{created}</p>
-      ) : null}
-    </Link>
   );
 }

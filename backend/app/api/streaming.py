@@ -2,7 +2,25 @@
 SSE streaming helpers.
 """
 import json
-from typing import AsyncIterator
+from typing import AsyncIterator, Callable
+
+from fastapi.responses import StreamingResponse
+
+# Prevent proxies (nginx, Vercel) from buffering the entire response.
+SSE_HEADERS = {
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+}
+
+
+def streaming_sse_response(gen: Callable) -> StreamingResponse:
+    """Return a FastAPI StreamingResponse for an async SSE generator."""
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers=SSE_HEADERS,
+    )
 
 
 async def sse_stream(async_iter: AsyncIterator[str]) -> AsyncIterator[bytes]:

@@ -33,7 +33,7 @@ import { useAuth } from "@clerk/nextjs";
 
 // Composer textarea size bounds. Min ~one line; max ~10 lines so the
 // composer never eats the message list.
-const TEXTAREA_MIN_PX = 38;
+const TEXTAREA_MIN_PX = 52;
 const TEXTAREA_MAX_PX = 200;
 
 const STAGE_1_WELCOME = `Welcome. This is **Stage 1 — Think on Your Own**.
@@ -385,7 +385,7 @@ export default function StageChat({
               handleSend(e);
             }
           }}
-          rows={1}
+          rows={2}
           placeholder={
             isCompleted
               ? "Ask about this puzzle, the closing note, or your goals…"
@@ -397,7 +397,7 @@ export default function StageChat({
                     ? "How does this connect to your goal?"
                     : "What did you notice? What surprised you?"
           }
-          className="flex-1 resize-none scrollbar-hide border border-mist rounded-md px-3 py-2 text-sm focus:outline-none focus:border-change/60 leading-relaxed"
+          className="flex-1 resize-none rounded-md border border-mist bg-white px-3 py-2 text-sm leading-relaxed focus:border-[#999999] focus:outline-none"
           disabled={streaming}
           ref={textareaRef}
           style={{ maxHeight: TEXTAREA_MAX_PX, minHeight: TEXTAREA_MIN_PX }}
@@ -416,7 +416,7 @@ export default function StageChat({
         <div className="px-3 pb-3">
           <button
             onClick={onAdvanceToBridge}
-            className="w-full px-3 py-2 text-sm font-medium rounded-md bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors"
+            className="w-full rounded-md border border-mist bg-white px-3 py-2 text-sm font-medium text-[#2A2A2A] transition-colors hover:bg-[#F5F5F5]"
           >
             Now bridge to my goal →
           </button>
@@ -426,7 +426,7 @@ export default function StageChat({
         <div className="px-3 pb-3">
           <button
             onClick={onCompletePuzzle}
-            className="w-full px-3 py-2 text-sm font-medium rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+            className="w-full rounded-md border border-mist bg-[#FAFAFA] px-3 py-2 text-sm font-medium text-[#2A2A2A] transition-colors hover:bg-[#F5F5F5]"
           >
             I'm done with this puzzle ✓
           </button>
@@ -488,7 +488,7 @@ function ChatBubble({ role, content, streaming }) {
     // user feedback ("obviously it's AI, why tag it?").
     const showThinking = streaming && !visible;
     return (
-      <div className="bg-change/10 border border-change/20 rounded-lg px-3.5 py-3 text-sm text-black leading-relaxed whitespace-pre-wrap break-words">
+      <div className="rounded-lg border border-mist bg-white px-3.5 py-3 text-sm leading-relaxed text-[#2A2A2A] whitespace-pre-wrap break-words">
         {showThinking ? (
           <span className="inline-flex items-center gap-1 text-smoke italic">
             <span className="animate-pulse">Thinking</span>
@@ -500,7 +500,7 @@ function ChatBubble({ role, content, streaming }) {
           <>
             {renderMarkdownish(visible)}
             {streaming && (
-              <span className="inline-block w-1.5 h-4 align-text-bottom ml-0.5 bg-change/70 animate-pulse" />
+              <span className="inline-block w-1.5 h-4 align-text-bottom ml-0.5 bg-smoke animate-pulse" />
             )}
           </>
         )}
@@ -509,7 +509,7 @@ function ChatBubble({ role, content, streaming }) {
   }
   return (
     <div className="flex justify-end">
-      <div className="max-w-[85%] bg-mist rounded-md px-3 py-2 text-sm text-black whitespace-pre-wrap break-words">
+      <div className="max-w-[85%] rounded-lg border border-mist bg-[#FAFAFA] px-3 py-2 text-sm text-[#2A2A2A] whitespace-pre-wrap break-words">
         {content}
       </div>
     </div>

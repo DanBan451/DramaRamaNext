@@ -1345,26 +1345,51 @@ def ignite_guide_system_prompt(
     *,
     problem_title: str,
     problem_description: str,
-    fire_starter_name: str | None,
-    fire_starter_elements: str | None,
+    fire_starter_name: str | None = None,
+    fire_starter_elements: str | None = None,
+    fire_starter_description: str | None = None,
+    fire_starter_flow: str | None = None,
+    matched_puzzle_title: str | None = None,
+    terrain_summary: str | None = None,
+    applied_fs_nodes: str | None = None,
+    opening_guide_message: str | None = None,
 ) -> str:
-    fs = ""
-    if fire_starter_name and fire_starter_elements:
-        fs = (
-            f"\nThe learner applied a **Fire Starter** named \"{fire_starter_name}\" "
-            f"with element combination: {fire_starter_elements}. Use it as context when helpful.\n"
+    fs_block = ""
+    if fire_starter_name:
+        fs_block = f"""
+APPLIED FIRE STARTER (you have full access — never deny this):
+Name: {fire_starter_name}
+Element combination: {fire_starter_elements or "unknown"}
+Description: {fire_starter_description or "(see flow below)"}
+Forge flow of ideas: {fire_starter_flow or "n/a"}
+Matched Forge puzzle: {matched_puzzle_title or "n/a"}
+
+Applied moves on canvas (right side, green nodes):
+{applied_fs_nodes or "n/a"}
+"""
+    terrain_block = ""
+    if terrain_summary:
+        terrain_block = f"\nTerrain on canvas (left side):\n{terrain_summary}\n"
+    opening_block = ""
+    if opening_guide_message:
+        opening_block = (
+            f"\nYour opening message to the learner (what you already told them):\n"
+            f"{opening_guide_message[:4000]}\n"
         )
+
     return f"""You are the AI Guide for **Ignite** (application mode) in DramaRama.
 
-The user places thoughts on a canvas, tags them with **elements** of effective thinking (Earth, Fire, Air, Water, Change), and connects ideas to work a real problem.
+The user places thoughts on a canvas, tags them with **elements** of effective thinking (Earth, Fire, Air, Water, Change), and connects ideas to work a real puzzle.
 
-CURRENT PROBLEM:
+CURRENT PUZZLE:
 Title: {problem_title}
 Description:
 {problem_description}
-{fs}
+{terrain_block}{fs_block}{opening_block}
 Rules:
-- Be concise and practical. Reference their actual nodes when possible.
+- You **do** have access to the Fire Starter, matched Forge puzzle, terrain, and applied nodes listed above. Never say you cannot see Forge sessions or Fire Starters.
+- When asked how a Fire Starter was applied, explain using the applied nodes, description, and opening message — cite specific moves.
+- Be concise and practical. Reference their actual canvas nodes when possible.
 - Use **element** terminology, never "lens". Never refer to "Sandbox"; this is Ignite.
 - Offer grounded next questions; do not replace their judgment with lectures.
 """
@@ -1383,24 +1408,127 @@ Node text:
 Do not solve their problem for them. No "lens" wording. Output only the question."""
 
 
-def ignite_terrain_prompt(title: str, description: str) -> str:
-    return f"""You are mapping a real problem into a thinking terrain for **Ignite**.
+def build_terrain_mapping_prompt(title: str, description: str) -> str:
+    return f"""You are mapping a real problem into a **terrain** for Ignite — the ground the user stands on before applying a Fire Starter.
 
 Problem title: {title}
 Problem description:
 {description}
 
-Return ONLY JSON (no fences) with this shape:
+Classify each terrain piece as exactly one of:
+- "fact" — something the user states they know
+- "uncertainty" — something the user is unsure about or does not know
+- "constraint" — a limitation, boundary, or fear
+- "history" — a past attempt or event
+
+Rules:
+- Use 4–10 nodes. Each content is one clear statement (max 140 chars).
+- Use the user's own vocabulary from their description — name specifics (people, tools, times, fears), not generic placeholders.
+- No questions in node content. No markdown.
+- connections link related terrain pieces using array indices (0-based).
+
+Return ONLY JSON (no markdown fences):
 {{
   "nodes": [
-    {{"id": "t1", "content": "short label", "kind": "known|unknown|uncertainty"}},
-    ...
+    {{ "content": "Neighbor plays loud football 7-11pm daily", "terrain_type": "fact" }},
+    {{ "content": "Previous attempt: asked to turn down, temporary compliance", "terrain_type": "history" }},
+    {{ "content": "Fear of direct confrontation", "terrain_type": "constraint" }},
+    {{ "content": "Whether building management/landlord involvement needed", "terrain_type": "uncertainty" }}
   ],
   "connections": [
-    {{"from": "t1", "to": "t2"}}
+    {{ "from_index": 0, "to_index": 1 }}
   ]
-}}
-Use 4–10 nodes. Each content <= 120 chars. No markdown."""
+}}"""
+
+
+def build_fire_starter_application_prompt(
+    *,
+    problem_title: str,
+    problem_description: str,
+    terrain_json: str,
+    puzzle_title: str,
+    puzzle_text: str,
+    primary_element: str,
+    fire_starter_name: str,
+    fire_starter_description: str,
+    element_combination_json: str,
+) -> str:
+    return f"""You are applying a **Fire Starter** to a user's real Ignite problem.
+
+The Fire Starter is a named insight chain earned in Forge. Each node must be an **applied thinking move** — a statement, observation, or reframing that *acts out* one element from the Fire Starter on this specific problem. Not a question. Not "you should try X". Not a meta-instruction like "apply fire" or "extend from your Fire Starter".
+
+IGNITE PROBLEM:
+Title: {problem_title}
+Description:
+{problem_description}
+
+TERRAIN (mapped nodes on the canvas):
+{terrain_json}
+
+MATCHED FORGE SESSION (context only — do not reveal puzzle answers):
+Title: {puzzle_title}
+Prompt: {puzzle_text}
+Primary element trained: {primary_element}
+
+FIRE STARTER:
+Name: {fire_starter_name}
+Description: {fire_starter_description}
+Element combination (ordered): {element_combination_json}
+
+For each entry in element_combination (in order), generate ONE node that demonstrates that element on the real problem.
+
+EXAMPLE 1 — Problem: neighbor plays loud football 7-11pm daily; polite ask failed; fears confrontation; unsure about landlord.
+Fire Starter elements: ["fire_1_0", "earth_1_0"]
+
+  fire_1_0 ("Fail Fast") applied:
+  "The polite ask already failed. The next move should also fail — but bigger and faster, so it teaches something. Document one full week of the noise window in writing, hand it to the neighbor, and assume nothing changes. The failure is the data."
+
+  earth_1_0 ("Start with Simple") applied:
+  "Strip everything except the simplest version of what you actually want: quiet between 10pm and 7am. The football is one symptom of one window. Solve the window, not the football."
+
+EXAMPLE 2 — Problem: production bug without production log access.
+Fire Starter elements: ["air_1_0", "earth_2_0"]
+
+  air_1_0 ("Be Your Own Socrates") applied:
+  "Is the real question 'what's the bug?' or is it 'why can't I see what production is doing?' One is a code problem. The other is an access problem. Different fixes."
+
+  earth_2_0 ("Spotlight Specific") applied:
+  "Take one specific reported failure — one user, one timestamp, one error message. Reproduce it locally with everything you control. What still works? What breaks? The specific case is the lens."
+
+Rules:
+- Each node references SPECIFIC terms from the user's problem description.
+- One to three sentences per node. Complete thoughts.
+- Never frame as a question. Never use "you should" or "try X".
+- Never reveal a specific solution to the user's problem — the move is a way of seeing, not a prescription.
+- element field must match the combination entry (e.g. fire_1_0). element_display is the human sub-element name (e.g. "Fail Fast").
+- anchor_terrain_index: index (0-based) of the SINGLE terrain node this chain should connect to — the most central / relevant terrain piece.
+
+Return ONLY JSON (no markdown fences):
+{{
+  "nodes": [
+    {{
+      "element": "fire_1_0",
+      "element_display": "Fail Fast",
+      "content": "...",
+      "flow_order": 1
+    }},
+    {{
+      "element": "earth_1_0",
+      "element_display": "Start with Simple",
+      "content": "...",
+      "flow_order": 2
+    }}
+  ],
+  "anchor_terrain_index": 0,
+  "match_reasoning": "1-2 sentences: why this Fire Starter matches this problem structurally.",
+  "insights_after_applying": "2-3 sentences: what new way of seeing emerges after applying the Fire Starter to the terrain.",
+  "suggested_next_step": "1-2 sentences: how to approach the problem next — not the solution, the next move."
+}}"""
+
+
+def ignite_terrain_prompt(title: str, description: str) -> str:
+    """Deprecated alias — use build_terrain_mapping_prompt."""
+    return build_terrain_mapping_prompt(title, description)
 
 
 def ignite_match_puzzle_prompt(description: str, candidates_json: str) -> str:

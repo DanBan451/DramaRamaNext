@@ -173,22 +173,6 @@ export default function GoalHubPage() {
   const cachedTitle = readCachedGoalTitle(courseId);
   const displayTitle = (course && courseHeadline(course)) || cachedTitle || "Your goal";
 
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <CreativeSpinner label="Loading goal" />
-      </div>
-    );
-  }
-
-  if (initialLoading && !course && !cachedTitle) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <CreativeSpinner label="Loading goal" />
-      </div>
-    );
-  }
-
   if ((error || !course) && !cachedTitle && !initialLoading) {
     return (
       <div className="min-h-screen bg-white pt-32 px-6 nav-shell">
@@ -215,6 +199,8 @@ export default function GoalHubPage() {
       ? "Forge a Fire Starter in a puzzle first."
       : undefined;
 
+  const showLoading = !isLoaded || initialLoading || detailsLoading;
+
   return (
     <GoalWorkspaceShell
       header={
@@ -226,7 +212,7 @@ export default function GoalHubPage() {
         />
       }
     >
-      {detailsLoading ? (
+      {showLoading ? (
         <div className="nav-shell flex min-h-[50vh] items-center justify-center">
           <CreativeSpinner label="Loading goal" />
         </div>

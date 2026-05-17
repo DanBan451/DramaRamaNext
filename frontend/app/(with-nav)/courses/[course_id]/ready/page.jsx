@@ -6,6 +6,13 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import CreativeSpinner from "@/components/CreativeSpinner";
 import { Button } from "@nextui-org/button";
+import FireStartersLibrary from "@/components/goals/FireStartersLibrary";
+import {
+  forgeCompletedPillClass,
+  FORGE_COMPLETED,
+  primaryCtaClass,
+  tertiaryCtaClass,
+} from "@/components/goals/goalWorkspaceStyles";
 
 const ROTATING_PHRASES = [
   "Reading what you said.",
@@ -378,48 +385,10 @@ function ReadyView({ headlinePhrase, puzzles, courseId, getToken }) {
           ))}
         </div>
 
-        <section className="mt-16 max-w-4xl">
-          <h2 className="font-display text-2xl text-black mb-4">Your Fire Starters</h2>
-          {fireStarters === null ? (
-            <p className="text-sm text-smoke">Loading…</p>
-          ) : fireStarters.length === 0 ? (
-            <p className="text-sm text-smoke italic">
-              Complete a Forge session to earn your first Fire Starter.
-            </p>
-          ) : (
-            <div className="grid gap-4 tb:grid-cols-2">
-              {fireStarters.map((fs) => (
-                <div
-                  key={fs.id}
-                  className="border border-mist rounded-lg p-4 bg-white shadow-sm"
-                >
-                  <h3 className="font-display text-xl text-black mb-2">{fs.name}</h3>
-                  <p className="text-sm text-ash leading-relaxed mb-3">{fs.description}</p>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {(fs.element_combination || []).map((el) => (
-                      <span
-                        key={el}
-                        className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-mist text-smoke"
-                      >
-                        {el}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-[10px] font-mono text-smoke uppercase tracking-wider">
-                    Earned{" "}
-                    {fs.created_at
-                      ? new Date(fs.created_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })
-                      : "—"}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+        <FireStartersLibrary
+          fireStarters={fireStarters}
+          loading={fireStarters === null}
+        />
 
         <div className="mt-16">
           <Link
@@ -445,21 +414,22 @@ function PuzzleCard({ puzzle }) {
   const stageLabel =
     stage === 2 ? "Stage 2 — AI Nudge" : stage === 3 ? "Stage 3 — Reflect" : null;
   return (
-    <div className={`relative bg-white border border-mist border-l-4 p-6 rounded-r-lg shadow-sm transition-all flex flex-col ${
-      isCompleted
-        ? "border-l-emerald-400 opacity-80"
-        : "border-l-smoke/60 hover:shadow-md hover:-translate-y-0.5"
-    }`}>
+    <div
+      className={`relative flex flex-col rounded-r-lg border border-mist border-l-4 bg-white p-6 shadow-sm transition-all ${
+        isCompleted ? "opacity-80" : "border-l-smoke/60 hover:-translate-y-0.5 hover:shadow-md"
+      }`}
+      style={
+        isCompleted
+          ? { borderLeftColor: FORGE_COMPLETED.stripe }
+          : undefined
+      }
+    >
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="font-mono text-[11px] tracking-[0.2em] uppercase text-smoke">
           Puzzle {roman}
         </p>
         {isCompleted && (
-          <span
-            className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200"
-          >
-            Completed ✓
-          </span>
+          <span className={forgeCompletedPillClass}>Completed ✓</span>
         )}
         {inProgress && (
           <span
@@ -476,24 +446,14 @@ function PuzzleCard({ puzzle }) {
       <p className="font-serif italic text-ash text-base leading-relaxed mb-5 flex-1">
         {puzzle.puzzle_text}
       </p>
-      <div className="flex items-center gap-3">
+      <div className="mt-auto w-full pt-6">
         {isCompleted ? (
-          <Link href={`/canvas/${puzzle.id}`}>
-            <Button
-              className="bg-mist text-smoke hover:bg-mist/80 font-medium"
-              radius="none"
-            >
-              Review →
-            </Button>
+          <Link href={`/canvas/${puzzle.id}`} className={tertiaryCtaClass}>
+            Review →
           </Link>
         ) : (
-          <Link href={`/canvas/${puzzle.id}`}>
-            <Button
-              className="bg-change text-white hover:bg-change/90 font-medium"
-              radius="none"
-            >
-              {inProgress ? "Resume →" : "Begin →"}
-            </Button>
+          <Link href={`/canvas/${puzzle.id}`} className={`${primaryCtaClass} w-full flex`}>
+            {inProgress ? "Resume →" : "Begin →"}
           </Link>
         )}
       </div>

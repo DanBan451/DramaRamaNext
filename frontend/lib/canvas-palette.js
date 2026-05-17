@@ -24,6 +24,14 @@ export const CANVAS = {
 const TERRAIN_PILL_CLASS =
   "border border-[#EDD8D8] bg-[#FCF2F2] text-[#2A2A2A]";
 
+/** Fire Starter thoughts — matches Ignite guide AI chat bubble / terrain pills */
+export const FIRE_STARTER_STYLE = {
+  border: CANVAS.terrainPillBorder,
+  bg: CANVAS.terrainPillBg,
+  text: CANVAS.terrainPillText,
+  pillClass: TERRAIN_PILL_CLASS,
+};
+
 /** All terrain types share the AI guide bubble palette; label text distinguishes type. */
 export const TERRAIN_TYPE_STYLES = {
   fact: {

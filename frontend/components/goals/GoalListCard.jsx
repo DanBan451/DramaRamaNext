@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { writeCachedGoalTitle } from "@/lib/goal-title-cache";
 import {
   bodyClass,
   eyebrowClass,
@@ -62,14 +63,27 @@ function StatusPill({ children, className }) {
   );
 }
 
-function CardShell({ children, className, href, interactive = true }) {
+function CardShell({
+  children,
+  className,
+  href,
+  interactive = true,
+  onPrepareNavigation,
+}) {
   const base =
     "flex h-full min-h-[15rem] w-full flex-col rounded-xl p-6 shadow-sm transition-[box-shadow,transform] duration-200 no-underline text-inherit";
   const hover = interactive ? " hover:-translate-y-0.5 hover:shadow-lg" : "";
 
   if (href && interactive) {
     return (
-      <Link href={href} className={`${base}${hover} ${className}`}>
+      <Link
+        href={href}
+        prefetch
+        className={`${base}${hover} ${className}`}
+        onMouseEnter={onPrepareNavigation}
+        onPointerDown={onPrepareNavigation}
+        onFocus={onPrepareNavigation}
+      >
         {children}
       </Link>
     );
@@ -88,9 +102,12 @@ function ReadyCard({ course, stats }) {
       ? `${puzzleN} puzzle${puzzleN === 1 ? "" : "s"} · ${fsN} fire starter${fsN === 1 ? "" : "s"}`
       : null;
 
+  const prepareNav = () => writeCachedGoalTitle(course.id, title);
+
   return (
     <CardShell
       href={`/goals/${course.id}`}
+      onPrepareNavigation={prepareNav}
       className="border border-black/10 border-l-4 border-l-change bg-white"
     >
       <div className="mb-4 flex items-start justify-end gap-3">

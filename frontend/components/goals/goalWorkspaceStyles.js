@@ -34,6 +34,20 @@ export const primaryLinkClass =
 export const secondaryLinkClass =
   "font-sans text-sm font-semibold text-primary no-underline transition-colors hover:underline";
 
-/** Gray tertiary button (completed / review) */
+/** Purple outlined tertiary — review / completed (same footprint as primaryCtaClass) */
 export const tertiaryCtaClass =
-  "inline-flex items-center justify-center rounded-sm bg-mist px-5 py-2.5 text-sm font-semibold text-smoke transition-colors hover:bg-mist/80 no-underline";
+  "inline-flex w-full items-center justify-center rounded-sm border border-change bg-white px-8 py-4 text-base font-bold leading-none text-change shadow-sm outline-none ring-1 ring-black/5 no-underline transition-[background-color,box-shadow,transform] duration-200 hover:bg-change/5 hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-change focus-visible:ring-offset-2";
+
+/** Forge puzzle grid — completed card accent (neutral, not green) */
+export const FORGE_COMPLETED = {
+  pillBg: "#F0F0F0",
+  pillText: "#4A4A4A",
+  stripe: "#888888",
+};
+
+export const forgeCompletedPillClass =
+  "text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border border-[#E0E0E0] bg-[#F0F0F0] text-[#4A4A4A]";
+
+/** Forge puzzle grid — compact purple CTA (~132px wide, 14px type) */
+export const forgePuzzlePrimaryCtaClass =
+  "inline-flex w-[8.25rem] max-w-[8.75rem] items-center justify-center self-start rounded-sm bg-change px-4 py-2 text-sm font-medium text-white shadow-sm outline-none ring-1 ring-black/5 transition-[background-color,box-shadow] duration-200 hover:bg-[#8749d4] hover:shadow-sm focus-visible:ring-2 focus-visible:ring-change focus-visible:ring-offset-2 no-underline";

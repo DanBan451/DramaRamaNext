@@ -1,98 +1,56 @@
 "use client";
 
-import Image from "next/image";
+import { useState } from "react";
 import Link from "next/link";
+import FireStarterCard from "@/components/goals/FireStarterCard";
+import FireStarterDetailModal from "@/components/goals/FireStarterDetailModal";
 import {
   bodyClass,
   eyebrowClass,
   headlineLgClass,
   primaryLinkClass,
-  statLineClass,
 } from "@/components/goals/goalWorkspaceStyles";
 
-const ELEMENT_IMAGES = {
-  earth: "/images/elements/earth.png",
-  fire: "/images/elements/fire.png",
-  air: "/images/elements/air.png",
-  water: "/images/elements/water.png",
-  change: "/images/elements/quintessential.png",
-  synthesis: "/images/elements/quintessential.png",
-};
-
-function formatEarnedDate(iso) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function ElementIcons({ combination }) {
-  const ids = (combination || []).filter(Boolean);
-  if (!ids.length) return null;
-
-  return (
-    <div className="mb-4 flex flex-wrap gap-2">
-      {ids.map((el) => {
-        const src = ELEMENT_IMAGES[el] || ELEMENT_IMAGES.change;
-        return (
-          <div
-            key={el}
-            className="relative h-10 w-10 shrink-0 overflow-hidden rounded-sm border border-earth/30 bg-white shadow-sm"
-          >
-            <Image src={src} alt={el} fill className="object-cover object-center" sizes="40px" />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function FireStarterCard({ fireStarter }) {
-  return (
-    <article className="flex h-full min-w-[min(100%,18rem)] max-w-[22rem] shrink-0 flex-col rounded-sm border-2 border-earth bg-[#F0F9F0] p-5 shadow-[0_4px_24px_rgba(74,124,89,0.12)]">
-      <ElementIcons combination={fireStarter.element_combination} />
-      <h3 className={`${headlineLgClass} text-[1.375rem] leading-snug`}>
-        {fireStarter.name}
-      </h3>
-      <p className={`${bodyClass} mt-3 line-clamp-3 flex-1 text-[0.9375rem] leading-[1.5]`}>
-        {fireStarter.description}
-      </p>
-      <p className={`${statLineClass} mt-5`}>
-        Earned {formatEarnedDate(fireStarter.created_at)}
-      </p>
-    </article>
-  );
-}
-
-export default function FireStartersLibrary({ fireStarters, forgeHref, loading }) {
+export default function FireStartersLibrary({
+  fireStarters,
+  forgeHref,
+  loading,
+  emptyMessage = "Complete a Forge session to earn your first Fire Starter.",
+}) {
   const hasItems = Array.isArray(fireStarters) && fireStarters.length > 0;
+  const [selectedFireStarter, setSelectedFireStarter] = useState(null);
 
   return (
-    <section aria-labelledby="fire-starters-heading">
-      <p className={eyebrowClass}>Your Fire Starters</p>
+    <section className="mt-16" aria-labelledby="fire-starters-heading">
+      <p className={eyebrowClass}>Earned Patterns</p>
       <h2
         id="fire-starters-heading"
-        className={`${headlineLgClass} mt-4 text-[clamp(1.75rem,2.5vw,2rem)]`}
+        className={`${headlineLgClass} mt-3 text-[clamp(1.75rem,2.2vw,2rem)] text-[#1A1A1A]`}
       >
-        Forged in this goal.
+        Your Fire Starters
       </h2>
+      <p className="mt-3 max-w-2xl text-[15px] font-normal leading-[1.5] text-[#4A4A4A]">
+        Combinations of elements that worked. Apply them when you face a similar problem in Ignite.
+      </p>
 
       {loading ? (
-        <p className={`${bodyClass} mt-8 text-smoke`}>Loading…</p>
+        <p className={`${bodyClass} mt-6 text-smoke`}>Loading…</p>
       ) : hasItems ? (
-        <div className="mt-8 flex gap-5 overflow-x-auto pb-2 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="mt-6 grid grid-cols-1 gap-6 tb:grid-cols-2 lp:grid-cols-3 [&>*]:h-full">
           {fireStarters.map((fs) => (
-            <FireStarterCard key={fs.id} fireStarter={fs} />
+            <FireStarterCard
+              key={fs.id}
+              fireStarter={fs}
+              onSelect={setSelectedFireStarter}
+            />
           ))}
         </div>
-      ) : (
-        <div className="mt-8 max-w-3xl rounded-sm border border-dashed border-mist bg-mist/40 px-8 py-10">
-          <p className={`${headlineLgClass} text-[1.5rem]`}>
+      ) : forgeHref ? (
+        <div className="mt-6 max-w-3xl rounded-[10px] border border-dashed border-[#E5E5E5] bg-[#FAFAFA] px-8 py-10">
+          <p className={`${headlineLgClass} text-[1.5rem] text-[#1A1A1A]`}>
             Your first Fire Starter is waiting.
           </p>
-          <p className={`${bodyClass} mt-4`}>
+          <p className={`${bodyClass} mt-4 text-[15px] text-[#4A4A4A]`}>
             Complete a puzzle in the Forge. The platform studies how you thought through it and
             crystallizes the combination of elements that worked. Your weapon comes with you into
             Ignite.
@@ -101,7 +59,14 @@ export default function FireStartersLibrary({ fireStarters, forgeHref, loading }
             Enter the Forge →
           </Link>
         </div>
+      ) : (
+        <p className="mt-6 text-[15px] italic text-[#999999]">{emptyMessage}</p>
       )}
+
+      <FireStarterDetailModal
+        fireStarter={selectedFireStarter}
+        onClose={() => setSelectedFireStarter(null)}
+      />
     </section>
   );
 }

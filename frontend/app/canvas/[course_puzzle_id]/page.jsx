@@ -528,7 +528,7 @@ export default function CanvasPage() {
     <div className="flex h-screen bg-white overflow-hidden">
       {/* ─── Left: Elements sidebar (collapsible) ──────────────────────── */}
       {sidebarOpen ? (
-        <aside className="w-64 shrink-0 border-r border-mist flex flex-col bg-white">
+        <aside className="w-[300px] shrink-0 border-r border-mist flex flex-col bg-white">
           {/* Prominent back button — separated from the elements list with
               its own bordered section. The user's previous version was a
               tiny gray link squashed into the elements panel; this is hard

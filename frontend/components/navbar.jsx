@@ -34,12 +34,14 @@ export const Navbar = () => {
   ];
 
   const signedOutMenuItems = [
+    { name: "Home", path: "/" },
     { name: "The Practice", path: practicePath },
     { name: "Login", path: "/login" },
     { name: "Forge Your Mind", path: "/login", cta: true },
   ];
 
   const signedInMenuItems = [
+    { name: "Home", path: "/" },
     { name: "The Practice", path: practicePath },
     { name: "Workspace", path: "/goals" },
     { name: "Profile", path: "/profile" },
@@ -95,6 +97,12 @@ export const Navbar = () => {
         justify="end"
         className="m-0 hidden min-w-0 min-h-0 list-none flex-row flex-nowrap items-center gap-x-[clamp(1.5rem,2.5vw,3rem)] p-0 sm:flex"
       >
+        <NavbarItem as="div" className={textNavItemClass("/")}>
+          <Link className={textLinkClass} href="/">
+            Home
+          </Link>
+        </NavbarItem>
+
         <NavbarItem as="div" className={textNavItemClass(practicePath)}>
           <Link className={textLinkClass} href={practicePath}>
             The Practice

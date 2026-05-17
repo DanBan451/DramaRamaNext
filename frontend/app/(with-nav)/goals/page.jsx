@@ -12,6 +12,7 @@ import {
   primaryCtaClass,
 } from "@/components/goals/goalWorkspaceStyles";
 import { readBackendErrorMessage } from "@/lib/read-backend-error";
+import { writeCachedGoalTitle } from "@/lib/goal-title-cache";
 import Footer from "@/components/Footer";
 
 const READY_COURSE_STATUSES = new Set(["ready", "active", "completed"]);
@@ -72,7 +73,14 @@ export default function GoalsPage() {
           throw new Error(msg);
         }
         const data = await res.json();
-        setCourses(data.courses || []);
+        const list = data.courses || [];
+        setCourses(list);
+        for (const c of list) {
+          const label =
+            (c.course_label || "").trim() ||
+            (c.crisp_statement || "").trim();
+          if (label && c.id) writeCachedGoalTitle(c.id, label);
+        }
         setError(null);
       } catch (e) {
         setError(e.message || "Failed to load goals.");

@@ -14,7 +14,10 @@ import {
 import { eyebrowClass } from "@/components/goals/goalWorkspaceStyles";
 import { readCachedGoalTitle, writeCachedGoalTitle } from "@/lib/goal-title-cache";
 import { Button } from "@nextui-org/button";
+import FireStartersLibrary from "@/components/goals/FireStartersLibrary";
 import {
+  forgeCompletedPillClass,
+  FORGE_COMPLETED,
   headlineLgClass,
   primaryCtaClass,
   statLineClass,
@@ -426,48 +429,10 @@ function ReadyView({ headlinePhrase, puzzles, puzzlesLoading, courseId, getToken
         )}
 
         {!puzzlesLoading ? (
-        <section className="mt-16 max-w-4xl">
-          <h2 className="font-display text-2xl text-black mb-4">Your Fire Starters</h2>
-          {fireStarters === null ? (
-            <p className="text-sm text-smoke">Loading…</p>
-          ) : fireStarters.length === 0 ? (
-            <p className="text-sm text-smoke italic">
-              Complete a Forge session to earn your first Fire Starter.
-            </p>
-          ) : (
-            <div className="grid gap-4 tb:grid-cols-2">
-              {fireStarters.map((fs) => (
-                <div
-                  key={fs.id}
-                  className="border border-mist rounded-lg p-4 bg-white shadow-sm"
-                >
-                  <h3 className="font-display text-xl text-black mb-2">{fs.name}</h3>
-                  <p className="text-sm text-ash leading-relaxed mb-3">{fs.description}</p>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {(fs.element_combination || []).map((el) => (
-                      <span
-                        key={el}
-                        className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-mist text-smoke"
-                      >
-                        {el}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-[10px] font-mono text-smoke uppercase tracking-wider">
-                    Earned{" "}
-                    {fs.created_at
-                      ? new Date(fs.created_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })
-                      : "—"}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+          <FireStartersLibrary
+            fireStarters={fireStarters}
+            loading={fireStarters === null}
+          />
         ) : null}
       </div>
     </GoalWorkspaceShell>
@@ -486,25 +451,26 @@ function PuzzleCard({ puzzle }) {
     stage === 2 ? "Stage 2 — Push Further" : stage === 3 ? "Stage 3 — Reflect" : null;
   const href = `/canvas/${puzzle.id}`;
   const ctaLabel = isCompleted ? "Review →" : inProgress ? "Resume →" : "Begin →";
-  const ctaClass = isCompleted ? tertiaryCtaClass : primaryCtaClass;
+  const ctaClass = isCompleted ? tertiaryCtaClass : `${primaryCtaClass} w-full flex`;
 
   return (
     <Link
       href={href}
       className={`relative flex h-full min-h-[14rem] flex-col rounded-xl border bg-white p-6 shadow-sm no-underline text-inherit transition-all ${
         isCompleted
-          ? "border-mist border-l-4 border-l-emerald-500 opacity-90"
+          ? "border-mist border-l-4 opacity-90"
           : "border-black/10 hover:-translate-y-0.5 hover:shadow-md"
       }`}
+      style={
+        isCompleted
+          ? { borderLeftColor: FORGE_COMPLETED.stripe }
+          : undefined
+      }
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className={statLineClass}>Puzzle {roman}</p>
         {isCompleted && (
-          <span
-            className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200"
-          >
-            Completed ✓
-          </span>
+          <span className={forgeCompletedPillClass}>Completed ✓</span>
         )}
         {inProgress && (
           <span
@@ -521,7 +487,9 @@ function PuzzleCard({ puzzle }) {
       <p className="mb-5 flex-1 font-sans text-base font-medium leading-[1.55] text-[#2a2a2a] line-clamp-4">
         {puzzle.puzzle_text}
       </p>
-      <span className={`${ctaClass} mt-auto pt-6`}>{ctaLabel}</span>
+      <div className="mt-auto w-full pt-6">
+        <span className={ctaClass}>{ctaLabel}</span>
+      </div>
     </Link>
   );
 }

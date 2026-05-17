@@ -327,10 +327,9 @@ export default function IgniteProblemPage() {
   return (
     <div className="mt-[var(--navbar-height)] flex min-h-0 h-[calc(100svh-var(--navbar-height))] max-h-[calc(100svh-var(--navbar-height))] supports-[height:100dvh]:h-[calc(100dvh-var(--navbar-height))] supports-[height:100dvh]:max-h-[calc(100dvh-var(--navbar-height))] bg-white overflow-hidden">
       {sidebarOpen ? (
-        <aside className="w-64 shrink-0 border-r border-mist flex flex-col min-h-0 bg-white">
+        <aside className="w-[300px] shrink-0 border-r border-mist flex flex-col min-h-0 bg-white">
           <div className="flex-1 min-h-0">
             <ElementsSidebar
-              variant="accordion"
               selectedElement={selectedElement}
               selectedSubElement={selectedSubElement}
               onCollapse={() => setSidebarOpen(false)}

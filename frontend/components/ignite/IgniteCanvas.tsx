@@ -32,8 +32,9 @@ import {
   getSubElement,
   getElementColor,
 } from "@/lib/elements";
-import Timer from "@/components/canvas/Timer";
-import ElementEmoji from "@/components/elements/ElementEmoji";
+import ElementIdentityStrip from "@/components/elements/ElementIdentityStrip";
+import ElementTaggedThoughtBody from "@/components/elements/ElementTaggedThoughtBody";
+import ElementThumbnail from "@/components/elements/ElementThumbnail";
 import type { Thought, Connection } from "@/types/canvas";
 
 const CANVAS_INITIAL = 32000;
@@ -43,7 +44,7 @@ const BLOCK_WIDTH_FIRE_STARTER = 340;
 const BLOCK_MIN_HEIGHT = 100;
 const BLOCK_MIN_HEIGHT_FIRE_STARTER = 120;
 
-import { TERRAIN_TYPE_STYLES } from "@/lib/canvas-palette";
+import { FIRE_STARTER_STYLE, TERRAIN_TYPE_STYLES } from "@/lib/canvas-palette";
 
 const SCROLL_EDGE_THRESHOLD = 60;
 const SCROLL_SPEED = 18;
@@ -135,10 +136,6 @@ export default function IgniteCanvas({
   const [draftContent, setDraftContent] = useState("");
   const [selectedThought, setSelectedThought] = useState<string | null>(null);
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
-  const [timerRunning, setTimerRunning] = useState(false);
-  const [timerReset, setTimerReset] = useState(0);
-  const timeRef = useRef(0);
-
   // Bulk selection state
   const [bulkSelectMode, setBulkSelectMode] = useState(false);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
@@ -175,10 +172,6 @@ export default function IgniteCanvas({
   // Canvas panning (click+drag on empty space)
   const [panning, setPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-
-  const handleTimeUpdate = useCallback((seconds: number) => {
-    timeRef.current = seconds;
-  }, []);
 
   // When the parent requests focus (e.g. Stage 2 nudges were seeded),
   // pan the viewport to the centroid of those thoughts so the user can
@@ -334,8 +327,6 @@ export default function IgniteCanvas({
       onClearElement?.();
       setDraft({ x, y });
       setDraftContent("");
-      setTimerRunning(false);
-      setTimerReset((r) => r + 1);
       setSelectedThought(null);
       return;
     }
@@ -349,8 +340,6 @@ export default function IgniteCanvas({
 
     setDraft({ x, y });
     setDraftContent("");
-    setTimerRunning(false);
-    setTimerReset((r) => r + 1);
     setSelectedThought(null);
 
     if (zoom < 0.7) {
@@ -374,21 +363,15 @@ export default function IgniteCanvas({
 
     setDraft({ x, y });
     setDraftContent("");
-    setTimerRunning(false);
-    setTimerReset((r) => r + 1);
     setSelectedThought(null);
   }
 
   function handleDraftChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     setDraftContent(e.target.value);
-    if (!timerRunning && e.target.value.length > 0) {
-      setTimerRunning(true);
-    }
   }
 
   async function handleSaveDraft() {
     if (!draft || !draftContent.trim()) return;
-    setTimerRunning(false);
 
     const body = {
       content: draftContent.trim(),
@@ -396,7 +379,7 @@ export default function IgniteCanvas({
       sub_element: selectedSubElement || null,
       pos_x: draft.x,
       pos_y: draft.y,
-      time_spent_seconds: timeRef.current,
+      time_spent_seconds: null,
     };
 
     // Snapshot-and-clear the draft UI immediately so the user can keep working.
@@ -407,8 +390,6 @@ export default function IgniteCanvas({
     setPendingConnectionFrom(null);
     setDraft(null);
     setDraftContent("");
-    timeRef.current = 0;
-    setTimerReset((r) => r + 1);
 
     // Keep a ghost dashed line from the source to where the draft was so
     // there's no flicker gap while the create-thought + create-connection
@@ -438,8 +419,6 @@ export default function IgniteCanvas({
   function handleCancelDraft() {
     setDraft(null);
     setDraftContent("");
-    setTimerRunning(false);
-    setTimerReset((r) => r + 1);
     setPendingConnectionFrom(null);
   }
 
@@ -905,7 +884,7 @@ export default function IgniteCanvas({
                         {subEl.symbol}
                       </span>
                     ) : el ? (
-                      <ElementEmoji emoji={el.emoji} className="text-sm" />
+                      <ElementThumbnail elementId={thought.element} size="node" />
                     ) : null}
                     {subEl && (
                       <span className="text-xs font-medium text-smoke">{subEl.name}</span>
@@ -1206,10 +1185,10 @@ export default function IgniteCanvas({
                 // the block to lag ~300ms behind the cursor while dragging,
                 // visibly trailing its connection arrows. Only animate cosmetic
                 // properties (shadow, ring, border, bg).
-                className={`absolute rounded-xl border border-[#E5E5E5] bg-white shadow-sm transition-[box-shadow,border-color,background-color,transform] duration-300 select-none ${
+                className={`absolute overflow-hidden rounded-xl border border-[#E5E5E5] bg-white shadow-sm transition-[box-shadow,border-color,background-color,transform] duration-300 select-none ${
                   isNudge || isReflection ? "border-dashed" : ""
                 } ${isTerrain ? "border-dashed" : ""} ${
-                  isFireStarterNode ? "border-2 border-[#CCCCCC]" : ""
+                  isFireStarterNode ? "border-2" : ""
                 } ${
                   bulkSelectMode ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"
                 } ${
@@ -1232,7 +1211,7 @@ export default function IgniteCanvas({
                   borderLeftWidth: isTerrain ? 4 : undefined,
                   borderLeftColor: isTerrain ? terrainStyle.stripe : undefined,
                   backgroundColor: isFireStarterNode
-                    ? "#FAF8F5"
+                    ? FIRE_STARTER_STYLE.bg
                     : isTraced
                       ? "#FAFAFA"
                       : "#ffffff",
@@ -1247,7 +1226,7 @@ export default function IgniteCanvas({
                           : isTerrain
                             ? "#E5E5E5"
                             : isFireStarterNode
-                              ? "#CCCCCC"
+                              ? FIRE_STARTER_STYLE.border
                               : isNudge || isReflection
                                 ? "#DDDDDD"
                                 : "#E5E5E5",
@@ -1255,93 +1234,63 @@ export default function IgniteCanvas({
                 onClick={(e) => handleBlockClick(e, thought.id)}
                 onMouseDown={(e) => handleBlockMouseDown(e, thought.id)}
               >
-                {isFireStarterNode && thought.flow_order ? (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-[#333333] text-[11px] font-bold text-white border-2 border-white shadow">
-                    {thought.flow_order}
-                  </span>
-                ) : null}
-                <div className="p-3">
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {isFireStarterNode && el ? (
-                        <ElementEmoji emoji={el.emoji} className="text-base" />
-                      ) : null}
-                      {subEl && elColor && !isTerrain && !isFireStarterNode ? (
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-mist text-sm font-bold text-smoke">
-                          {subEl.symbol}
+                {(() => {
+                  const isElementTagged =
+                    !isTerrain && el && (subEl || isFireStarterNode || isNudge || isReflection);
+                  if (isElementTagged) {
+                    return (
+                      <ElementTaggedThoughtBody
+                        elementId={thought.element!}
+                        subElementName={subEl?.name}
+                        elementName={el?.name}
+                        isFireStarterNode={isFireStarterNode}
+                        isNudge={isNudge}
+                        isReflection={isReflection}
+                        content={thought.content}
+                        contentClassName={
+                          isFireStarterNode
+                            ? "text-sm font-medium leading-relaxed text-[#2A2A2A] line-clamp-8"
+                            : "text-sm font-medium leading-relaxed text-[#2A2A2A] line-clamp-6"
+                        }
+                        createdAt={formatRelativeTime(thought.created_at)}
+                        onConnectorClick={(e) => startConnection(e, thought.id)}
+                      />
+                    );
+                  }
+                  return (
+                    <div className="p-3">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          {!el && !isTerrain && (
+                            <span className="text-xs italic text-[#888888]">untagged</span>
+                          )}
+                        </div>
+                        {isTerrain ? (
+                          <span
+                            className={`shrink-0 rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider ${terrainStyle.pill}`}
+                          >
+                            {terrainStyle.label}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="line-clamp-6 whitespace-pre-wrap text-xs leading-relaxed text-[#2A2A2A]">
+                        {thought.content}
+                      </p>
+                      <div className="mt-2 flex items-center justify-between">
+                        <span className="text-[10px] text-[#888888]">
+                          {formatRelativeTime(thought.created_at)}
                         </span>
-                      ) : el && !isFireStarterNode ? (
-                        <ElementEmoji emoji={el.emoji} className="text-sm" />
-                      ) : null}
-                      {subEl && isFireStarterNode && (
-                        <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-smoke">
-                          {subEl.name}
-                        </span>
-                      )}
-                      {subEl && !isTerrain && !isFireStarterNode && (
-                        <span className="truncate text-xs font-medium text-smoke">
-                          {subEl.name}
-                        </span>
-                      )}
-                      {!el && !isTerrain && !isFireStarterNode && (
-                        <span className="text-xs text-[var(--text-muted)] italic">untagged</span>
-                      )}
+                        <button
+                          type="button"
+                          data-connector
+                          onClick={(e) => startConnection(e, thought.id)}
+                          className="h-5 w-5 rounded-full border-2 border-[#CCCCCC] bg-white transition-transform hover:scale-110"
+                          title="Drag to connect to another thought"
+                        />
+                      </div>
                     </div>
-                    {isNudge && (
-                      <span
-                        className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-mist text-smoke border border-mist shrink-0"
-                        title="AI-generated nudge — drag, edit, or delete it like your own thoughts."
-                      >
-                        Nudge
-                      </span>
-                    )}
-                    {isReflection && (
-                      <span
-                        className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-mist text-smoke border border-mist shrink-0"
-                        title="Reflection thought from Stage 3."
-                      >
-                        Reflection
-                      </span>
-                    )}
-                    {isTerrain && (
-                      <span
-                        className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${terrainStyle.pill}`}
-                      >
-                        {terrainStyle.label}
-                      </span>
-                    )}
-                    {isFireStarterNode && (
-                      <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-[#DDDDDD] bg-[#FAF8F5] text-[#2A2A2A] shrink-0">
-                        Fire Starter
-                      </span>
-                    )}
-                  </div>
-                  {/* Content */}
-                  <p
-                    className={`text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed ${
-                      isFireStarterNode ? "text-sm line-clamp-8" : "text-xs line-clamp-6"
-                    }`}
-                  >
-                    {thought.content}
-                  </p>
-                  {/* Footer */}
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-[10px] text-[var(--text-muted)]">
-                      {formatRelativeTime(thought.created_at)}
-                    </span>
-                    {/* Connector dot */}
-                    <button
-                      data-connector
-                      onClick={(e) => startConnection(e, thought.id)}
-                      className="w-5 h-5 rounded-full border-2 bg-white hover:scale-110 transition-all"
-                      style={{
-                        borderColor: "#CCCCCC",
-                      }}
-                      title="Drag to connect to another thought"
-                    />
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
             );
           })}
@@ -1360,7 +1309,7 @@ export default function IgniteCanvas({
               return (
                 <div
                   data-draft
-                  className="absolute rounded-xl border-2 border-dashed shadow-lg cursor-move"
+                  className="absolute overflow-hidden rounded-xl border-2 border-dashed shadow-lg cursor-move bg-white"
                   style={{
                     left: draft.x,
                     top: draft.y,
@@ -1374,25 +1323,13 @@ export default function IgniteCanvas({
                   onDoubleClick={(e) => e.stopPropagation()}
                   onMouseDown={handleDraftMouseDown}
                 >
-                  <div className="p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-1.5">
-                        {draftSubEl && draftElColor ? (
-                          <>
-                            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-mist text-sm font-bold text-smoke">
-                              {draftSubEl.symbol}
-                            </span>
-                            <span className="text-xs font-medium text-smoke">
-                              {draftSubEl.name}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-xs text-[var(--text-muted)] italic">thought</span>
-                        )}
-                      </div>
-                      <Timer running={timerRunning} onTimeUpdate={handleTimeUpdate} reset={timerReset} />
-                    </div>
-
+                  {draftSubEl && selectedElement ? (
+                    <ElementIdentityStrip
+                      elementId={selectedElement}
+                      subElementName={draftSubEl.name}
+                    />
+                  ) : null}
+                  <div className="px-3 py-3">
                     <textarea
                       ref={draftTextareaRef}
                       value={draftContent}

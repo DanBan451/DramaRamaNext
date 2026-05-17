@@ -382,3 +382,7 @@ class FireStarterResponse(BaseModel):
     element_combination: List[str]
     flow_of_ideas: List[dict]
     created_at: Optional[datetime] = None
+    image_url: Optional[str] = None
+    image_generation_status: Optional[str] = "pending"
+    image_generation_error: Optional[str] = None
+    image_generated_at: Optional[datetime] = None

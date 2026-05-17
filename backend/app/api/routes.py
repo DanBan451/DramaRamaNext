@@ -62,6 +62,7 @@ from app.adapters.supabase_adapter import (
 )
 from app.adapters.claude_adapter import ClaudeStreamingAdapter
 from app.adapters.openai_adapter import OpenAIImageAdapter
+from app.dependencies import get_fire_starter_image_service
 from app.api.streaming import sse_stream
 from app.domain.puzzle_generation import generate_course_puzzles
 from fastapi.responses import StreamingResponse
@@ -92,6 +93,18 @@ image_client = OpenAIImageAdapter()
 # Module-level set to keep references to background tasks so asyncio doesn't
 # garbage-collect them mid-execution. Tasks remove themselves via done_callback.
 _BACKGROUND_TASKS: set = set()
+
+
+def _spawn_fire_starter_image_generation(fire_starter_id: str) -> None:
+    """Fire-and-forget Fire Starter illustration generation."""
+
+    async def _run() -> None:
+        service = get_fire_starter_image_service()
+        await service.generate_and_store_image(fire_starter_id)
+
+    task = asyncio.create_task(_run())
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
 
 
 def _spawn_puzzle_generation(course_id: str) -> None:
@@ -2355,6 +2368,10 @@ def _row_to_fire_starter_response(row: dict) -> FireStarterResponse:
         element_combination=row.get("element_combination") or [],
         flow_of_ideas=row.get("flow_of_ideas") or [],
         created_at=row.get("created_at"),
+        image_url=row.get("image_url"),
+        image_generation_status=row.get("image_generation_status") or "pending",
+        image_generation_error=row.get("image_generation_error"),
+        image_generated_at=row.get("image_generated_at"),
     )
 
 
@@ -2383,10 +2400,13 @@ async def create_fire_starter(
             "description": desc,
             "element_combination": request.element_combination,
             "flow_of_ideas": request.flow_of_ideas,
+            "image_generation_status": "pending",
         }
     )
     if not row:
         raise HTTPException(status_code=500, detail="Failed to save Fire Starter")
+
+    _spawn_fire_starter_image_generation(str(row["id"]))
 
     course = await course_repo.get_by_id(cp.course_id)
     if not course:

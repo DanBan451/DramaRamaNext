@@ -15,6 +15,7 @@ import { eyebrowClass } from "@/components/goals/goalWorkspaceStyles";
 import { readCachedGoalTitle, writeCachedGoalTitle } from "@/lib/goal-title-cache";
 import { Button } from "@nextui-org/button";
 import FireStartersLibrary from "@/components/goals/FireStartersLibrary";
+import { useFireStarters } from "@/hooks/useFireStarters";
 import {
   forgeCompletedPillClass,
   FORGE_COMPLETED,
@@ -378,29 +379,7 @@ function LoadingView({ headlinePhrase, phrase }) {
 }
 
 function ReadyView({ headlinePhrase, puzzles, puzzlesLoading, courseId, getToken }) {
-  const [fireStarters, setFireStarters] = useState(null);
-
-  useEffect(() => {
-    if (!courseId || !getToken) return;
-    let c = false;
-    (async () => {
-      try {
-        const token = await getToken();
-        const res = await fetch(
-          `/api/backend-api/fire-starters?course_id=${encodeURIComponent(courseId)}`,
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
-        if (!res.ok) throw new Error("fire starters");
-        const data = await res.json();
-        if (!c) setFireStarters(Array.isArray(data) ? data : []);
-      } catch {
-        if (!c) setFireStarters([]);
-      }
-    })();
-    return () => {
-      c = true;
-    };
-  }, [courseId, getToken]);
+  const { fireStarters, loading: fireStartersLoading } = useFireStarters(courseId, getToken);
 
   return (
     <GoalWorkspaceShell
@@ -431,7 +410,7 @@ function ReadyView({ headlinePhrase, puzzles, puzzlesLoading, courseId, getToken
         {!puzzlesLoading ? (
           <FireStartersLibrary
             fireStarters={fireStarters}
-            loading={fireStarters === null}
+            loading={fireStartersLoading}
           />
         ) : null}
       </div>

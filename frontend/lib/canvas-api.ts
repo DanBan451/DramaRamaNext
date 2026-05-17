@@ -353,6 +353,10 @@ export async function listFireStartersForCourse(
     element_combination: string[];
     course_puzzle_id: string;
     created_at: string | null;
+    image_url?: string | null;
+    image_generation_status?: string | null;
+    image_generation_error?: string | null;
+    image_generated_at?: string | null;
   }>
 > {
   const res = await authedFetch(
@@ -368,6 +372,10 @@ export async function listFireStartersForCourse(
       element_combination: string[];
       course_puzzle_id: string;
       created_at: string | null;
+      image_url?: string | null;
+      image_generation_status?: string | null;
+      image_generation_error?: string | null;
+      image_generated_at?: string | null;
     }>
   >(res, "listFireStartersForCourse");
 }

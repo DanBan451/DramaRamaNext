@@ -4,6 +4,7 @@ import { useEffect, useId } from "react";
 import Link from "next/link";
 import ElementThumbnail from "@/components/elements/ElementThumbnail";
 import { FIRE_STARTER_CARD_BG } from "@/components/goals/FireStarterCard";
+import FireStarterImage from "@/components/goals/FireStarterImage";
 import { headlineLgClass } from "@/components/goals/goalWorkspaceStyles";
 import { getElement } from "@/lib/elements";
 
@@ -69,10 +70,13 @@ export default function FireStarterDetailModal({ fireStarter, onClose }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative z-10 w-full max-w-lg rounded-[12px] border border-[#E5E5E5] p-8 shadow-xl"
+        className="relative z-10 w-full max-w-lg overflow-hidden rounded-[12px] border border-[#E5E5E5] shadow-xl"
         style={{ backgroundColor: FIRE_STARTER_CARD_BG }}
         onClick={(e) => e.stopPropagation()}
       >
+        <FireStarterImage fireStarter={fireStarter} className="rounded-t-[12px]" />
+
+        <div className="relative p-8 pt-5">
         <button
           type="button"
           onClick={onClose}
@@ -121,6 +125,7 @@ export default function FireStarterDetailModal({ fireStarter, onClose }) {
             View the Forge puzzle where you earned this →
           </Link>
         ) : null}
+        </div>
       </div>
     </div>
   );

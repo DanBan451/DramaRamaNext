@@ -6,6 +6,10 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import CreativeSpinner from "@/components/CreativeSpinner";
 import FireStartersLibrary from "@/components/goals/FireStartersLibrary";
+import {
+  fetchFireStartersForCourse,
+  fireStartersNeedImagePolling,
+} from "@/lib/fire-starters-api";
 import GoalWorkspaceModesSection from "@/components/goals/GoalWorkspaceModesSection";
 import GoalWorkspaceRecentActivity from "@/components/goals/GoalWorkspaceRecentActivity";
 import GoalWorkspaceHeader from "@/components/goal-workspace/GoalWorkspaceHeader";
@@ -164,6 +168,19 @@ export default function GoalHubPage() {
       cancelled = true;
     };
   }, [isLoaded, isSignedIn, courseId, getToken]);
+
+  useEffect(() => {
+    if (!courseId || !getToken || !fireStartersNeedImagePolling(fireStarters)) return undefined;
+    const id = setInterval(async () => {
+      try {
+        const data = await fetchFireStartersForCourse(getToken, courseId);
+        setFireStarters(data);
+      } catch {
+        /* keep last known list */
+      }
+    }, 5000);
+    return () => clearInterval(id);
+  }, [fireStarters, courseId, getToken]);
 
   const recentActivity = useMemo(
     () => buildRecentActivity(puzzles, igniteProblems),

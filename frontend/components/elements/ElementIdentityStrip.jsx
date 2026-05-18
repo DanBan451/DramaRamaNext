@@ -7,8 +7,8 @@ import ElementThumbnail from "@/components/elements/ElementThumbnail";
  */
 export default function ElementIdentityStrip({
   elementId,
-  subElementName,
-  elementName,
+  subElementName = "",
+  elementName = "",
   trailing = null,
 }) {
   const label = subElementName || elementName || "Element";
